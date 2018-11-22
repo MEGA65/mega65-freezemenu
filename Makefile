@@ -4,15 +4,15 @@ CL65=	cc65/bin/cl65
 COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02 -Icc65/include
 LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
-FILES=		m65fdisk.prg 
+FILES=		FREEZER.M65
 
-M65IDESOURCES=	fdisk.c \
+M65IDESOURCES=	freezer.c \
 		fdisk_memory.c \
 		fdisk_screen.c \
 		fdisk_fat32.c \
 		fdisk_hal_mega65.c
 
-ASSFILES=	fdisk.s \
+ASSFILES=	freezer.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \
@@ -49,8 +49,8 @@ ascii.h:	asciih
 pngprepare:	pngprepare.c
 	$(CC) -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
 
-m65fdisk.prg:	$(ASSFILES) $(DATAFILES) $(CL65)
-	$(CL65) $(COPTS) $(LOPTS) -vm -m m65fdisk.map -o m65fdisk.prg $(ASSFILES)
+FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CL65)
+	$(CL65) $(COPTS) $(LOPTS) -vm -m freezer.map -o FREEZER.M65 $(ASSFILES)
 
 clean:
 	rm -f $(FILES)
