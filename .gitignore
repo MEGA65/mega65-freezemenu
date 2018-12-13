@@ -20,3 +20,7 @@ fdisk_fat32.o
 fdisk_fat32.s
 vivado_lab.jou
 vivado_lab.log
+FREEZER.M65
+freezer.map
+freezer.o
+freezer.s
