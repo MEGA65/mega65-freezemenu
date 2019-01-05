@@ -34,6 +34,48 @@ unsigned char *freeze_menu=
 
 
 unsigned short i;
+char *deadly_haiku[3]={"Error consumes all","As sand erodes rock and stone","Now also your mind"};
+
+unsigned char ascii_to_screencode(char c)
+{
+  if (c>=0x60) return c-0x60;
+  return c;
+}
+
+void screen_of_death(char *msg)
+{
+  POKE(0,0x41);
+  POKE(0xD02FU,0x47); POKE(0xD02FU,0x53);
+
+  // Reset video mode
+  POKE(0xD05DU,0x01); POKE(0xD011U,0x1b); POKE(0xD016U,0xc8);
+  POKE(0xD018U,0x17); // lower case
+  POKE(0xD06FU,0x80); // NTSC 60Hz mode for monitor compatibility?
+
+  // No sprites
+  POKE(0xD015U,0x00);
+  
+  // Normal video mode
+  POKE(0xD054U,0x00);
+
+  // Reset colour palette to normal for black and white
+  POKE(0xD100U,0x00);  POKE(0xD200U,0x00);  POKE(0xD300U,0x00);
+  POKE(0xD101U,0xFF);  POKE(0xD201U,0xFF);  POKE(0xD301U,0xFF);
+  
+  POKE(0xD020U,0); POKE(0xD021U,0);
+
+  // Clear screen
+  POKE(1,0x3f); POKE(0,0x3F);
+  for(i=1024;i<2024;i++) POKE(i,' ');
+  for(i=0;i<1000;i++) POKE(0xD800U+i,1);
+
+  for(i=0;deadly_haiku[0][i];i++) POKE(0x0400+10*40+11+i,ascii_to_screencode(deadly_haiku[0][i]));
+  for(i=0;deadly_haiku[1][i];i++) POKE(0x0400+12*40+11+i,ascii_to_screencode(deadly_haiku[1][i]));
+  for(i=0;deadly_haiku[2][i];i++) POKE(0x0400+14*40+11+i,ascii_to_screencode(deadly_haiku[2][i]));  
+  
+  while(1) continue;
+  
+}
 
 #ifdef __CC65__
 void main(void)
@@ -47,9 +89,20 @@ int main(int argc,char **argv)
 
   // No decimal mode!
   __asm__("cld");
-  
+
   POKE(0xD018U,0x15); // upper case
 
+  // NTSC 60Hz mode for monitor compatibility?
+  POKE(0xD06FU,0x80);
+
+  // No sprites
+  POKE(0xD015U,0x00);
+  
+  // Normal video mode
+  POKE(0xD054U,0x00);
+
+  // XXX Reset colour palette to normal
+  
   // Clear screen, blue background, white text, like Action Replay
   POKE(0xD020U,6); POKE(0xD021U,6);
   
@@ -67,10 +120,40 @@ int main(int argc,char **argv)
     else
       POKE(0x0400U+i,freeze_menu[i]);
   }
+
+  // Flush input buffer
+  while (PEEK(0xD610U)) POKE(0xD610U,0);
   
-  
+  // Main keyboard input loop
   while(1) {
-    POKE(0x0400U,PEEK(0x0400U)+1);
+    //    POKE(0xD020U,PEEK(0xD020U)+1);
+    if (PEEK(0xD610U)) {
+      // Process char
+      switch(PEEK(0xD610U)) {
+      case 0xf1: // F1 = backup
+	break;
+      case 0xf3: // F3 = resume
+	// Load memory from freeze slot $0000, i.e., the temporary save space
+	// This implicitly restarts the frozen program
+	__asm__("LDX #<$0000");
+	__asm__("LDY #>$0000");
+	__asm__("LDA #$12");
+	__asm__("STA $D642");
+	__asm__("NOP");
+
+	// should never get here
+	screen_of_death("unfreeze failed");
+	
+	break;
+      case 0xf7: // F7 = show screen of frozen program
+	// XXX for now just show we read the key
+	POKE(0xD020U,PEEK(0xD020U)+1);
+	break;
+      }
+      
+      // Flush char from input buffer
+      POKE(0xD610,0);
+    }
   }
   
   return;

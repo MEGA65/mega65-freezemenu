@@ -57,7 +57,11 @@ void sdcard_reset(void)
 
 void mega65_fast(void)
 {
+  // Fast CPU
   POKE(0,65);
+  // MEGA65 IO registers
+  POKE(0xD02FU,0x47);
+  POKE(0xD02FU,0x53);
 }
 
 void show_card_size(uint32_t sector_number)
