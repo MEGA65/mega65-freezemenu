@@ -17,7 +17,8 @@ ASSFILES=	freezer.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \
 		fdisk_hal_mega65.s \
-		charset.s
+		charset.s \
+		helper.s
 
 HEADERS=	Makefile \
 		fdisk_memory.h \

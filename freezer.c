@@ -12,6 +12,21 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+struct freeze_region_t {
+  unsigned long address_base;
+  union {
+    unsigned long region_length;  // only lower 24 bits are valid, space occupied rounded up to next 512 bytes
+    struct {
+      unsigned char skip[3];
+      unsigned char freeze_prep;  
+    };
+  };
+};
+
+#define MAX_REGIONS (256 / sizeof(struct freeze_region_t) )
+struct freeze_region_t freeze_region_list[MAX_REGIONS];
+unsigned char freeze_region_count=0;
+
 uint8_t sector_buffer[512];
 
 void clear_sector_buffer(void)
@@ -77,6 +92,8 @@ void screen_of_death(char *msg)
   
 }
 
+void fetch_freeze_region_list_from_hypervisor(unsigned short);
+
 #ifdef __CC65__
 void main(void)
 #else
@@ -90,6 +107,19 @@ int main(int argc,char **argv)
   // No decimal mode!
   __asm__("cld");
 
+
+  // Ask hypervisor to copy out freeze region list, so we know where to look
+  // in the slot for different parts of memory.
+  // The transfer region MUST be in the lower 32KB of RAM, so we will copy it
+  // to the screen in the first instance, and then DMA copy it where we want it
+  lfill(0x0400U,0x20,1000);
+  fetch_freeze_region_list_from_hypervisor(0x0400);
+  lcopy(0x0400U,(unsigned long)&freeze_region_list,256);
+  for(i=0;i<MAX_REGIONS;i++) {
+    if (freeze_region_list[i].freeze_prep==0xFF) break;
+  }
+  freeze_region_count=i;
+  
   POKE(0xD018U,0x15); // upper case
 
   // NTSC 60Hz mode for monitor compatibility?
