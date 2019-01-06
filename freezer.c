@@ -27,6 +27,8 @@ struct freeze_region_t {
 struct freeze_region_t freeze_region_list[MAX_REGIONS];
 unsigned char freeze_region_count=0;
 
+unsigned long freeze_slot_start_sector=0;
+
 uint8_t sector_buffer[512];
 
 void clear_sector_buffer(void)
@@ -43,8 +45,9 @@ unsigned char *freeze_menu=
   "         MEGA65 FREEZE MENU V0.1        "
   "     (C) FLINDERS UNI, M.E.G.A. 2018    "
   " cccccccccccccccccccccccccccccccccccccc "
-  " F1 - BACKUP  F3 - RESTART  F7 - SCREEN "
+  " F1 - BACKUP  F3 - RESTART  F7 - SWITCH "
   " cccccccccccccccccccccccccccccccccccccc "
+  " (C)PU MODE: 4510    (P)ROTECT ROM: YES "
   "\0";
 
 
@@ -93,6 +96,7 @@ void screen_of_death(char *msg)
 }
 
 void fetch_freeze_region_list_from_hypervisor(unsigned short);
+unsigned char find_freeze_slot_start_sector(unsigned short);
 
 #ifdef __CC65__
 void main(void)
@@ -119,7 +123,15 @@ int main(int argc,char **argv)
     if (freeze_region_list[i].freeze_prep==0xFF) break;
   }
   freeze_region_count=i;
-  
+
+  // Now find the start sector of the slot, and make a copy for safe keeping
+  find_freeze_slot_start_sector(0);
+  freeze_slot_start_sector =
+    (PEEK(0xD681U)<<0)
+    +(PEEK(0xD682U)<<8)
+    +((long)PEEK(0xD683U)<<16)
+    +((long)PEEK(0xD684U)<<24);
+    
   POKE(0xD018U,0x15); // upper case
 
   // NTSC 60Hz mode for monitor compatibility?
