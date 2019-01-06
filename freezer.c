@@ -47,7 +47,14 @@ unsigned char *freeze_menu=
   " cccccccccccccccccccccccccccccccccccccc "
   " F1 - BACKUP  F3 - RESTART  F7 - SWITCH "
   " cccccccccccccccccccccccccccccccccccccc "
-  " (C)PU MODE: 4510    (P)ROTECT ROM: YES "
+  " (C)PU MODE:   4510  (P)ROTECT ROM: YES "
+  " (R)OM:  C65 911101  C(A)RT ENABLE: YES "
+  " (S)PEED:    40 MHZ  (V)IDEO:    NTSC60 "
+  " cccccccccccccccccccccccccccccccccccccc "
+  " M - MONITOR         E - POKES          "
+  " D - DISK SELECT     V - VIEW SPRITES   "
+  " X - POKE FINDER     K - SPRITE KILLER  "
+  " cccccccccccccccccccccccccccccccccccccc "
   "\0";
 
 
