@@ -115,6 +115,14 @@ int main(int argc,char **argv)
   mega65_fast();
 #endif  
 
+  // Disable interrupts and interrupt sources
+  __asm__("sei");
+  POKE(0xDC0DU,0x7F);
+  POKE(0xDD0DU,0x7F);
+  POKE(0xD01AU,0x00);
+  // XXX add missing C65 AND M65 peripherals
+  // C65 UART, ethernet etc
+  
   // No decimal mode!
   __asm__("cld");
 
