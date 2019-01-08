@@ -6,29 +6,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "freezer.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
-void fetch_freeze_region_list_from_hypervisor(unsigned short);
-unsigned char find_freeze_slot_start_sector(unsigned short);
-void unfreeze_slot(unsigned short);
-void freeze_monitor(void);
-
-struct freeze_region_t {
-  unsigned long address_base;
-  union {
-    unsigned long region_length;  // only lower 24 bits are valid, space occupied rounded up to next 512 bytes
-    struct {
-      unsigned char skip[3];
-      unsigned char freeze_prep;  
-    };
-  };
-};
-
-#define MAX_REGIONS (256 / sizeof(struct freeze_region_t) )
 struct freeze_region_t freeze_region_list[MAX_REGIONS];
 unsigned char freeze_region_count=0;
 

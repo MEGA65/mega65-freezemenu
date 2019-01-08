@@ -23,6 +23,7 @@ ASSFILES=	freezer.s \
 		helper.s
 
 HEADERS=	Makefile \
+		freezer.h \
 		fdisk_memory.h \
 		fdisk_screen.h \
 		fdisk_fat32.h \
