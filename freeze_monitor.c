@@ -58,6 +58,100 @@ uint32_t address_to_freeze_slot_offset(uint32_t address)
 unsigned char screen_line=0;
 unsigned char screen_line_buffer[80];
 unsigned char screen_line_length=0;
+unsigned char screen_line_offset=0;
+
+uint32_t hex_value=0;
+uint32_t mon_address=0;
+
+char output_buffer[80];
+
+unsigned char mon_sector[512];
+uint32_t mon_sector_num=0xffffffff;
+
+void show_memory_line(uint32_t addr)
+{  
+  uint32_t freeze_slot_offset=address_to_freeze_slot_offset(addr);
+  unsigned char i;
+
+  lfill((long)output_buffer,0,80);
+  output_buffer[0]=':';
+  format_hex((long)&output_buffer[1],addr,7);
+  output_buffer[8]=' ';
+  
+  if (freeze_slot_offset==0xFFFFFFFFL) {
+    // Memory that isn't saved
+    lcopy((long)"<Unmapped or unfrozen memory>",(long)&output_buffer[9],29);
+  } else {
+    // Only fetch sector if we haven't already got it cached
+    if (mon_sector_num!=(freeze_slot_offset>>9)) {
+      mon_sector_num=(freeze_slot_offset>>9);
+      sdcard_readsector(freeze_slot_start_sector+mon_sector_num);
+      lcopy((long)sector_buffer,(long)mon_sector,512);
+    }
+    for(i=0;i<16;i++) {
+      // Space before hex
+      output_buffer[8+i*3]=' ';
+      // hex digits
+      format_hex((long)&output_buffer[8+1+i*3],mon_sector[(i+freeze_slot_offset)&0x1ff],2);
+    }
+    
+  }
+  write_line(output_buffer,0);
+}
+
+void show_memory(void)
+{
+  unsigned char i;
+  for(i=0;i<16;i++) {
+    show_memory_line(mon_address);
+    mon_address+=16;
+  }
+}
+
+unsigned char parse_hex(void)
+{
+  unsigned char digits=0;
+  hex_value=0;
+  while(1) {
+    switch(screen_line_buffer[screen_line_offset]) {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+      hex_value=hex_value<<4;
+      hex_value|=screen_line_buffer[screen_line_offset]&0xf;
+      digits++;
+      screen_line_offset++;
+      break;
+    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+      hex_value=hex_value<<4;
+      hex_value|=9+(screen_line_buffer[screen_line_offset]&0xf);
+      digits++;
+      screen_line_offset++;
+      break;
+    default:
+      return digits;
+    }
+  }
+  
+}
+
+unsigned char parse_address(void)
+{
+  // Try to read hex digits from screen_line_buffer[screen_line_offset].
+  unsigned char digits=parse_hex();
+  if (digits>7) {
+    write_line("? ADDRESS TOO LONG  ERROR",0); recolour_last_line(2);
+    write_line("(Addresses should consist of 1 - 7 hex digits).",0); recolour_last_line(7);
+    return 1;
+  }
+  if (!digits) {
+    // No digits, so use previous address
+  } else {
+    // Use the supplied address
+    mon_address=hex_value;
+  }
+  return 0;
+}
 
 void freeze_monitor(void)
 {
@@ -73,6 +167,9 @@ void freeze_monitor(void)
       screen_line_buffer[79]=0;
       write_line(screen_line_buffer,0);
 
+      // Skip initial char for parsing routines
+      screen_line_offset=1;
+      
       // Command syntax purposely matches that of the Matrix Mode / UART monitor to avoid confusion
       switch(screen_line_buffer[0]) {
       case 0:
@@ -89,6 +186,8 @@ void freeze_monitor(void)
 	return;
       case 'm': case 'M':
         // Display memory
+	if (parse_address()) break;
+	show_memory();
 	break;
       case 'd': case 'D':
 	// Disassemble memory

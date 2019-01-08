@@ -158,7 +158,10 @@ int main(int argc,char **argv)
     +(PEEK(0xD682U)<<8)
     +((long)PEEK(0xD683U)<<16)
     +((long)PEEK(0xD684U)<<24);
-    
+
+  // SD or SDHC card?
+  if (PEEK(0xD680U)&0x10) sdhc_card=1; else sdhc_card=0;
+  
   POKE(0xD018U,0x15); // upper case
 
   // NTSC 60Hz mode for monitor compatibility?

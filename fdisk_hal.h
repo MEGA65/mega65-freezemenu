@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <stdint.h>
 
+extern unsigned char sdhc_card;
 extern uint8_t sector_buffer[512];
 
 uint32_t sdcard_getsize(void);
