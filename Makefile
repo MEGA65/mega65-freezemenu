@@ -7,12 +7,14 @@ LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 FILES=		FREEZER.M65
 
 M65IDESOURCES=	freezer.c \
+		freeze_monitor.c \
 		fdisk_memory.c \
 		fdisk_screen.c \
 		fdisk_fat32.c \
 		fdisk_hal_mega65.c
 
 ASSFILES=	freezer.s \
+		freeze_monitor.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \

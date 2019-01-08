@@ -12,6 +12,11 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+void fetch_freeze_region_list_from_hypervisor(unsigned short);
+unsigned char find_freeze_slot_start_sector(unsigned short);
+void unfreeze_slot(unsigned short);
+void freeze_monitor(void);
+
 struct freeze_region_t {
   unsigned long address_base;
   union {
@@ -102,9 +107,31 @@ void screen_of_death(char *msg)
   
 }
 
-void fetch_freeze_region_list_from_hypervisor(unsigned short);
-unsigned char find_freeze_slot_start_sector(unsigned short);
-void unfreeze_slot(unsigned short);
+void draw_freeze_menu(void)
+{
+  // Wait until we are in vertical blank area before redrawing, so that we don't have flicker
+
+  while(PEEK(0xD012U)<0xf8) continue;
+  
+  // Clear screen, blue background, white text, like Action Replay
+  POKE(0xD020U,6); POKE(0xD021U,6);
+  
+  for(i=0x0400U;i<0x07E8U;i++) POKE(i,0x20);
+  for(i=0xD800U;i<0xDBE8U;i++) POKE(i,0x01);
+  
+  // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
+  // (in fact, most of memory contains what the frozen program had. Only our freezer program
+  // itself has been loaded to replace some of RAM).
+  for(i=0;freeze_menu[i];i++) {
+    if ((freeze_menu[i]>='A')&&(freeze_menu[i]<='Z'))
+      POKE(0x0400U+i,freeze_menu[i]-0x40);
+    else if ((freeze_menu[i]>='a')&&(freeze_menu[i]<='z'))
+      POKE(0x0400U+i,freeze_menu[i]-0x20);
+    else
+      POKE(0x0400U+i,freeze_menu[i]);
+  }
+
+}  
 
 #ifdef __CC65__
 void main(void)
@@ -160,25 +187,9 @@ int main(int argc,char **argv)
   POKE(0xD054U,0x00);
 
   // XXX Reset colour palette to normal
-  
-  // Clear screen, blue background, white text, like Action Replay
-  POKE(0xD020U,6); POKE(0xD021U,6);
-  
-  for(i=0x0400U;i<0x07E8U;i++) POKE(i,0x20);
-  for(i=0xD800U;i<0xDBE8U;i++) POKE(i,0x01);
-  
-  // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
-  // (in fact, most of memory contains what the frozen program had. Only our freezer program
-  // itself has been loaded to replace some of RAM).
-  for(i=0;freeze_menu[i];i++) {
-    if ((freeze_menu[i]>='A')&&(freeze_menu[i]<='Z'))
-      POKE(0x0400U+i,freeze_menu[i]-0x40);
-    else if ((freeze_menu[i]>='a')&&(freeze_menu[i]<='z'))
-      POKE(0x0400U+i,freeze_menu[i]-0x20);
-    else
-      POKE(0x0400U+i,freeze_menu[i]);
-  }
 
+  draw_freeze_menu();
+  
   // Flush input buffer
   while (PEEK(0xD610U)) POKE(0xD610U,0);
   
@@ -198,6 +209,10 @@ int main(int argc,char **argv)
 	
 	break;
 
+      case 'M': case 'm': // Monitor
+	freeze_monitor();
+	break;
+	
       case 0xf1: // F1 = backup
       case 0xf7: // F7 = Switch tasks
 
@@ -208,7 +223,6 @@ int main(int argc,char **argv)
       case 'A': case 'a': // Toggle cartridge enable
       case 'V': case 'v': // Toggle video mode
 	
-      case 'M': case 'm': // Monitor
       case 'D': case 'd': // Select mounted disk image
       case 'X': case 'x': // Poke finder
       case 'E': case 'e': // Enter POKEs
