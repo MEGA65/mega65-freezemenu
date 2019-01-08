@@ -195,6 +195,7 @@ int main(int argc,char **argv)
 
       case 'M': case 'm': // Monitor
 	freeze_monitor();
+	draw_freeze_menu();
 	break;
 	
       case 0xf1: // F1 = backup

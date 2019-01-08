@@ -8,7 +8,7 @@ long screen_line_address=SCREEN_ADDRESS;
 char screen_column=0;
 
 unsigned char *footer_messages[FOOTER_MAX+1]={
-  "MEGA65 FREEZE UTILITY V00.01 :    (C) COPYRIGHT 2019 PAUL GARDNER-STEPHEN ETC.  ",
+  "MEGA65 FREEZE MONITOR V00.01 : X - EXIT TO FREEZE MENU, M<ADDR> - DISPLAY MEMORY",
   "                                                                                ",
   "A FATAL ERROR HAS OCCURRED, SORRY.                                              "
 };
@@ -171,6 +171,9 @@ void setup_screen(void)
   // 80-column mode, fast CPU, extended attributes enable
   *((unsigned char*)0xD031)=0xe0;
 
+  // 80 columns requires $D016 = $C9 to be properly positioned
+  POKE(0xD016U,0xC9);
+  
   // Put screen memory somewhere (2KB required)
   // We are using $8000-$87FF for screen
   // Using custom charset @ $A000
