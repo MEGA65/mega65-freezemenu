@@ -49,10 +49,10 @@ unsigned char *freeze_menu=
   " cccccccccccccccccccccccccccccccccccccc "
   " (C)PU MODE:   4510  (P)ROTECT ROM: YES "
   " (R)OM:  C65 911101  C(A)RT ENABLE: YES "
-  " (S)PEED:    40 MHZ  (V)IDEO:    NTSC60 "
+  " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
-  " D - DISK SELECT     V - VIEW SPRITES   "
+  " D - DISK SELECT     S - VIEW SPRITES   "
   " X - POKE FINDER     K - SPRITE KILLER  "
   " cccccccccccccccccccccccccccccccccccccc "
   "\0";
@@ -104,6 +104,7 @@ void screen_of_death(char *msg)
 
 void fetch_freeze_region_list_from_hypervisor(unsigned short);
 unsigned char find_freeze_slot_start_sector(unsigned short);
+void unfreeze_slot(unsigned short);
 
 #ifdef __CC65__
 void main(void)
@@ -183,28 +184,41 @@ int main(int argc,char **argv)
   
   // Main keyboard input loop
   while(1) {
-    //    POKE(0xD020U,PEEK(0xD020U)+1);
     if (PEEK(0xD610U)) {
+      
       // Process char
       switch(PEEK(0xD610U)) {
-      case 0xf1: // F1 = backup
-	break;
       case 0xf3: // F3 = resume
 	// Load memory from freeze slot $0000, i.e., the temporary save space
 	// This implicitly restarts the frozen program
-	__asm__("LDX #<$0000");
-	__asm__("LDY #>$0000");
-	__asm__("LDA #$12");
-	__asm__("STA $D642");
-	__asm__("NOP");
+	unfreeze_slot(0);
 
 	// should never get here
 	screen_of_death("unfreeze failed");
 	
 	break;
-      case 0xf7: // F7 = show screen of frozen program
-	// XXX for now just show we read the key
-	POKE(0xD020U,PEEK(0xD020U)+1);
+
+      case 0xf1: // F1 = backup
+      case 0xf7: // F7 = Switch tasks
+
+      case 'c': case 'C': // Toggle CPU mode
+      case 'R': case 'r': // Switch ROMs
+      case 'F': case 'f': // Change CPU speed
+      case 'P': case 'p': // Toggle ROM area write-protect
+      case 'A': case 'a': // Toggle cartridge enable
+      case 'V': case 'v': // Toggle video mode
+	
+      case 'M': case 'm': // Monitor
+      case 'D': case 'd': // Select mounted disk image
+      case 'X': case 'x': // Poke finder
+      case 'E': case 'e': // Enter POKEs
+      case 'S': case 's': // View sprites
+      case 'k': case 'K': // Sprite killer
+      default:
+	// For invalid or unimplemented functions flash the border and screen
+	POKE(0xD020U,1); POKE(0xD021U,1);
+	usleep(150000L);
+	POKE(0xD020U,6); POKE(0xD021U,6);
 	break;
       }
       

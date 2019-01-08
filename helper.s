@@ -1,9 +1,25 @@
 
 	.export	_fetch_freeze_region_list_from_hypervisor
 	.export _find_freeze_slot_start_sector
+	.export _unfreeze_slot
 
 .SEGMENT "CODE"
 
+_unfreeze_slot:	
+
+	;; Move 16-bit address from A/X to X/Y
+	PHX
+	TAX
+	PLA
+	TAY
+
+	;; Call hypervisor trap
+	LDA #$12    ; subfunction for syspart trap to unfreeze from a slot
+	STA $D642   ; trigger hypervisor trap
+	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	RTS
+
+	
 _fetch_freeze_region_list_from_hypervisor:
 
 	;; Move 16-bit address from A/X to X/Y
