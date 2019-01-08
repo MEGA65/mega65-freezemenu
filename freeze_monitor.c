@@ -70,6 +70,8 @@ void freeze_monitor(void)
   while(1)
     {
       read_line(screen_line_buffer,80);
+      screen_line_buffer[79]=0;
+      write_line(screen_line_buffer,0);
     }
   
   

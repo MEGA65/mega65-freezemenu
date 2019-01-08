@@ -244,10 +244,10 @@ char read_line(char *buffer,unsigned char maxlen)
   // Read input using hardware keyboard scanner
 
   // Flush keyboard input queue before reading input
-  while (PEEK(0xD610)) POKE(0xD610,0);
+  while (PEEK(0xD610U)) POKE(0xD610U,0);
   
   while(len<maxlen) {
-    c=*(unsigned char *)0xD610;
+    c=*(unsigned char *)0xD610U; // read char 
 
 #if 0
     reverse ^=0x20;
@@ -282,6 +282,13 @@ char read_line(char *buffer,unsigned char maxlen)
       } else if (c==0x0d)
 	{
 	  buffer[len]=0;
+
+	  // Hide cursor
+	  lpoke(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS,
+		0x00 | 
+		(lpeek(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS)
+		 & 0xf));
+	  
 	  return len;
 	}
       else {
@@ -299,14 +306,20 @@ char read_line(char *buffer,unsigned char maxlen)
       // XXX we clear all keys here, and work around a bug that causes crazy
       // fast key repeating. This can be turned back into acknowledging the
       // single key again later
-      while (*(unsigned char *)0xD610) {
-	unsigned int i;
-	*(unsigned char *)0xd610=1;
-      
-	for(i=0;i<25000;i++) continue;
+      while (*(unsigned char *)0xD610U) {
+	*(unsigned char *)0xd610U=1;
       }
     }
   }
 
+  // Hide cursor
+  lpoke(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS,
+	0x00 | 
+	(lpeek(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS)
+	 & 0xf));
+
+  // clear char from queue
+  while(c&&(PEEK(0xD610U)==c)) POKE(0xD610U,1);
+  
   return len;
 }
