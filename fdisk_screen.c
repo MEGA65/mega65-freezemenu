@@ -8,7 +8,7 @@ long screen_line_address=SCREEN_ADDRESS;
 char screen_column=0;
 
 unsigned char *footer_messages[FOOTER_MAX+1]={
-  "MEGA65 FREEZE MONITOR V00.01 : X - EXIT TO FREEZE MENU, M<ADDR> - DISPLAY MEMORY",
+  "MEGA65 FREEZE MONITOR V00.01 :     X - RETURN TO FREEZE MENU, M - DISPLAY MEMORY",
   "                                                                                ",
   "A FATAL ERROR HAS OCCURRED, SORRY.                                              "
 };

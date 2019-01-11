@@ -27,7 +27,7 @@ uint32_t address_to_freeze_slot_offset(uint32_t address)
   uint32_t relative_address=0;
   uint32_t region_length=0;
   char skip,i;
-  
+
   for(i=0;i<freeze_region_count;i++) {
     skip=0;
     if (address<freeze_region_list[i].address_base) skip=1;

@@ -37,9 +37,6 @@ void sdcard_reset(void)
   // Reset and release reset
   //  write_line("Resetting SD card...",0);
 
-  // Clear SDHC flag
-  POKE(sd_ctl,0x40);
-  
   POKE(sd_ctl,0);
   POKE(sd_ctl,1);
 
