@@ -23,7 +23,7 @@
 */
 uint32_t address_to_freeze_slot_offset(uint32_t address)
 {
-  uint32_t freeze_slot_offset=0;
+  uint32_t freeze_slot_offset=1;  // Skip the initial saved SD sector at the beginning of each slot
   uint32_t relative_address=0;
   uint32_t region_length=0;
   char skip,i;
@@ -80,7 +80,10 @@ void show_memory_line(uint32_t addr)
   
   if (freeze_slot_offset==0xFFFFFFFFL) {
     // Memory that isn't saved
-    lcopy((long)"<Unmapped or unfrozen memory>",(long)&output_buffer[9],29);
+    for(i=0;i<65;i++)
+      output_buffer[9+i]="<UNMAPPED OR UNFROZEN MEMORY>                                    "[i]&0x3f;
+    output_buffer[9]='<';
+    output_buffer[9+28]='>';    
   } else {
     // Only fetch sector if we haven't already got it cached
     if (mon_sector_num!=(freeze_slot_offset>>9)) {
@@ -94,9 +97,23 @@ void show_memory_line(uint32_t addr)
       // hex digits
       format_hex((long)&output_buffer[8+1+i*3],mon_sector[(i+freeze_slot_offset)&0x1ff],2);
     }
-    
+    // Two spaces before character rendering of block
+    output_buffer[8+16*3+0]=' ';
+    output_buffer[8+16*3+1]=' ';
+    // C64 character rendering of each byte
+    for(i=0;i<16;i++) {
+      hex_value=mon_sector[(i+freeze_slot_offset)&0x1ff];
+      output_buffer[8+16*3+2+i]=hex_value;
+    }
+
   }
-  write_line(output_buffer,0);
+  // Convert hex back to C64 screen codes
+  for(i=0;i<8+16*3;i++) {
+    if (output_buffer[i]>='A'&&output_buffer[i]<='F')
+      output_buffer[i]&=0x0f;
+  }
+    
+  write_line_raw(output_buffer,0,8+16*3+2+16);
 }
 
 void show_memory(void)

@@ -76,11 +76,21 @@ unsigned char screen_decimal_digits[16][5]={
   {3,2,7,6,8}
 };
 
-void write_line(char *s,char col)
+void write_line_len(char *s,char col,char length)
 {
   char len=0;
-  while(s[len]) len++;
-  lcopy((long)&s[0],screen_line_address+col,len);
+  // Work out length, and convert from ASCII to PETSCII
+  while(s[len]) {
+    if (s[len]>='a'&&s[len]<='z') s[len]-=0x20;
+    else if (s[len]>='A'&&s[len]<='Z') s[len]-=0x40;
+    len++;
+  }
+  write_line_raw(s,col,length);
+}
+
+void write_line_raw(char *s,char col,char length)
+{
+  lcopy((long)&s[0],screen_line_address+col,length);
   screen_line_address+=80;
   if ((screen_line_address-SCREEN_ADDRESS)>=(24*80)) {
     screen_line_address-=80;
@@ -89,6 +99,13 @@ void write_line(char *s,char col)
     lfill(SCREEN_ADDRESS+23*80,' ',80);
     lfill(COLOUR_RAM_ADDRESS+23*80,1,80);
   }
+}
+
+void write_line(char *s,char col)
+{
+  char len=0;
+  while(s[len]) len++;
+  write_line_len(s,col,len);
 }
 
 void recolour_last_line(char colour)
@@ -156,9 +173,13 @@ void format_decimal(const int addr,const int value, const char columns)
 
 long addr;
 void display_footer(unsigned char index)
-{  
+{
+  char i;
   addr=(long)footer_messages[index];  
   lcopy(addr,FOOTER_ADDRESS,80);
+  for(i=0;i<80;i++)
+    if (PEEK(FOOTER_ADDRESS+i)>='a'&&PEEK(FOOTER_ADDRESS+i)<='z') POKE(FOOTER_ADDRESS+i,PEEK(FOOTER_ADDRESS+i)-0x20);
+    else if (PEEK(FOOTER_ADDRESS+i)>='A'&&PEEK(FOOTER_ADDRESS+i)<='Z') POKE(FOOTER_ADDRESS+i,PEEK(FOOTER_ADDRESS+i)-0x40);
   set_screen_attributes(FOOTER_ADDRESS,80,ATTRIB_REVERSE);
 }
 
