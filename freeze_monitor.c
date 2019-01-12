@@ -125,6 +125,110 @@ void show_memory(void)
   }
 }
 
+char reg_desc_line[80]="PC   IRQ  NMI  A  X  Y  Z  B  SP   FLAGS    $01   MAPLO   MAPHI";
+#define REGLINE_PC 0
+#define REGLINE_IRQ 5
+#define REGLINE_NMI 10
+#define REGLINE_A 15
+#define REGLINE_X 18
+#define REGLINE_Y 21
+#define REGLINE_Z 24
+#define REGLINE_B 27
+#define REGLINE_SP 30
+#define REGLINE_FLAGS 35
+#define REGLINE_01 44
+#define REGLINE_MAPLO 50
+#define REGLINE_MAPHI 58
+void show_registers(void)
+{
+  // Get hypervisor register backup area
+  uint32_t freeze_slot_offset=address_to_freeze_slot_offset(0xFFD3640U);
+  unsigned short value;
+
+  freeze_slot_offset=freeze_slot_offset>>9L;
+  
+  lfill((long)output_buffer,' ',80);
+  
+  if (freeze_slot_offset==0xFFFFFFFFL) {
+    write_line("? FROZEN REGISTERS NOT FOUND  ERROR",0);
+    recolour_last_line(2);
+  } else {
+    sdcard_readsector(freeze_slot_start_sector+freeze_slot_offset);
+
+    // Now show registers: First the description line
+    write_line(reg_desc_line,0);
+
+    // Now prepare the line of actual register values
+
+    // $D640-$D67F is frozen as a single piece, so the offsets are $00, not $40 from the beginning
+
+    // PC
+    value=sector_buffer[0x08]+(sector_buffer[0x09]<<8);
+    format_hex((long)&output_buffer[REGLINE_PC],value,4);
+    
+    // A
+    value=sector_buffer[0x00];
+    format_hex((long)&output_buffer[REGLINE_A],value,2);
+    
+    // X
+    value=sector_buffer[0x01];
+    format_hex((long)&output_buffer[REGLINE_X],value,2);
+    
+    // Y
+    value=sector_buffer[0x02];
+    format_hex((long)&output_buffer[REGLINE_Y],value,2);
+    
+    // Z
+    value=sector_buffer[0x03];
+    format_hex((long)&output_buffer[REGLINE_Z],value,2);
+    
+    // B
+    value=sector_buffer[0x04];
+    format_hex((long)&output_buffer[REGLINE_B],value,2);
+
+    // SP
+    value=sector_buffer[0x05]+(sector_buffer[0x06]<<8);
+    format_hex((long)&output_buffer[REGLINE_SP],value,4);
+
+    // $00/$01 CPU port
+    value=sector_buffer[0x10];
+    format_hex((long)&output_buffer[REGLINE_01],value,2);
+    value=sector_buffer[0x11];
+    output_buffer[REGLINE_01+2]='/';
+    format_hex((long)&output_buffer[REGLINE_01+3],value,2);
+
+    // FLAGS
+    value=sector_buffer[0x07];
+    output_buffer[REGLINE_FLAGS+0]=(value&0x80)?'N':'-';
+    output_buffer[REGLINE_FLAGS+1]=(value&0x40)?'V':'-';
+    output_buffer[REGLINE_FLAGS+2]=(value&0x20)?'E':'-';
+    output_buffer[REGLINE_FLAGS+3]=(value&0x10)?'B':'-';
+    output_buffer[REGLINE_FLAGS+4]=(value&0x08)?'D':'-';
+    output_buffer[REGLINE_FLAGS+5]=(value&0x04)?'I':'-';
+    output_buffer[REGLINE_FLAGS+6]=(value&0x02)?'Z':'-';
+    output_buffer[REGLINE_FLAGS+7]=(value&0x01)?'C':'-';
+
+    // MAPLO
+    value=sector_buffer[0x0A]+(sector_buffer[0x0B]<<8);
+    format_hex((long)&output_buffer[REGLINE_MAPLO],value,4);
+    value=sector_buffer[0x0E];
+    output_buffer[REGLINE_MAPLO+4]='/';
+    format_hex((long)&output_buffer[REGLINE_MAPLO+5],value,2);
+
+    // MAPHI
+    value=sector_buffer[0x0C]+(sector_buffer[0x0D]<<8);
+    format_hex((long)&output_buffer[REGLINE_MAPLO],value,4);
+    value=sector_buffer[0x0F];
+    output_buffer[REGLINE_MAPLO+4]='/';
+    format_hex((long)&output_buffer[REGLINE_MAPLO+5],value,2);
+    
+    
+    
+    write_line(output_buffer,0);
+    
+  }
+}
+
 unsigned char parse_hex(void)
 {
   unsigned char digits=0;
@@ -177,6 +281,8 @@ void freeze_monitor(void)
 
   // Flush input buffer
   while (PEEK(0xD610U)) POKE(0xD610U,0);
+
+  show_registers();
   
   while(1)
     {
@@ -214,6 +320,7 @@ void freeze_monitor(void)
 	break;
       case 'r': case 'R':
 	// Display register values
+	show_registers();
 	break;
       case 'f': case 'F':
 	// Fill memory
