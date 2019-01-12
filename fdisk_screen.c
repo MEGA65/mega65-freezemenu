@@ -289,6 +289,15 @@ char read_line(char *buffer,unsigned char maxlen)
 	  reverse |
 	(lpeek(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS)
 	 & 0xf));
+
+    if ((PEEK(0xD611U)&0x0b)>=0x09) {
+      // C= + shift, so toggle case
+
+      // Toggle upper/lower case font
+      POKE(0xD018U,PEEK(0xD018U)^0x02);
+
+      while ((PEEK(0xD611U)&0x0b)>=0x09) continue;
+    }
     
     if (c) {
 
