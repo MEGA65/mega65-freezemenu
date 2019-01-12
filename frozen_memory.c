@@ -67,8 +67,9 @@ unsigned char freeze_peek(uint32_t addr)
 {
   // Find sector
   uint32_t freeze_slot_offset=address_to_freeze_slot_offset(addr);
-  unsigned short value;
+  unsigned short offset;
 
+  offset=freeze_slot_offset&0x1ff;
   freeze_slot_offset=freeze_slot_offset>>9L;
   
   if (freeze_slot_offset==0xFFFFFFFFL) {
@@ -82,7 +83,34 @@ unsigned char freeze_peek(uint32_t addr)
   sdcard_readsector(freeze_slot_start_sector+freeze_slot_offset);
 
   // Return the byte
-  return sector_buffer[freeze_slot_offset&0x1ff];
+  return sector_buffer[offset&0x1ff];
+
+}
+
+void freeze_poke(uint32_t addr,unsigned char v)
+{
+  // Find sector
+  uint32_t freeze_slot_offset=address_to_freeze_slot_offset(addr);
+  unsigned short offset;
+
+  offset=freeze_slot_offset&0x1ff;
+  freeze_slot_offset=freeze_slot_offset>>9L;
+  
+  if (freeze_slot_offset==0xFFFFFFFFL) {
+    // Invalid / unfrozen memory
+    return;
+  }
+
+  // XXX - We should cache sectors
+  
+  // Read the sector
+  sdcard_readsector(freeze_slot_start_sector+freeze_slot_offset);
+
+  // Set the byte
+  sector_buffer[offset&0x1ff]=v;
+
+  // Write sector back
+  sdcard_writesector(freeze_slot_start_sector+freeze_slot_offset); 
 
 }
 

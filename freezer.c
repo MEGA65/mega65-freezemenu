@@ -27,7 +27,7 @@ void clear_sector_buffer(void)
 
 unsigned char *freeze_menu=
   "         MEGA65 FREEZE MENU V0.1        "
-  "     (C) FLINDERS UNI, M.E.G.A. 2018    "
+  "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
   " cccccccccccccccccccccccccccccccccccccc "
   " F1 - BACKUP  F3 - RESTART  F7 - SWITCH "
   " cccccccccccccccccccccccccccccccccccccc "
@@ -99,31 +99,31 @@ void draw_freeze_menu(void)
   // Update messages based on the settings we allow to be easily changed
 
   // CPU MODE
-  if (freeze_peek(0xffd367d)&0x20)
-    strcpy(&freeze_menu[CPU_MODE_OFFSET],"  4502");
+  if (freeze_peek(0xffd367dL)&0x20)
+    lcopy("  4502",&freeze_menu[CPU_MODE_OFFSET],6);
   else
-    strcpy(&freeze_menu[CPU_MODE_OFFSET],"  AUTO");
+    lcopy("  AUTO",&freeze_menu[CPU_MODE_OFFSET],6);
 
   // ROM area write protect
-  strcpy(&freeze_menu[ROM_PROTECT_OFFSET],
-	 (freeze_peek(0xffd367d)&0x04)?"YES":" NO");
+  lcopy((freeze_peek(0xffd367dL)&0x04)?"YES":" NO",
+	&freeze_menu[ROM_PROTECT_OFFSET],3);
 
   // Cartridge enable
-  strcpy(&freeze_menu[CART_ENABLE_OFFSET],
-	 (freeze_peek(0xffd367d)&0x01)?"YES":" NO");
+  lcopy((freeze_peek(0xffd367dL)&0x01)?"YES":" NO",
+	&freeze_menu[CART_ENABLE_OFFSET],3);
   
   // CPU frequency
-  strcpy(&freeze_menu[CPU_FREQ_OFFSET],
-	 (freeze_peek(0xffd367d)&0x10)?"40 ":"3.5");
+  lcopy((freeze_peek(0xffd367dL)&0x10)?"40 ":"3.5",
+	&freeze_menu[CPU_FREQ_OFFSET],3);
   
 
   
-  if (freeze_peek(0xffd306f)&0x80) {
+  if (freeze_peek(0xffd306fL)&0x80) {
     // NTSC60
-    strcpy(&freeze_menu[VIDEO_MODE_OFFSET],"NTSC60");
+    lcopy("NTSC60",&freeze_menu[VIDEO_MODE_OFFSET],6);
   } else {
     // PAL50
-    strcpy(&freeze_menu[VIDEO_MODE_OFFSET]," PAL50");
+    lcopy(" PAL50",&freeze_menu[VIDEO_MODE_OFFSET],6);
   }
 
   
@@ -148,6 +148,9 @@ void draw_freeze_menu(void)
       POKE(0x0400U+i,freeze_menu[i]);
   }
 
+  POKE(0x0400U,freeze_peek(0xffd306fL));
+  POKE(0x0401U,freeze_peek(0xffd367dL));
+  
 }  
 
 #ifdef __CC65__
@@ -219,16 +222,36 @@ int main(int argc,char **argv)
 	freeze_monitor();
 	draw_freeze_menu();
 	break;
+
+      case 'A': case 'a': // Toggle cartridge enable
+	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x01);
+	draw_freeze_menu();
+	break;
+
+      case 'P': case 'p': // Toggle ROM area write-protect
+	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x04);
+	draw_freeze_menu();
+	break;
+
+      case 'c': case 'C': // Toggle CPU mode
+	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x20);
+	draw_freeze_menu();
+	break;
+
+      case 'F': case 'f': // Change CPU speed
+	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x10);
+	draw_freeze_menu();
+	break;
+
+      case 'V': case 'v': // Toggle video mode
+	freeze_poke(0xFFD306fL,freeze_peek(0xFFD306fL)^0x80);
+	draw_freeze_menu();
+	break;
 	
       case 0xf1: // F1 = backup
       case 0xf7: // F7 = Switch tasks
 
-      case 'c': case 'C': // Toggle CPU mode
       case 'R': case 'r': // Switch ROMs
-      case 'F': case 'f': // Change CPU speed
-      case 'P': case 'p': // Toggle ROM area write-protect
-      case 'A': case 'a': // Toggle cartridge enable
-      case 'V': case 'v': // Toggle video mode
 	
       case 'D': case 'd': // Select mounted disk image
       case 'X': case 'x': // Poke finder
