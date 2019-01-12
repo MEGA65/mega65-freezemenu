@@ -81,7 +81,7 @@ void write_line_len(char *s,char col,char length)
   char len=0;
   // Work out length, and convert from ASCII to PETSCII
   while(s[len]) {
-    if (s[len]>='a'&&s[len]<='z') s[len]-=0x20;
+    if (s[len]>='a'&&s[len]<='z') s[len]-=0x60;
     else if (s[len]>='A'&&s[len]<='Z') s[len]-=0x40;
     len++;
   }
@@ -101,11 +101,18 @@ void write_line_raw(char *s,char col,char length)
   }
 }
 
+char stemp[80];
 void write_line(char *s,char col)
 {
   char len=0;
-  while(s[len]) len++;
-  write_line_len(s,col,len);
+  // Copy string so that it doesn't get modified if the caller doesn't expect it
+  while(s[len]) {
+    stemp[len]=s[len];
+    len++;
+    if (len>78) break;
+  }
+  stemp[len]=0;
+  write_line_len(stemp,col,len);
 }
 
 void recolour_last_line(char colour)
@@ -178,7 +185,7 @@ void display_footer(unsigned char index)
   addr=(long)footer_messages[index];  
   lcopy(addr,FOOTER_ADDRESS,80);
   for(i=0;i<80;i++)
-    if (PEEK(FOOTER_ADDRESS+i)>='a'&&PEEK(FOOTER_ADDRESS+i)<='z') POKE(FOOTER_ADDRESS+i,PEEK(FOOTER_ADDRESS+i)-0x20);
+    if (PEEK(FOOTER_ADDRESS+i)>='a'&&PEEK(FOOTER_ADDRESS+i)<='z') POKE(FOOTER_ADDRESS+i,PEEK(FOOTER_ADDRESS+i)-0x60);
     else if (PEEK(FOOTER_ADDRESS+i)>='A'&&PEEK(FOOTER_ADDRESS+i)<='Z') POKE(FOOTER_ADDRESS+i,PEEK(FOOTER_ADDRESS+i)-0x40);
   set_screen_attributes(FOOTER_ADDRESS,80,ATTRIB_REVERSE);
 }
@@ -285,7 +292,10 @@ char read_line(char *buffer,unsigned char maxlen)
     
     if (c) {
 
-      if (c==0x14) {
+      if (c==0x0e) {
+	// Toggle upper/lower case font
+	POKE(0xD018U,PEEK(0xD018U)^0x02);
+      } else if (c==0x14) {
 	// DELETE
 	if (len) {
 	  // Remove blink attribute from this char
@@ -316,12 +326,17 @@ char read_line(char *buffer,unsigned char maxlen)
 	  return len;
 	}
       else {
-	lpoke(screen_line_address+len,c);
+	
 	// Remove blink attribute from this char
 	lpoke(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS,
 	      lpeek(len+screen_line_address+COLOUR_RAM_ADDRESS-SCREEN_ADDRESS)
 	      & 0xf);
 	buffer[len++]=c;
+
+	// Mask char so that it looks right using screen codes instead of ASCII codes
+	if (c>0x40) c&=0x1f;
+	lpoke(screen_line_address+len-1,c);
+	
       }
       
       //      *(unsigned char *)0x8000 = c;
