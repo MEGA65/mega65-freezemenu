@@ -92,6 +92,41 @@ void screen_of_death(char *msg)
   
 }
 
+unsigned char detect_cpu_speed(void)
+{
+  if (freeze_peek(0xffd367dL)&0x10) return 40;
+  if (freeze_peek(0xffd3054L)&0x40) return 40;
+  if (freeze_peek(0xffd3031L)&0x40) return 3;
+  if (freeze_peek(0xffd0030L)&0x01) return 2;
+  return 1;  
+}
+
+void next_cpu_speed(void)
+{
+  switch(detect_cpu_speed()) {
+  case 1:
+    // Make it 2MHz
+    freeze_poke(0xffd0030L,1);
+    break;
+  case 2:
+    // Make it 3.5MHz
+    freeze_poke(0xffd0030L,0);
+    freeze_poke(0xffd3031L,freeze_peek(0xffd3031L)|0x40);
+    break;
+  case 3:
+    // Make it 40MHz
+    freeze_poke(0xffd367dL,freeze_peek(0xffd367dL)|0x10);
+    break;
+  case 40: default:
+    // Make it 1MHz
+    freeze_poke(0xffd0030L,0);
+    freeze_poke(0xffd3031L,freeze_peek(0xffd3031L)&0xbf);
+    freeze_poke(0xffd3054L,freeze_peek(0xffd3054L)&0xbf);
+    freeze_poke(0xffd367dL,freeze_peek(0xffd367dL)&0xef);
+    break;
+  }
+}
+
 char c65_rom_name[12];
 char *detect_rom(void)
 {
@@ -174,8 +209,13 @@ void draw_freeze_menu(void)
 	&freeze_menu[CART_ENABLE_OFFSET],3);
   
   // CPU frequency
-  lcopy((freeze_peek(0xffd367dL)&0x10)?"40 ":"3.5",
-	&freeze_menu[CPU_FREQ_OFFSET],3);
+  switch(detect_cpu_speed()) {
+  case 1:  lcopy("  1",&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 2:  lcopy("  2",&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 3:  lcopy("3.5",&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 40: lcopy(" 40",&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  default: lcopy("???",&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  }
   
 
   
@@ -298,7 +338,7 @@ int main(int argc,char **argv)
 	break;
 
       case 'F': case 'f': // Change CPU speed
-	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x10);
+	next_cpu_speed();
 	draw_freeze_menu();
 	break;
 
