@@ -98,12 +98,13 @@ char *detect_rom(void)
   // Check for C65 ROM via version string
   if ((freeze_peek(0x20016L)=='V')
       &&(freeze_peek(0x20017L)=='9')) {
-    c65_rom_name[0]='C';
-    c65_rom_name[1]='6';
-    c65_rom_name[2]='5';
-    c65_rom_name[3]=' ';
-    for(i=0;i<7;i++)
-      c65_rom_name[4+i]=freeze_peek(0x20017L+i);
+    c65_rom_name[0]=' ';
+    c65_rom_name[1]='C';
+    c65_rom_name[2]='6';
+    c65_rom_name[3]='5';
+    c65_rom_name[4]=' ';
+    for(i=0;i<6;i++)
+      c65_rom_name[5+i]=freeze_peek(0x20017L+i);
     c65_rom_name[11]=0;
     return c65_rom_name;
     
@@ -166,14 +167,7 @@ void draw_freeze_menu(void)
 	&freeze_menu[ROM_PROTECT_OFFSET],3);
 
   // ROM version
-  if ((freeze_peek(0x20016L)=='V')
-      &&(freeze_peek(0x20017L)=='9')) {
-    // C65 ROM, so show version string
-  } else {
-    // Doesn't appear to be a C65 ROM.
-    // Try to work out which C64 ROM version it is
-    
-  }
+  lcopy((long)detect_rom(),&freeze_menu[ROM_NAME_OFFSET],11);
   
   // Cartridge enable
   lcopy((freeze_peek(0xffd367dL)&0x01)?"YES":" NO",
