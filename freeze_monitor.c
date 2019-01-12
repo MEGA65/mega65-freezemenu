@@ -18,6 +18,20 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+unsigned char char_to_hex(char in)
+{
+  switch(in) {
+  case '0': case '1': case '2': case '3': case '4':
+  case '5': case '6': case '7': case '8': case '9':
+    return in-'0';
+  case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+  case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+    return (in-'A')&0xf;
+  }
+  return 0;
+}
+
+
 /* Convert a requested address to a location in the freeze slot,
    or to 0xFFFFFFFF if the address is not present.
 */
@@ -123,6 +137,96 @@ void show_memory(void)
     show_memory_line(mon_address);
     mon_address+=16;
   }
+}
+
+void set_memory()
+{  
+  uint32_t freeze_slot_offset=address_to_freeze_slot_offset(mon_address);
+  unsigned char i;
+
+  if (freeze_slot_offset==0xFFFFFFFFL) {
+    write_line("? UNMAPPED OR UNFROZEN ADDRESS  ERROR",0);
+    recolour_last_line(2);
+    return;
+  } else {
+    // Only fetch sector if we haven't already got it cached
+    if (mon_sector_num!=(freeze_slot_offset>>9)) {
+      mon_sector_num=(freeze_slot_offset>>9);
+      sdcard_readsector(freeze_slot_start_sector+mon_sector_num);
+      lcopy((long)sector_buffer,(long)mon_sector,512);      
+    }
+
+    // Get position within sector
+    i=0;
+    freeze_slot_offset&=0x1ff;
+
+    // Now accept various forms of input for setting memory.
+    while(screen_line_offset<screen_line_length) {
+      POKE(0xD020U,i);
+      switch(screen_line_buffer[screen_line_offset]) {
+	case ' ':
+	  // Skip spaces
+	  screen_line_offset++;
+	  break;
+      case '\"':
+	  // double-quoted string means ASCII
+	  screen_line_offset++;
+	  while(screen_line_offset<screen_line_length) {
+	    // Another double quote ends ASCII input
+	    if (screen_line_buffer[screen_line_offset]=='\"') {
+	      screen_line_offset++;
+	      break;
+	    }
+	    // Take ASCII literal char
+	    mon_sector[(freeze_slot_offset+i)&0x1ff]=screen_line_buffer[screen_line_offset++];
+	    i++;
+	  }
+	  break;
+      case '\'':
+	  // double-quoted string means screen char codes
+	  screen_line_offset++;
+	  while(screen_line_offset<screen_line_length) {
+	    // Another single quote ends screen char code input
+	    if (screen_line_buffer[screen_line_offset]=='\'') {
+	      screen_line_offset++;
+	      break;
+	    }
+	    // Change A-Z and a-z to screen char code equivalents
+	    if (((screen_line_buffer[screen_line_offset]>='A')&&(screen_line_buffer[screen_line_offset]<'Z'))
+		||((screen_line_buffer[screen_line_offset]>='a')&&(screen_line_buffer[screen_line_offset]<'z')))
+	      mon_sector[(freeze_slot_offset+i)&0x1ff]=screen_line_buffer[screen_line_offset++]&0x1f;
+	    else
+	      mon_sector[(freeze_slot_offset+i)&0x1ff]=screen_line_buffer[screen_line_offset++];
+	    i++;
+	  }
+	  break;
+      case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+      case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+      case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+	// hex byte
+	mon_sector[(freeze_slot_offset+i)&0x1ff]=char_to_hex(screen_line_buffer[screen_line_offset++]);
+	if (screen_line_buffer[screen_line_offset]!=' ') {
+	  mon_sector[(freeze_slot_offset+i)&0x1ff]=mon_sector[(freeze_slot_offset+i)&0x1ff]<<4;
+	  mon_sector[(freeze_slot_offset+i)&0x1ff]|=char_to_hex(screen_line_buffer[screen_line_offset++]);
+	}
+	i++;
+	break;
+      default:
+	write_line("? SYNTAX  ERROR",0);
+	recolour_last_line(2);
+	return;
+      }
+    }
+
+    // Write changes back
+    lcopy((long)mon_sector,(long)sector_buffer,512);      
+    sdcard_writesector(freeze_slot_start_sector+mon_sector_num);
+    
+    // After writing memory values, redisplay the modified region
+    mon_sector_num=-1;
+    show_memory();
+  }
+
 }
 
 char reg_desc_line[80]="PC   IRQ  NMI  A  X  Y  Z  B  SP   FLAGS    $01   MAPLO   MAPHI";
@@ -292,6 +396,7 @@ void freeze_monitor(void)
 
       // Skip initial char for parsing routines
       screen_line_offset=1;
+      screen_line_length=strlen(screen_line_buffer);
       
       // Command syntax purposely matches that of the Matrix Mode / UART monitor to avoid confusion
       switch(screen_line_buffer[0]) {
@@ -330,6 +435,8 @@ void freeze_monitor(void)
 	break;
       case 's': case 'S':
 	// Set memory values
+	if (parse_address()) break;
+	set_memory();
 	break;
       default:
 	write_line("Unknown command.",0);
