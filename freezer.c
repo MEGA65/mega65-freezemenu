@@ -13,11 +13,6 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
-struct freeze_region_t freeze_region_list[MAX_REGIONS];
-unsigned char freeze_region_count=0;
-
-unsigned long freeze_slot_start_sector=0;
-
 uint8_t sector_buffer[512];
 
 void clear_sector_buffer(void)
@@ -36,8 +31,14 @@ unsigned char *freeze_menu=
   " cccccccccccccccccccccccccccccccccccccc "
   " F1 - BACKUP  F3 - RESTART  F7 - SWITCH "
   " cccccccccccccccccccccccccccccccccccccc "
+#define CPU_MODE_OFFSET (5*40+13)
+#define ROM_PROTECT_OFFSET (5*40+36)
   " (C)PU MODE:   4510  (P)ROTECT ROM: YES "
+#define ROM_NAME_OFFSET (6*40+8)
+#define CART_ENABLE_OFFSET (6*40+36)
   " (R)OM:  C65 911101  C(A)RT ENABLE: YES "
+#define CPU_FREQ_OFFSET (7*40+13)
+#define VIDEO_MODE_OFFSET (7*40+33)
   " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
@@ -95,6 +96,38 @@ void draw_freeze_menu(void)
 {
   // Wait until we are in vertical blank area before redrawing, so that we don't have flicker
 
+  // Update messages based on the settings we allow to be easily changed
+
+  // CPU MODE
+  if (freeze_peek(0xffd367d)&0x20)
+    strcpy(&freeze_menu[CPU_MODE_OFFSET],"  4502");
+  else
+    strcpy(&freeze_menu[CPU_MODE_OFFSET],"  AUTO");
+
+  // ROM area write protect
+  strcpy(&freeze_menu[ROM_PROTECT_OFFSET],
+	 (freeze_peek(0xffd367d)&0x04)?"YES":" NO");
+
+  // Cartridge enable
+  strcpy(&freeze_menu[CART_ENABLE_OFFSET],
+	 (freeze_peek(0xffd367d)&0x01)?"YES":" NO");
+  
+  // CPU frequency
+  strcpy(&freeze_menu[CPU_FREQ_OFFSET],
+	 (freeze_peek(0xffd367d)&0x10)?"40 ":"3.5");
+  
+
+  
+  if (freeze_peek(0xffd306f)&0x80) {
+    // NTSC60
+    strcpy(&freeze_menu[VIDEO_MODE_OFFSET],"NTSC60");
+  } else {
+    // PAL50
+    strcpy(&freeze_menu[VIDEO_MODE_OFFSET]," PAL50");
+  }
+
+  
+  
   while(PEEK(0xD012U)<0xf8) continue;
   
   // Clear screen, blue background, white text, like Action Replay
@@ -139,17 +172,7 @@ int main(int argc,char **argv)
   __asm__("cld");
 
 
-  // Ask hypervisor to copy out freeze region list, so we know where to look
-  // in the slot for different parts of memory.
-  // The transfer region MUST be in the lower 32KB of RAM, so we will copy it
-  // to the screen in the first instance, and then DMA copy it where we want it
-  lfill(0x0400U,0x20,1000);
-  fetch_freeze_region_list_from_hypervisor(0x0400);
-  lcopy(0x0400U,(unsigned long)&freeze_region_list,256);
-  for(i=0;i<MAX_REGIONS;i++) {
-    if (freeze_region_list[i].freeze_prep==0xFF) break;
-  }
-  freeze_region_count=i;
+  request_freeze_region_list();
 
   // Now find the start sector of the slot, and make a copy for safe keeping
   find_freeze_slot_start_sector(0);
