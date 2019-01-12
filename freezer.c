@@ -92,6 +92,63 @@ void screen_of_death(char *msg)
   
 }
 
+char c65_rom_name[12];
+char *detect_rom(void)
+{
+  // Check for C65 ROM via version string
+  if ((freeze_peek(0x20016L)=='V')
+      &&(freeze_peek(0x20017L)=='9')) {
+    c65_rom_name[0]='C';
+    c65_rom_name[1]='6';
+    c65_rom_name[2]='5';
+    c65_rom_name[3]=' ';
+    for(i=0;i<7;i++)
+      c65_rom_name[4+i]=freeze_peek(0x20017L+i);
+    c65_rom_name[11]=0;
+    return c65_rom_name;
+    
+  }
+
+  if (freeze_peek(0x2e47dL)=='J') {
+    // Probably jiffy dos
+    if (freeze_peek(0x2e535L)==0x06)
+      return "sx64 jiffy ";
+    else
+      return "c64 jiffy  ";
+  }
+  
+  // Else guess using detection routines from detect_roms.c
+  // These were built using a combination of the ROMs from zimmers.net/pub/c64/firmware,
+  // the RetroReplay ROM collection, and the JiffyDOS ROMs
+  if (freeze_peek(0x2e449L)==0x2e) return "C64gs      ";
+  if (freeze_peek(0x2e119L)==0xc9) return "c64 rev1   ";
+  if (freeze_peek(0x2e67dL)==0xb0) return "c64 rev2 JP";
+  if (freeze_peek(0x2ebaeL)==0x5b) return "c64 rev3 DK";
+  if (freeze_peek(0x2e0efL)==0x28) return "c64 scand  ";
+  if (freeze_peek(0x2ebf3L)==0x40) return "c64 sweden ";
+  if (freeze_peek(0x2e461L)==0x20) return "cyclone 1.0";
+  if (freeze_peek(0x2e4a4L)==0x41) return "dolphin 1.0";
+  if (freeze_peek(0x2e47fL)==0x52) return "dolphin 2AU";
+  if (freeze_peek(0x2eed7L)==0x2c) return "dolphin 2p1";
+  if (freeze_peek(0x2e7d2L)==0x6b) return "dolphin 2p2";
+  if (freeze_peek(0x2e4a6L)==0x32) return "dolphin 2p3";
+  if (freeze_peek(0x2e0f9L)==0xaa) return "dolphin 3.0";
+  if (freeze_peek(0x2e462L)==0x45) return "dosrom v1.2";
+  if (freeze_peek(0x2e472L)==0x20) return "mercry3 pal";
+  if (freeze_peek(0x2e16dL)==0x84) return "mercry ntsc";
+  if (freeze_peek(0x2e42dL)==0x4c) return "pet 4064   ";
+  if (freeze_peek(0x2e1d9L)==0xa6) return "sx64 croach";
+  if (freeze_peek(0x2eba9L)==0x2d) return "sx64 scand ";
+  if (freeze_peek(0x2e476L)==0x2a) return "trboacs 2.6";
+  if (freeze_peek(0x2e535L)==0x07) return "trboacs 3p1";
+  if (freeze_peek(0x2e176L)==0x8d) return "trboacs 3p2";
+  if (freeze_peek(0x2e42aL)==0x72) return "trboproc us";
+  if (freeze_peek(0x2e4acL)==0x81) return "c64c 251913";
+  if (freeze_peek(0x2e479L)==0x2a) return "c64 rev2   ";
+  if (freeze_peek(0x2e535L)==0x06) return "sx64 rev4  ";
+  return "unknown rom";
+}  
+
 void draw_freeze_menu(void)
 {
   // Wait until we are in vertical blank area before redrawing, so that we don't have flicker
@@ -108,6 +165,16 @@ void draw_freeze_menu(void)
   lcopy((freeze_peek(0xffd367dL)&0x04)?"YES":" NO",
 	&freeze_menu[ROM_PROTECT_OFFSET],3);
 
+  // ROM version
+  if ((freeze_peek(0x20016L)=='V')
+      &&(freeze_peek(0x20017L)=='9')) {
+    // C65 ROM, so show version string
+  } else {
+    // Doesn't appear to be a C65 ROM.
+    // Try to work out which C64 ROM version it is
+    
+  }
+  
   // Cartridge enable
   lcopy((freeze_peek(0xffd367dL)&0x01)?"YES":" NO",
 	&freeze_menu[CART_ENABLE_OFFSET],3);
@@ -148,9 +215,6 @@ void draw_freeze_menu(void)
       POKE(0x0400U+i,freeze_menu[i]);
   }
 
-  POKE(0x0400U,freeze_peek(0xffd306fL));
-  POKE(0x0401U,freeze_peek(0xffd367dL));
-  
 }  
 
 #ifdef __CC65__
@@ -200,6 +264,7 @@ int main(int argc,char **argv)
   draw_freeze_menu();
   
   // Flush input buffer
+  mega65_fast();
   while (PEEK(0xD610U)) POKE(0xD610U,0);
   
   // Main keyboard input loop
