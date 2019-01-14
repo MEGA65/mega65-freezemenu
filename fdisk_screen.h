@@ -1,4 +1,4 @@
-#define SCREEN_ADDRESS (0x8000U)
+#define SCREEN_ADDRESS (0xB800U)
 // Use default char set, not ASCII charset
 #define CHARSET_ADDRESS (0x9000U)
 #define COLOUR_RAM_ADDRESS (0x1f800)

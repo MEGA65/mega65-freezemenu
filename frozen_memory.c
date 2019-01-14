@@ -26,6 +26,29 @@ void request_freeze_region_list(void)
   freeze_region_count=i;
 }
 
+uint32_t find_thumbnail_offset(void)
+{
+  uint32_t freeze_slot_offset=1;  // Skip the initial saved SD sector at the beginning of each slot
+  uint32_t region_length=0;
+  char i;
+
+  for(i=0;i<freeze_region_count;i++) {
+    region_length=freeze_region_list[i].region_length&REGION_LENGTH_MASK;
+    if (freeze_region_list[i].address_base==0x0001000L)
+      {
+	// Found it
+	return freeze_slot_offset;
+      }
+
+      // Skip this region if our address is not in it
+      freeze_slot_offset+=region_length>>9;
+      // If region is not an integer number of sectors long, don't forget to count the partial sector
+      if (region_length&0x1ff) freeze_slot_offset++;
+  }
+  return 0xFFFFFFFFL;
+}
+
+
 /* Convert a requested address to a location in the freeze slot,
    or to 0xFFFFFFFF if the address is not present.
 */
@@ -40,6 +63,16 @@ uint32_t address_to_freeze_slot_offset(uint32_t address)
     skip=0;
     if (address<freeze_region_list[i].address_base) skip=1;
     relative_address=address-freeze_region_list[i].address_base;
+    if (freeze_region_list[i].address_base==0x1000L) {
+      // Thumbnail region: Treat specially so that we can examine it
+      // We give the fictional mapping of $FF54xxx
+      if ((address&0xFFFF000L)==0xFF54000L)
+	{ relative_address=address&0xFFF;
+	  freeze_slot_offset=freeze_slot_offset<<9;
+	  freeze_slot_offset+=(relative_address&0x1FF);
+	  return freeze_slot_offset;
+	}
+    }
     region_length=freeze_region_list[i].region_length&REGION_LENGTH_MASK;
     if (relative_address>=region_length) skip=1;
     if (skip) {

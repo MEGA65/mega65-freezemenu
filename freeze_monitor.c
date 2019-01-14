@@ -284,10 +284,10 @@ void show_registers(void)
 
     // MAPHI
     value=sector_buffer[0x0C]+(sector_buffer[0x0D]<<8);
-    format_hex((long)&output_buffer[REGLINE_MAPLO],value,4);
+    format_hex((long)&output_buffer[REGLINE_MAPHI],value,4);
     value=sector_buffer[0x0F];
-    output_buffer[REGLINE_MAPLO+4]='/';
-    format_hex((long)&output_buffer[REGLINE_MAPLO+5],value,2);
+    output_buffer[REGLINE_MAPHI+4]='/';
+    format_hex((long)&output_buffer[REGLINE_MAPHI+5],value,2);
     
     
     

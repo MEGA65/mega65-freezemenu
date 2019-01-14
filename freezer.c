@@ -15,6 +15,8 @@
 
 uint8_t sector_buffer[512];
 
+unsigned short slot_number=0;
+
 void clear_sector_buffer(void)
 {
 #ifndef __CC65__DONTUSE
@@ -116,6 +118,27 @@ void set_palette(void)
   colour_table[0x93]=0x0e;  // light blue
 };
 
+void setup_menu_screen(void)
+{
+  POKE(0xD018U,0x15); // upper case
+
+  // NTSC 60Hz mode for monitor compatibility?
+  POKE(0xD06FU,0x80);
+
+  // No sprites
+  POKE(0xD015U,0x00);
+
+  // Move screen to SCREEN_ADDRESS
+  POKE(0xD018U,(((CHARSET_ADDRESS-0x8000U)>>11)<<1)+(((SCREEN_ADDRESS-0x8000U)>>10)<<4));
+  POKE(0xDD00U,(PEEK(0xDD00U)&0xfc)|0x01);
+
+  // 16-bit text mode with full colour for chars >$FF
+  // (which we will use for showing the thumbnail)
+  POKE(0xD054U,0x05);
+  POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
+}  
+
+
 unsigned char ascii_to_screencode(char c)
 {
   if (c>=0x60) return c-0x60;
@@ -144,10 +167,10 @@ void screen_of_death(char *msg)
   
   POKE(0xD020U,0); POKE(0xD021U,0);
 
-  // Clear screen
+  // Reset CPU IO ports
   POKE(1,0x3f); POKE(0,0x3F);
-  for(i=1024;i<2024;i++) POKE(i,' ');
-  for(i=0;i<1000;i++) POKE(0xD800U+i,1);
+  lfill(0x0400U,' ',1000);
+  lfill(0xd800U,1,1000);
 
   for(i=0;deadly_haiku[0][i];i++) POKE(0x0400+10*40+11+i,ascii_to_screencode(deadly_haiku[0][i]));
   for(i=0;deadly_haiku[1][i];i++) POKE(0x0400+12*40+11+i,ascii_to_screencode(deadly_haiku[1][i]));
@@ -250,6 +273,47 @@ char *detect_rom(void)
   return "unknown rom";
 }  
 
+void draw_thumbnail(void)
+{
+  // Take the 4K of thumbnail data and render it to the display
+  // area at $50000.
+  // This requires a bit of fiddling:
+  // First, the thumbnail data has a nominal address of $0010000
+  // in the frozen memory, which overlaps with the main RAM,
+  // so we can't use our normal routine to find the start of freeze
+  // memory. Instead, we will find that region directly, and then
+  // process the 8 sectors of data in a linear fashion.
+  // The thumbnail bytes themselves are arranged linearly, so we
+  // have to work out the right place to store them in the thumbnail
+  // data.  We would really like to avoid having to use lpoke for
+  // this all the time, because lpoke() uses a DMA for every memory
+  // access, which really slows things down. This would be bad, since
+  // we want users to be able to very quickly and smoothly flip between
+  // the freeze slots and see what is there.
+  // So we will instead copy the sectors down to $8800, and then
+  // render the thumbnail at $9000, and then copy it into place with
+  // a single DMA.
+  unsigned char x,y,i;
+  uint32_t thumbnail_sector=find_thumbnail_offset();
+  // Can't find thumbnail area?  Then show no thumbnail
+  if (thumbnail_sector==0xFFFFFFFFL) {
+    lfill(0x50000L,0,10*6*64);
+    return;
+  }
+  // Copy thumbnail memory to $08800
+  for(i=0;i<8;i++) {
+    sdcard_readsector(freeze_slot_start_sector+thumbnail_sector+i);
+    lcopy((long)sector_buffer,0x8800L+(i*0x200),0x200);
+  }
+  // Rearrange pixels
+  for(x=0;x<80;x++)
+    for(y=0;y<60;y++)
+      POKE(0x9000U+(x&7)+(x>>3)*(64*6)+(y&0xf8),
+	   PEEK(0x8800U+x+(y*80)));
+  lcopy(0x9000U,0x50000U,4096);
+  lcopy(0x8800U,0x50000U,4096);
+}
+
 void draw_freeze_menu(void)
 {
   unsigned char x,y;
@@ -292,28 +356,26 @@ void draw_freeze_menu(void)
     // PAL50
     lcopy(" PAL50",&freeze_menu[VIDEO_MODE_OFFSET],6);
   }
-
-  
   
   while(PEEK(0xD012U)<0xf8) continue;
   
   // Clear screen, blue background, white text, like Action Replay
   POKE(0xD020U,6); POKE(0xD021U,6);
-  
-  for(i=0x0400U;i<0x07E8U;i++) POKE(i,0x20);
-  for(i=0xD800U;i<0xDBE8U;i++) POKE(i,0x01);
+
+  lfill(SCREEN_ADDRESS,0,2000);
+  lfill(0xFF80000L,1,2000);
   
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
   for(i=0;freeze_menu[i];i++) {
     if ((freeze_menu[i]>='A')&&(freeze_menu[i]<='Z'))
-      POKE(0x8000U+i*2+0,freeze_menu[i]-0x40);
+      POKE(SCREEN_ADDRESS+i*2+0,freeze_menu[i]-0x40);
     else if ((freeze_menu[i]>='a')&&(freeze_menu[i]<='z'))
-      POKE(0x8000U+i*2+0,freeze_menu[i]-0x20);
+      POKE(SCREEN_ADDRESS+i*2+0,freeze_menu[i]-0x20);
     else
-      POKE(0x8000U+i*2+0,freeze_menu[i]);
-    POKE(0x8000U+i*2+1,0);
+      POKE(SCREEN_ADDRESS+i*2+0,freeze_menu[i]);
+    POKE(SCREEN_ADDRESS+i*2+1,0);
   }
 
   // Now draw the 10x6 character block for thumbnail display
@@ -321,8 +383,8 @@ void draw_freeze_menu(void)
   // the program name etc, so you can easily browse through the freeze slots.
   for(x=0;x<10;x++)
     for(y=0;y<6;y++) {
-      POKE(0x8000U+(80*16)+(6*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
-      POKE(0x8000U+(80*16)+(6*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+      POKE(SCREEN_ADDRESS+(80*16)+(6*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
+      POKE(SCREEN_ADDRESS+(80*16)+(6*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
     }  
 }  
 
@@ -352,30 +414,16 @@ int main(int argc,char **argv)
   request_freeze_region_list();
 
   // Now find the start sector of the slot, and make a copy for safe keeping
-  find_freeze_slot_start_sector(0);
+  slot_number=0;
+  find_freeze_slot_start_sector(slot_number);
   freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
   // SD or SDHC card?
   if (PEEK(0xD680U)&0x10) sdhc_card=1; else sdhc_card=0;
-  
-  POKE(0xD018U,0x15); // upper case
 
-  // NTSC 60Hz mode for monitor compatibility?
-  POKE(0xD06FU,0x80);
-
-  // No sprites
-  POKE(0xD015U,0x00);
-
-  // Move screen to $8000-$87FF
-  POKE(0xD018U,(((CHARSET_ADDRESS-0x8000U)>>11)<<1)+(((SCREEN_ADDRESS-0x8000U)>>10)<<4));
-  POKE(0xDD00U,(PEEK(0xDD00U)&0xfc)|0x01);
-
-  // 16-bit text mode with full colour for chars >$FF
-  // (which we will use for showing the thumbnail)
-  POKE(0xD054U,0x05);
-  POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
-  
+  setup_menu_screen();
   draw_freeze_menu();
+  draw_thumbnail();
   
   // Flush input buffer
   mega65_fast();
@@ -390,7 +438,7 @@ int main(int argc,char **argv)
       case 0xf3: // F3 = resume
 	// Load memory from freeze slot $0000, i.e., the temporary save space
 	// This implicitly restarts the frozen program
-	unfreeze_slot(0);
+	unfreeze_slot(slot_number);
 
 	// should never get here
 	screen_of_death("unfreeze failed");
@@ -399,6 +447,7 @@ int main(int argc,char **argv)
 
       case 'M': case 'm': // Monitor
 	freeze_monitor();
+	setup_menu_screen();
 	draw_freeze_menu();
 	break;
 
