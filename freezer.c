@@ -70,8 +70,11 @@ unsigned char c64_palette[64]={
   0x8b, 0x8b, 0x8b, 0x00
 };
 
-void set_c64_palette(void)
+unsigned char colour_table[256];
+
+void set_palette(void)
 {
+  // First set the 16 C64 colours
   unsigned char c;
   POKE(0xD070U,0xFF);
   for(c=0;c<16;c++) {
@@ -79,6 +82,26 @@ void set_c64_palette(void)
     POKE(0xD200U+c,c64_palette[c*4+1]);
     POKE(0xD300U+c,c64_palette[c*4+2]);
   }
+
+  // Then prepare a colour cube in the rest of the palette
+  for(c=0x10;c;c++) {
+    // 3 bits for red
+    POKE(0xD100U+c,(c>>4)&0xe);
+    // 3 bits for green
+    POKE(0xD200U+c,(c>>1)&0xe);
+    // 2 bits for blue
+    POKE(0xD300U+c,(c<<2)&0xf);
+  }
+
+  // Make colour lookup table
+  c=0;
+  do {
+    colour_table[c]=c;
+  } while(++c);
+
+  // Now map C64 colours directly
+  colour_table[0x03]=0x06;  // blue
+  colour_table[0x93]=0x0e;  // light blue
 };
 
 unsigned char ascii_to_screencode(char c)
@@ -272,11 +295,12 @@ void draw_freeze_menu(void)
   // itself has been loaded to replace some of RAM).
   for(i=0;freeze_menu[i];i++) {
     if ((freeze_menu[i]>='A')&&(freeze_menu[i]<='Z'))
-      POKE(0x0400U+i,freeze_menu[i]-0x40);
+      POKE(0x8000U+i*2+0,freeze_menu[i]-0x40);
     else if ((freeze_menu[i]>='a')&&(freeze_menu[i]<='z'))
-      POKE(0x0400U+i,freeze_menu[i]-0x20);
+      POKE(0x8000U+i*2+0,freeze_menu[i]-0x20);
     else
-      POKE(0x0400U+i,freeze_menu[i]);
+      POKE(0x8000U+i*2+0,freeze_menu[i]);
+    POKE(0x8000U+i*2+1,0);
   }
 
 }  
@@ -302,7 +326,7 @@ int main(int argc,char **argv)
   // No decimal mode!
   __asm__("cld");
 
-  set_c64_palette();
+  set_palette();
   
   request_freeze_region_list();
 
@@ -320,12 +344,16 @@ int main(int argc,char **argv)
 
   // No sprites
   POKE(0xD015U,0x00);
+
+  // Move screen to $8000-$87FF
+  POKE(0xD018U,(((CHARSET_ADDRESS-0x8000U)>>11)<<1)+(((SCREEN_ADDRESS-0x8000U)>>10)<<4));
+  POKE(0xDD00U,(PEEK(0xDD00U)&0xfc)|0x01);
+
+  // 16-bit text mode with full colour for chars >$FF
+  // (which we will use for showing the thumbnail)
+  POKE(0xD054U,0x05);
+  POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
   
-  // Normal video mode
-  POKE(0xD054U,0x00);
-
-  // XXX Reset colour palette to normal
-
   draw_freeze_menu();
   
   // Flush input buffer
