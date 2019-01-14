@@ -137,7 +137,7 @@ void lfill(long destination_address, unsigned char value,
   dmalist.count=count;
   dmalist.source_addr=value;
   dmalist.dest_addr=destination_address&0xffff;
-  dmalist.dest_bank=(destination_address>>16)&0x7f;
+  dmalist.dest_bank=(destination_address>>16)&0x0f;
   if (destination_address>=0xd000 && destination_address<0xe000)
     dmalist.dest_bank|=0x80;
 
