@@ -114,7 +114,7 @@ void set_palette(void)
   } while(++c);
 
   // Now map C64 colours directly
-  colour_table[0x00]=0x00;  // black
+  colour_table[0x00]=0x20;  // black   ($00 = transparent colour, so we have to use very-dim red instead)
   colour_table[0xff]=0x01;  // white
   colour_table[0xe0]=0x02;  // red
   colour_table[0x1f]=0x03;  // cyan
@@ -342,17 +342,23 @@ void draw_thumbnail(void)
     sdcard_readsector(freeze_slot_start_sector+thumbnail_sector+i);
     lcopy((long)sector_buffer,0x8800L+(i*0x200),0x200);
   }
+
+  // First fill with white (it's faster to do this with DMA to draw
+  // the border than to do it in the loop).
+  lfill(0xA000L,0xff,80*50);
+  // Make it all a bit narrower because the thumnail is off-centre
+  for(y=0;y<48;y++) {
+    for(x=0;x<5;x++) {
+      POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,0);      
+    }    
+  }
+  
   // Rearrange pixels
-  for(x=0;x<80;x++)
-    for(y=0;y<60;y++) {
-      // Image is off centre as produced by thumbnail hardware, so just
-      // don't draw the left few pixels
-//      if (x<6) {
-//	POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,0);
-	//     } else
-	// Also the whole thing is rotated by one byte, so add that on as we plot the pixel
-	POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,
-	     colour_table[PEEK(0x8800U+8+1+x+(y*80))]);
+  for(x=6;x<79;x++)
+    for(y=1;y<47;y++) {
+      // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
+      POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,
+	   colour_table[PEEK(0x8800U+1+x+(y*80))]);
     }
   // Copy to final area
   lcopy(0xA000U,0x50000U,4096);
