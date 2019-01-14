@@ -45,6 +45,18 @@ unsigned char *freeze_menu=
   " D - DISK SELECT     S - VIEW SPRITES   "
   " X - POKE FINDER     K - SPRITE KILLER  "
   " cccccccccccccccccccccccccccccccccccccc "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
+  "                                        "
   "\0";
 
 
@@ -240,6 +252,7 @@ char *detect_rom(void)
 
 void draw_freeze_menu(void)
 {
+  unsigned char x,y;
   // Wait until we are in vertical blank area before redrawing, so that we don't have flicker
 
   // Update messages based on the settings we allow to be easily changed
@@ -303,6 +316,14 @@ void draw_freeze_menu(void)
     POKE(0x8000U+i*2+1,0);
   }
 
+  // Now draw the 10x6 character block for thumbnail display
+  // This sits in the region below the menu where we will also have left and right arrows,
+  // the program name etc, so you can easily browse through the freeze slots.
+  for(x=0;x<10;x++)
+    for(y=0;y<6;y++) {
+      POKE(0x8000U+(80*16)+(6*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
+      POKE(0x8000U+(80*16)+(6*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+    }  
 }  
 
 #ifdef __CC65__
