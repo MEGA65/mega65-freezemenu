@@ -69,7 +69,7 @@ uint32_t address_to_freeze_slot_offset(uint32_t address)
       if ((address&0xFFFF000L)==0xFF54000L)
 	{ relative_address=address&0xFFF;
 	  freeze_slot_offset=freeze_slot_offset<<9;
-	  freeze_slot_offset+=(relative_address&0x1FF);
+	  freeze_slot_offset+=(relative_address&0xFFF);
 	  return freeze_slot_offset;
 	}
     }
