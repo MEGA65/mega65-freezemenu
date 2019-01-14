@@ -162,6 +162,9 @@ void setup_menu_screen(void)
   // NTSC 60Hz mode for monitor compatibility?
   POKE(0xD06FU,0x80);
 
+  // Reset border widths
+  POKE(0xD05CU,80); POKE(0xD05DU,0xC0);
+  
   // No sprites
   POKE(0xD015U,0x00);
 
@@ -173,6 +176,7 @@ void setup_menu_screen(void)
   // (which we will use for showing the thumbnail)
   POKE(0xD054U,0x05);
   POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
+
 }  
 
 
@@ -428,7 +432,10 @@ void draw_freeze_menu(void)
     POKE(SCREEN_ADDRESS+i*2+1,0);
   }
 
-  // Now draw the 10x6 character block for thumbnail display
+  // Draw the thumbnail surround area
+  read_file_from_sdcard("C65THUMB.M65",(long)0x052000L);    
+  
+  // Now draw the 10x6 character block for thumbnail display itself
   // This sits in the region below the menu where we will also have left and right arrows,
   // the program name etc, so you can easily browse through the freeze slots.
   for(x=0;x<10;x++)
