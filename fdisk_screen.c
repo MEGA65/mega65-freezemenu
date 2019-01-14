@@ -195,7 +195,11 @@ void setup_screen(void)
   unsigned char v;
 
   m65_io_enable();
-  
+
+
+  // Normal 8-bit text mode
+  POKE(0xD054U,0); 
+
   // 80-column mode, fast CPU, extended attributes enable
   *((unsigned char*)0xD031)=0xe0;
 
@@ -348,8 +352,6 @@ char read_line(char *buffer,unsigned char maxlen)
 	
       }
       
-      //      *(unsigned char *)0x8000 = c;
-
       // Clear keys from hardware keyboard scanner
       // XXX we clear all keys here, and work around a bug that causes crazy
       // fast key repeating. This can be turned back into acknowledging the
