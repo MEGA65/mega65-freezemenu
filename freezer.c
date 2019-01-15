@@ -642,13 +642,24 @@ int main(int argc,char **argv)
 	freeze_poke(0xFFD306fL,freeze_peek(0xFFD306fL)^0x80);
 	draw_freeze_menu();
 	break;
+
+      case 'D': case 'd': // Select mounted disk image
+	{
+	  char *disk_image=freeze_select_disk_image();
+	  if ((unsigned short)disk_image==0xFFFF) {
+	    // Have no disk image
+	  } else if (disk_image) {
+	    // Replace disk image
+	  }
+	}
+	draw_freeze_menu();
+	break;
 	
       case 0xf1: // F1 = backup
       case 0xf7: // F7 = Switch tasks
 
       case 'R': case 'r': // Switch ROMs
 	
-      case 'D': case 'd': // Select mounted disk image
       case 'X': case 'x': // Poke finder
       case 'E': case 'e': // Enter POKEs
       case 'S': case 's': // View sprites

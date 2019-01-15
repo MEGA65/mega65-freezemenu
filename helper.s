@@ -4,7 +4,7 @@
 	.export _unfreeze_slot
 	.export _read_file_from_sdcard
 	.export _get_freeze_slot_count
-	.export _opendir, _readdir
+	.export _opendir, _readdir, _closedir
 	
 	.include "zeropage.inc"
 	
@@ -128,6 +128,15 @@ _read_file_from_sdcard:
 	.p02
 	
 	RTS
+
+	;; closedir takes file descriptor as argument (appears in A)
+_closedir:
+	TAX
+	LDA #$16
+	STA $D640
+	NOP
+	LDX #$00
+	RTS
 	
 	;; Opendir takes no arguments and returns File descriptor in A
 _opendir:
@@ -159,27 +168,35 @@ _readdir:
 	dex
 	bne @l1
 
-	;; Second setup transfer area at $0400
-	LDX #<$0400
-	LDY #>$0400
-	LDA #$3A
-	STA $D640
-	
 	;; Third, call the hypervisor trap
 	;; File descriptor gets passed in in X.
 	;; Result gets written to transfer area we setup at $0400
 	.p4510
 	plx
+	ldy #>$0400 		; write dirent to $0400 
 	lda #$14
 	STA $D640
 	NOP
 
+	bcs @readDirSuccess
+
+	;;  Return end of directory
+	lda #$00
+	ldx #$00
+	RTS
+
+@readDirSuccess:
+	
 	;;  Copy file name
 	ldx #$3f
 @l2:	lda $0400,x
 	sta _readdir_dirent+4+2+4+2,x
 	dex
 	bpl @l2
+	;; make sure it is null terminated
+	ldx $0400+64
+	lda #$00
+	sta _readdir_dirent+4+2+4+2,x
 
 	;; Inode = cluster from offset 64+1+12 = 77
 	ldx #$03

@@ -11,6 +11,7 @@ FILES=		FREEZER.M65 \
 M65IDESOURCES=	freezer.c \
 		frozen_memory.c \
 		freeze_monitor.c \
+		freeze_diskchooser.c \
 		fdisk_memory.c \
 		fdisk_screen.c \
 		fdisk_fat32.c \
@@ -19,6 +20,7 @@ M65IDESOURCES=	freezer.c \
 ASSFILES=	freezer.s \
 		frozen_memory.s \
 		freeze_monitor.s \
+		freeze_diskchooser.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \
