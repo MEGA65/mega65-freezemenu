@@ -126,10 +126,11 @@ int palette_lookup(struct tile_set *ts,int r,int g, int b)
   int i;
   int best_colour=-1;
   int best_colour_error=999999999;
-  
+
+  printf("Matching colour #%02x%02x%02x",r,g,b);
   
   // Do we know this colour already?
-  for(i=0;i<ts->colour_count;i++) {
+  for(i=1;i<ts->colour_count;i++) {
     // We use RGB to grey-scale approx weightings so that we try to preserve
     // brightness
     int colour_error=
@@ -139,7 +140,12 @@ int palette_lookup(struct tile_set *ts,int r,int g, int b)
     if (r==ts->colours[i].r
 	&&g==ts->colours[i].g
 	&&b==ts->colours[i].b) {
+
+      // Fix blue background
+      if (i==0x26) i=0x06;
+      
       // It's a colour we have seen before, so return the index
+      printf(" -- exactly matches colour 0x%02x\n",i);
       return i;
     }
     if (colour_error<best_colour_error) {
@@ -148,7 +154,8 @@ int palette_lookup(struct tile_set *ts,int r,int g, int b)
     }
   }
   
-  return i;
+  printf(" -- approximately matches colour 0x%02x\n",best_colour);
+  return best_colour;
 }
 
 unsigned char nyblswap(unsigned char in)

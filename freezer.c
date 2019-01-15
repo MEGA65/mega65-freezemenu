@@ -347,22 +347,12 @@ void draw_thumbnail(void)
     lcopy((long)sector_buffer,0x8800L+(i*0x200),0x200);
   }
 
-  // First fill with white (it's faster to do this with DMA to draw
-  // the border than to do it in the loop).
-  lfill(0xA000L,0xff,80*50);
-  // Make it all a bit narrower because the thumnail is off-centre
-  for(y=0;y<48;y++) {
-    for(x=0;x<5;x++) {
-      POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,0);      
-    }    
-  }
-  
   // Rearrange pixels
-  for(x=6;x<79;x++)
-    for(y=1;y<47;y++) {
+  for(x=0;x<73;x++)
+    for(y=0;y<48;y++) {
       // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
       POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,
-	   colour_table[PEEK(0x8800U+1+x+(y*80))]);
+	   colour_table[PEEK(0x8800U+1+6+x+(y*80))]);
     }
   // Copy to final area
   lcopy(0xA000U,0x50000U,4096);
@@ -433,15 +423,37 @@ void draw_freeze_menu(void)
   }
 
   // Draw the thumbnail surround area
-  read_file_from_sdcard("C65THUMB.M65",(long)0x052000L);    
+  {
+    uint32_t screen_data_start;
+    unsigned short *tile_num;
+    unsigned short tile_offset;
+    read_file_from_sdcard("C64THUMB.M65",0x052000L);
+
+    // Work out where the tile data begins
+    screen_data_start=0x52000L+0x300L+0x40L;
+    tile_offset=(screen_data_start>>6);
+    // Work out where the screen data begins
+    screen_data_start=lpeek(0x5203dL)+(lpeek(0x5203eL)<<8);
+    screen_data_start+=0x52000L+0x40L;
+    for(y=0;y<13;y++) {
+      // Copy row of screen data
+      lcopy(screen_data_start+(y<<6),SCREEN_ADDRESS+(13*80)+(y*80),(19*2));
+      // Add tile number based on data starting at $52040 = $1481
+      for(x=0;x<19;x++) {
+	tile_num=(unsigned short *)(SCREEN_ADDRESS+(13*80)+(y*80)+(x<<1));
+	if (*tile_num) (*tile_num)+=tile_offset;
+	else *tile_num=0x20;
+      }
+    }
+  }
   
   // Now draw the 10x6 character block for thumbnail display itself
   // This sits in the region below the menu where we will also have left and right arrows,
   // the program name etc, so you can easily browse through the freeze slots.
-  for(x=0;x<10;x++)
+  for(x=0;x<9;x++)
     for(y=0;y<6;y++) {
-      POKE(SCREEN_ADDRESS+(80*16)+(6*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
-      POKE(SCREEN_ADDRESS+(80*16)+(6*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+      POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
+      POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
     }  
 }  
 
