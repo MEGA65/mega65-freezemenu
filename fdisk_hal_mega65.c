@@ -227,7 +227,13 @@ void sdcard_readsector(const uint32_t sector_number)
     timeout=50000U;
     while (PEEK(sd_ctl)&0x3)
       {
-	timeout--; if (!timeout) return;
+	timeout--;
+	if (!timeout) {
+	  // Time out -- so reset SD card
+	  POKE(sd_ctl,0);
+	  POKE(sd_ctl,1);
+	  timeout=50000U;
+	}
 	if (PEEK(sd_ctl)&0x40)
 	  {
 	    return;
