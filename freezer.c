@@ -48,13 +48,17 @@ unsigned char *freeze_menu=
   " X - POKE FINDER     K - SPRITE KILLER  "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
+#define PROCESS_NAME_OFFSET (14*40+21)
   "                                        "
   "                                        "
+#define PROCESS_ID_OFFSET (16*40+34)
+#define SLOT_NUMBER_OFFSET (17*40+34)
+  "                     TASK ID:           "
+  "                     FREEZE SLOT:       "
   "                                        "
+  "                     DISK IMAGE:        "
   "                                        "
-  "                                        "
-  "                                        "
-  "                                        "
+#define D81_IMAGE0_NAME_OFFSET (21*40+21)
   "                                        "
   "                                        "
   "                                        "
@@ -358,6 +362,8 @@ void draw_thumbnail(void)
   lcopy(0xA000U,0x50000U,4096);
 }
 
+struct process_descriptor_t process_descriptor;
+
 void draw_freeze_menu(void)
 {
   unsigned char x,y;
@@ -390,9 +396,7 @@ void draw_freeze_menu(void)
   case 40: lcopy(" 40",&freeze_menu[CPU_FREQ_OFFSET],3); break;
   default: lcopy("???",&freeze_menu[CPU_FREQ_OFFSET],3); break;
   }
-  
-
-  
+    
   if (freeze_peek(0xffd306fL)&0x80) {
     // NTSC60
     lcopy("NTSC60",&freeze_menu[VIDEO_MODE_OFFSET],6);
@@ -400,6 +404,42 @@ void draw_freeze_menu(void)
     // PAL50
     lcopy(" PAL50",&freeze_menu[VIDEO_MODE_OFFSET],6);
   }
+
+  /* Display info from the process descriptor
+     The useful bits are:
+     $00     - Task ID (0-255, $FF = operating system)
+     $01-$10 - Process name (16 characters)
+     $11     - D81 image 0 flags
+     $12     - D81 image 1 flags
+     $13     - D81 image 0 name len
+     $14     - D81 image 1 name len
+     $15-$34 - D81 image 0 file name (max 32 chars, not null terminated)
+     $35-$54 - D81 image 0 file name (max 32 chars, not null terminated)
+     $55-$7F - RESERVED
+     $80-$FF - File descriptors
+
+     We should just read the sector containing all this, and get it out all at once.
+  */  
+  lfill((long)&process_descriptor,0,sizeof(process_descriptor));
+  freeze_fetch_page(0xFFFBD00L,(unsigned char *)&process_descriptor);
+
+  // Display process ID as decimal
+  screen_decimal(&freeze_menu[PROCESS_ID_OFFSET],process_descriptor.task_id);
+
+  // Display slot ID as decimal
+  screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);
+  
+
+  // Process name
+  lcopy(process_descriptor.process_name,&freeze_menu[PROCESS_NAME_OFFSET],16);
+
+  // Show name of current mounted disk image
+  lfill(&freeze_menu[D81_IMAGE0_NAME_OFFSET],' ',19);
+  if (process_descriptor.d81_image0_namelen)
+    lcopy(process_descriptor.d81_image0_name,
+	  &freeze_menu[D81_IMAGE0_NAME_OFFSET],
+	  process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
+	  );
   
   while(PEEK(0xD012U)<0xf8) continue;
   

@@ -120,6 +120,32 @@ unsigned char freeze_peek(uint32_t addr)
 
 }
 
+unsigned char freeze_fetch_page(uint32_t addr,unsigned char *buffer)
+{
+  // Find sector
+  uint32_t freeze_slot_offset=address_to_freeze_slot_offset(addr);
+  unsigned short offset;
+
+  offset=freeze_slot_offset&0x1ff;
+  freeze_slot_offset=freeze_slot_offset>>9L;
+  
+  if (freeze_slot_offset==0xFFFFFFFFL) {
+    // Invalid / unfrozen memory
+    return 0x55;
+  }
+
+  // XXX - We should cache sectors
+  
+  // Read the sector
+  sdcard_readsector(freeze_slot_start_sector+freeze_slot_offset);
+
+  // Return the byte
+  lcopy((long)&sector_buffer[offset],(long)buffer,256);
+  return 0;
+
+}
+
+
 void freeze_poke(uint32_t addr,unsigned char v)
 {
   // Find sector
