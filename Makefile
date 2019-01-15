@@ -58,6 +58,13 @@ pngprepare:	pngprepare.c
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CL65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m freezer.map -o FREEZER.M65 $(ASSFILES)
 
+C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
+
+tools/thumbnail-surround-formatter:
+	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
+
+
 clean:
 	rm -f $(FILES)
 
