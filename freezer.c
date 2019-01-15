@@ -352,7 +352,7 @@ void draw_thumbnail(void)
     for(y=0;y<48;y++) {
       // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
       POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,
-	   colour_table[PEEK(0x8800U+1+6+x+(y*80))]);
+	   colour_table[PEEK(0x8800U+1+7+x+(y*80))]);
     }
   // Copy to final area
   lcopy(0xA000U,0x50000U,4096);
@@ -427,7 +427,7 @@ void draw_freeze_menu(void)
     uint32_t screen_data_start;
     unsigned short *tile_num;
     unsigned short tile_offset;
-    read_file_from_sdcard("C64THUMB.M65",0x052000L);
+    read_file_from_sdcard("C65THUMB.M65",0x052000L);
 
     // Work out where the tile data begins
     screen_data_start=0x52000L+0x300L+0x40L;
