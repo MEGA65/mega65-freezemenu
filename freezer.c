@@ -13,6 +13,10 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+// Used to quickly return from functions if a navigation key has been pressed
+// (used to avoid delays when navigating through the list of freeze slots
+#define NAVIGATION_KEY_CHECK() { if (((PEEK(0xD610U)&0x7f)==0x11)||((PEEK(0xD610U)&0x7f)==0x1D)) return; }
+
 uint8_t sector_buffer[512];
 
 unsigned short slot_number=0;
@@ -289,33 +293,33 @@ char *detect_rom(void)
   // Else guess using detection routines from detect_roms.c
   // These were built using a combination of the ROMs from zimmers.net/pub/c64/firmware,
   // the RetroReplay ROM collection, and the JiffyDOS ROMs
-  if (freeze_peek(0x2e449L)==0x2e) return "C64gs      ";
-  if (freeze_peek(0x2e119L)==0xc9) return "c64 rev1   ";
-  if (freeze_peek(0x2e67dL)==0xb0) return "c64 rev2 JP";
-  if (freeze_peek(0x2ebaeL)==0x5b) return "c64 rev3 DK";
-  if (freeze_peek(0x2e0efL)==0x28) return "c64 scand  ";
-  if (freeze_peek(0x2ebf3L)==0x40) return "c64 sweden ";
-  if (freeze_peek(0x2e461L)==0x20) return "cyclone 1.0";
-  if (freeze_peek(0x2e4a4L)==0x41) return "dolphin 1.0";
-  if (freeze_peek(0x2e47fL)==0x52) return "dolphin 2AU";
-  if (freeze_peek(0x2eed7L)==0x2c) return "dolphin 2p1";
-  if (freeze_peek(0x2e7d2L)==0x6b) return "dolphin 2p2";
-  if (freeze_peek(0x2e4a6L)==0x32) return "dolphin 2p3";
-  if (freeze_peek(0x2e0f9L)==0xaa) return "dolphin 3.0";
-  if (freeze_peek(0x2e462L)==0x45) return "dosrom v1.2";
-  if (freeze_peek(0x2e472L)==0x20) return "mercry3 pal";
-  if (freeze_peek(0x2e16dL)==0x84) return "mercry ntsc";
-  if (freeze_peek(0x2e42dL)==0x4c) return "pet 4064   ";
-  if (freeze_peek(0x2e1d9L)==0xa6) return "sx64 croach";
-  if (freeze_peek(0x2eba9L)==0x2d) return "sx64 scand ";
-  if (freeze_peek(0x2e476L)==0x2a) return "trboacs 2.6";
-  if (freeze_peek(0x2e535L)==0x07) return "trboacs 3p1";
-  if (freeze_peek(0x2e176L)==0x8d) return "trboacs 3p2";
-  if (freeze_peek(0x2e42aL)==0x72) return "trboproc us";
-  if (freeze_peek(0x2e4acL)==0x81) return "c64c 251913";
-  if (freeze_peek(0x2e479L)==0x2a) return "c64 rev2   ";
-  if (freeze_peek(0x2e535L)==0x06) return "sx64 rev4  ";
-  return "unknown rom";
+  if (freeze_peek(0x2e449L)==0x2e) return "C64GS      ";
+  if (freeze_peek(0x2e119L)==0xc9) return "C64 REV1   ";
+  if (freeze_peek(0x2e67dL)==0xb0) return "C64 REV2 JP";
+  if (freeze_peek(0x2ebaeL)==0x5b) return "C64 REV3 DK";
+  if (freeze_peek(0x2e0efL)==0x28) return "C64 SCAND  ";
+  if (freeze_peek(0x2ebf3L)==0x40) return "C64 SWEDEN ";
+  if (freeze_peek(0x2e461L)==0x20) return "CYCLONE 1.0";
+  if (freeze_peek(0x2e4a4L)==0x41) return "DOLPHIN 1.0";
+  if (freeze_peek(0x2e47fL)==0x52) return "DOLPHIN 2AU";
+  if (freeze_peek(0x2eed7L)==0x2c) return "DOLPHIN 2P1";
+  if (freeze_peek(0x2e7d2L)==0x6b) return "DOLPHIN 2P2";
+  if (freeze_peek(0x2e4a6L)==0x32) return "DOLPHIN 2P3";
+  if (freeze_peek(0x2e0f9L)==0xaa) return "DOLPHIN 3.0";
+  if (freeze_peek(0x2e462L)==0x45) return "DOSROM V1.2";
+  if (freeze_peek(0x2e472L)==0x20) return "MERCRY3 PAL";
+  if (freeze_peek(0x2e16dL)==0x84) return "MERCRY NTSC";
+  if (freeze_peek(0x2e42dL)==0x4c) return "PET 4064   ";
+  if (freeze_peek(0x2e1d9L)==0xa6) return "SX64 CROACH";
+  if (freeze_peek(0x2eba9L)==0x2d) return "SX64 SCAND ";
+  if (freeze_peek(0x2e476L)==0x2a) return "TRBOACS 2.6";
+  if (freeze_peek(0x2e535L)==0x07) return "TRBOACS 3P1";
+  if (freeze_peek(0x2e176L)==0x8d) return "TRBOASC 3P2";
+  if (freeze_peek(0x2e42aL)==0x72) return "TRBOPROC US";
+  if (freeze_peek(0x2e4acL)==0x81) return "C64C 251913";
+  if (freeze_peek(0x2e479L)==0x2a) return "C64 REV2   ";
+  if (freeze_peek(0x2e535L)==0x06) return "SX64 REV4  ";
+  return "UNKNOWN ROM";
 }  
 
 void draw_thumbnail(void)
@@ -339,7 +343,9 @@ void draw_thumbnail(void)
   // render the thumbnail at $9000, and then copy it into place with
   // a single DMA.
   unsigned char x,y,i;
+  unsigned short yoffset;
   uint32_t thumbnail_sector=find_thumbnail_offset();
+
   // Can't find thumbnail area?  Then show no thumbnail
   if (thumbnail_sector==0xFFFFFFFFL) {
     lfill(0x50000L,0,10*6*64);
@@ -349,15 +355,20 @@ void draw_thumbnail(void)
   for(i=0;i<8;i++) {
     sdcard_readsector(freeze_slot_start_sector+thumbnail_sector+i);
     lcopy((long)sector_buffer,0x8800L+(i*0x200),0x200);
+    NAVIGATION_KEY_CHECK();
   }
 
   // Rearrange pixels
-  for(x=0;x<73;x++)
-    for(y=0;y<48;y++) {
+  yoffset=0;
+  for(y=0;y<48;y++) {
+    for(x=0;x<73;x++) {
       // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
       POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,
-	   colour_table[PEEK(0x8800U+1+7+x+(y*80))]);
+	   colour_table[PEEK(0x8800U+1+7+x+yoffset)]);
     }
+    NAVIGATION_KEY_CHECK();
+    yoffset+=80;
+  }
   // Copy to final area
   lcopy(0xA000U,0x50000U,4096);
 }
@@ -430,16 +441,22 @@ void draw_freeze_menu(void)
   screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);
   
 
-  // Process name
-  lcopy(process_descriptor.process_name,&freeze_menu[PROCESS_NAME_OFFSET],16);
-
-  // Show name of current mounted disk image
+  // Blank out process descriptor fields
+  lfill(&freeze_menu[PROCESS_NAME_OFFSET],' ',16);
   lfill(&freeze_menu[D81_IMAGE0_NAME_OFFSET],' ',19);
-  if (process_descriptor.d81_image0_namelen)
-    lcopy(process_descriptor.d81_image0_name,
-	  &freeze_menu[D81_IMAGE0_NAME_OFFSET],
-	  process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
-	  );
+
+  if ((process_descriptor.process_name[0]>=' ')
+      &&(process_descriptor.process_name[0]<=0x7f)) {
+    // Process name
+    lcopy(process_descriptor.process_name,&freeze_menu[PROCESS_NAME_OFFSET],16);
+    
+    // Show name of current mounted disk image  
+    if (process_descriptor.d81_image0_namelen)
+      lcopy(process_descriptor.d81_image0_name,
+	    &freeze_menu[D81_IMAGE0_NAME_OFFSET],
+	    process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
+	    );
+  }
   
   while(PEEK(0xD012U)<0xf8) continue;
   
@@ -463,37 +480,39 @@ void draw_freeze_menu(void)
   }
 
   // Draw the thumbnail surround area
-  {
-    uint32_t screen_data_start;
-    unsigned short *tile_num;
-    unsigned short tile_offset;
-    read_file_from_sdcard("C65THUMB.M65",0x052000L);
-
-    // Work out where the tile data begins
-    screen_data_start=0x52000L+0x300L+0x40L;
-    tile_offset=(screen_data_start>>6);
-    // Work out where the screen data begins
-    screen_data_start=lpeek(0x5203dL)+(lpeek(0x5203eL)<<8);
-    screen_data_start+=0x52000L+0x40L;
-    for(y=0;y<13;y++) {
-      // Copy row of screen data
-      lcopy(screen_data_start+(y<<6),SCREEN_ADDRESS+(13*80)+(y*80),(19*2));
-      // Add tile number based on data starting at $52040 = $1481
-      for(x=0;x<19;x++) {
-	tile_num=(unsigned short *)(SCREEN_ADDRESS+(13*80)+(y*80)+(x<<1));
-	if (*tile_num) (*tile_num)+=tile_offset;
-	else *tile_num=0x20;
+  if ((process_descriptor.process_name[0]>=' ')
+      &&(process_descriptor.process_name[0]<=0x7f)) 
+    {
+      uint32_t screen_data_start;
+      unsigned short *tile_num;
+      unsigned short tile_offset;
+      read_file_from_sdcard("C65THUMB.M65",0x052000L);
+      
+      // Work out where the tile data begins
+      screen_data_start=0x52000L+0x300L+0x40L;
+      tile_offset=(screen_data_start>>6);
+      // Work out where the screen data begins
+      screen_data_start=lpeek(0x5203dL)+(lpeek(0x5203eL)<<8);
+      screen_data_start+=0x52000L+0x40L;
+      for(y=0;y<13;y++) {
+	// Copy row of screen data
+	lcopy(screen_data_start+(y<<6),SCREEN_ADDRESS+(13*80)+(y*80),(19*2));
+	// Add tile number based on data starting at $52040 = $1481
+	for(x=0;x<19;x++) {
+	  tile_num=(unsigned short *)(SCREEN_ADDRESS+(13*80)+(y*80)+(x<<1));
+	  if (*tile_num) (*tile_num)+=tile_offset;
+	  else *tile_num=0x20;
+	}
       }
-    }
-  }
-  
-  // Now draw the 10x6 character block for thumbnail display itself
-  // This sits in the region below the menu where we will also have left and right arrows,
-  // the program name etc, so you can easily browse through the freeze slots.
-  for(x=0;x<9;x++)
-    for(y=0;y<6;y++) {
-      POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
-      POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+
+      // Now draw the 10x6 character block for thumbnail display itself
+      // This sits in the region below the menu where we will also have left and right arrows,
+      // the program name etc, so you can easily browse through the freeze slots.
+      for(x=0;x<9;x++)
+	for(y=0;y<6;y++) {
+	  POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
+	  POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+	}
     }  
 }  
 
@@ -540,10 +559,41 @@ int main(int argc,char **argv)
   
   // Main keyboard input loop
   while(1) {
-    if (PEEK(0xD610U)) {
+    if (PEEK(0xD610U)) {    
+
+      unsigned char c=PEEK(0xD610U);
+      
+      // Flush char from input buffer
+      POKE(0xD610U,0);
       
       // Process char
-      switch(PEEK(0xD610U)) {
+      switch(c) {
+	
+      case 0x11: // Cursor down
+      case 0x9D: // Cursor left
+	if (slot_number) slot_number--; else slot_number=get_freeze_slot_count()-1;
+	POKE(0xD020U,0);
+	find_freeze_slot_start_sector(slot_number);
+	freeze_slot_start_sector = *(uint32_t *)0xD681U;
+	draw_freeze_menu();
+	if ((process_descriptor.process_name[0]>=' ')
+	    &&(process_descriptor.process_name[0]<=0x7f)) 	  
+	  draw_thumbnail();
+	POKE(0xD020U,6);
+	break;
+      case 0x91: // Cursor up
+      case 0x1D: // Cursor right
+	if ((slot_number+1)<get_freeze_slot_count()) slot_number++; else slot_number=0;
+	POKE(0xD020U,0);
+	find_freeze_slot_start_sector(slot_number);
+	freeze_slot_start_sector = *(uint32_t *)0xD681U;
+	draw_freeze_menu();
+	if ((process_descriptor.process_name[0]>=' ')
+	    &&(process_descriptor.process_name[0]<=0x7f)) 	  
+	  draw_thumbnail();
+	POKE(0xD020U,6);
+	break;
+  
       case 0xf3: // F3 = resume
 	// Load memory from freeze slot $0000, i.e., the temporary save space
 	// This implicitly restarts the frozen program
@@ -603,8 +653,6 @@ int main(int argc,char **argv)
 	break;
       }
       
-      // Flush char from input buffer
-      POKE(0xD610,0);
     }
   }
   
