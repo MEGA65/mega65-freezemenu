@@ -3,7 +3,8 @@
 	.export _find_freeze_slot_start_sector
 	.export _unfreeze_slot
 	.export _read_file_from_sdcard
-
+	.export _get_freeze_slot_count
+	
 	.include "zeropage.inc"
 	
 .SEGMENT "CODE"
@@ -22,6 +23,18 @@ _unfreeze_slot:
 	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
 	RTS
 
+_get_freeze_slot_count:	
+
+	;; Call hypervisor trap
+	LDA #$16    ; subfunction for syspart trap to get freeze region list
+	STA $D642   ; trigger hypervisor trap
+	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
+
+	txa
+	phy
+	plx
+	
+	RTS	
 	
 _fetch_freeze_region_list_from_hypervisor:
 
