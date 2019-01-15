@@ -442,20 +442,28 @@ void draw_freeze_menu(void)
   
 
   // Blank out process descriptor fields
-  lfill(&freeze_menu[PROCESS_NAME_OFFSET],' ',16);
+  lfill(&freeze_menu[PROCESS_NAME_OFFSET],'?',16);
   lfill(&freeze_menu[D81_IMAGE0_NAME_OFFSET],' ',19);
 
   if ((process_descriptor.process_name[0]>=' ')
       &&(process_descriptor.process_name[0]<=0x7f)) {
-    // Process name
-    lcopy(process_descriptor.process_name,&freeze_menu[PROCESS_NAME_OFFSET],16);
+    // Process name: But only display if valid
+    for(i=0;i<16;i++)
+      if (!process_descriptor.process_name[i]) break;
+    if (i==16)
+      lcopy(process_descriptor.process_name,&freeze_menu[PROCESS_NAME_OFFSET],16);
+    
     
     // Show name of current mounted disk image  
-    if (process_descriptor.d81_image0_namelen)
-      lcopy(process_descriptor.d81_image0_name,
-	    &freeze_menu[D81_IMAGE0_NAME_OFFSET],
-	    process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
-	    );
+    if (process_descriptor.d81_image0_namelen) {
+      for(i=0;i<process_descriptor.d81_image0_namelen;i++)
+	if (!process_descriptor.d81_image0_name[i]) break;
+      if (i==process_descriptor.d81_image0_namelen)
+	lcopy(process_descriptor.d81_image0_name,
+	      &freeze_menu[D81_IMAGE0_NAME_OFFSET],
+	      process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
+	      );
+    }
   }
   
   while(PEEK(0xD012U)<0xf8) continue;
@@ -481,7 +489,7 @@ void draw_freeze_menu(void)
 
   // Draw the thumbnail surround area
   if ((process_descriptor.process_name[0]>=' ')
-      &&(process_descriptor.process_name[0]<=0x7f)) 
+      &&(process_descriptor.process_name[0]<=0x7f))
     {
       uint32_t screen_data_start;
       unsigned short *tile_num;
