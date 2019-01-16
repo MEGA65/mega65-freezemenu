@@ -51,6 +51,152 @@ unsigned char highlight_row[40]={
   0,0x21,0,0x21,0,0x21,0,0x21
 };
 
+unsigned char dir_line_colour[40]={
+  0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,
+  0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,
+  0,0xe,0,0xe,0,0xe,0,0xe
+};
+
+char disk_name_return[32];
+
+char draw_directory_entry(unsigned char screen_row)
+{
+  char type;
+  char firsta0=1;
+  char invalid=0;
+  unsigned char i,c;
+  // Skip first 5 bytes
+  for(i=0;i<2;i++) c=PEEK(0xD087U);
+  type=PEEK(0xD087U);
+  if (!(type&0xf)) invalid=1;
+  for(i=0;i<2;i++) c=PEEK(0xD087U);
+  // Then draw the 16 chars with quotes
+  POKE(SCREEN_ADDRESS+(screen_row*80)+(21*2),'"');
+  for(i=0;i<16;i++) {
+    c=PEEK(0xD087U);
+    if (!c) invalid=1;
+    if (firsta0&&(c==0xa0)) {
+      POKE(SCREEN_ADDRESS+(screen_row*80)+(22*2)+(i*2),0x22);
+      firsta0=0;
+    } else {
+      if (c>='A'&&c<='Z') c&=0x1f;
+      if (c>='a'&&c<='z') c&=0x1f;
+      POKE(SCREEN_ADDRESS+(screen_row*80)+(22*2)+(i*2),c&0x7f);
+    }      
+  }
+  if (firsta0) {
+    POKE(SCREEN_ADDRESS+(screen_row*80)+(38*2),'"');
+  }
+  if (type&0x40)
+    POKE(SCREEN_ADDRESS+(screen_row*80)+(39*2),'<');
+  if (!type&0xf0)
+    POKE(SCREEN_ADDRESS+(screen_row*80)+(39*2),'*');
+  
+  // Read the rest of the entry to advance buffer pointer nicely
+  for(i=0;i<11;i++) c=PEEK(0xD087U);
+
+  if (invalid) {
+    // Erase whatever we drew
+    for(i=21;i<40;i++)POKE(SCREEN_ADDRESS+(screen_row*80)+(i*2),' ');    
+  } else {
+    lcopy(dir_line_colour,COLOUR_RAM_ADDRESS+(screen_row*80)+(21*2),19*2);
+  }
+  
+  return invalid;
+}
+
+void draw_directory_contents(void)
+{
+  unsigned char x,c,i;
+  
+  lcopy(0x40000L+(selection_number*64),disk_name_return,32);
+  // Then null terminate it
+  for(x=31;x;x--)
+    if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
+  
+  // Try to mount it, with border black while working
+  POKE(0xD020U,0);
+  if (mega65_dos_attachd81(disk_name_return)) {
+    // Mounting the image failed
+    POKE(0xD020U,2);
+    
+    // XXX - Get DOS error code, and replace directory listing area with
+    // appropriate error message    
+    return;
+  }
+  POKE(0xD020U,6);
+
+  // Exit if a key has been pressed
+  if (PEEK(0xD610U)) return;
+  
+  // Mounted disk, so now get the directory.
+
+  // Read T40 S1 (sectors begin at 1, not 0)
+  POKE(0xD080U,0x60); // motor and LED on
+  POKE(0xD081U,0x20); // Wait for motor spin up
+  POKE(0xD084U,39); POKE(0xD085U,1); POKE(0xD086U,0);
+  while (PEEK(0xD082U)&0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+  }
+  POKE(0xD081U,0x41); // Read sector
+  while (PEEK(0xD082U)&0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+  }
+  if (PEEK(0xD082U)&0x18) return;   // abort if the sector read failed
+
+  // Disk name is in bytes $04-$14, so skip first four bytes of sector buffer
+  // (we have to assign the PEEK here, so it doesn't get optimised away)
+  for(x=0;x<4;x++) c=PEEK(0xD087U);
+  // Then draw title at the top of the screen
+  for(x=0;x<16;x++) {
+    c=PEEK(0xD087U);
+    if (c>='A'&&c<='Z') c&=0x1f;
+    if (c>='a'&&c<='z') c&=0x1f;
+    POKE(SCREEN_ADDRESS+(21*2)+(x*2),c&0x7f);
+  }
+  // reverse for disk title
+  for(i=0;i<16;i++) lpoke(COLOUR_RAM_ADDRESS+(21*2)+1+i*2,0x2e);
+  
+  if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+
+  POKE(0xD084U,39); POKE(0xD085U,2); POKE(0xD086U,0);
+  while (PEEK(0xD082U)&0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+  }
+  POKE(0xD081U,0x41); // Read sector
+  while (PEEK(0xD082U)&0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+  }
+  if (PEEK(0xD082U)&0x18) return;   // abort if the sector read failed
+  // Skip 1st half of sector
+  x=0; do c=PEEK(0xD087U); while(++x);
+  x=1; // begin drawing on row 1 of screen
+  for(i=0;i<8;i++) if (!draw_directory_entry(x)) x++;
+  POKE(0xD084U,39); POKE(0xD085U,3); POKE(0xD086U,0);
+  while (PEEK(0xD082U)&0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+  }
+  POKE(0xD081U,0x41); // Read sector
+  while (PEEK(0xD082U)&0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) { POKE(0xD080U,0); return; }
+  }
+  if (PEEK(0xD082U)&0x18) return;   // abort if the sector read failed
+  for(i=0;i<16;i++) {
+    if (!draw_directory_entry(x)) x++;
+    if (x>=23) break;
+  }
+
+  // Turn floppy LED and motor back off
+  POKE(0xD080U,0);
+  
+}
+
 void draw_disk_image_list(void)
 {
   unsigned addr=SCREEN_ADDRESS;
@@ -62,6 +208,11 @@ void draw_disk_image_list(void)
   POKE(SCREEN_ADDRESS+2,' ');
   POKE(SCREEN_ADDRESS+3,0);
   lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+4,40*2*23-4);
+  lpoke(COLOUR_RAM_ADDRESS+0,0);
+  lpoke(COLOUR_RAM_ADDRESS+1,1);
+  lpoke(COLOUR_RAM_ADDRESS+2,0);
+  lpoke(COLOUR_RAM_ADDRESS+3,1);
+  lcopy(COLOUR_RAM_ADDRESS,COLOUR_RAM_ADDRESS+4,40*2*23-4);
 
   // Draw instructions
   for(i=0;i<80;i++) {
@@ -101,16 +252,16 @@ void draw_disk_image_list(void)
     }
     addr+=(40*2);  
   }
+
   
 }
 
-
-char disk_name_return[32];
 char *freeze_select_disk_image(void)
 {
   unsigned char x,dir;
   struct m65_dirent *dirent;
-
+  int idle_time=0;
+  
   file_count=0;
   selection_number=0;
   display_offset=0;
@@ -151,7 +302,15 @@ char *freeze_select_disk_image(void)
   while(1) {
     x=PEEK(0xD610U);
 
-    if (!x) continue;
+    if (!x) {
+      idle_time++;
+      if (idle_time==100) {
+	// After sitting idle for 1 second, try mounting disk image and displaying directory listing
+	draw_directory_contents();
+      }
+      usleep(10000);
+      continue;
+    } else idle_time=0;
 
     // Clear read key
     POKE(0xD610U,0);

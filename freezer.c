@@ -203,6 +203,7 @@ void screen_of_death(char *msg)
   POKE(0xD05DU,0x01); POKE(0xD011U,0x1b); POKE(0xD016U,0xc8);
   POKE(0xD018U,0x17); // lower case
   POKE(0xD06FU,0x80); // NTSC 60Hz mode for monitor compatibility?
+  POKE(0xD06AU,0x00); // Charset from bank 0
 
   // No sprites
   POKE(0xD015U,0x00);
