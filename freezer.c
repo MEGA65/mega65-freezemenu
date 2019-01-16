@@ -545,6 +545,9 @@ int main(int argc,char **argv)
   // No decimal mode!
   __asm__("cld");
 
+  // Enable extended attributes so we can use reverse
+  POKE(0xD031U,PEEK(0xD031U)|0x20);
+    
   set_palette();
   
   request_freeze_region_list();
