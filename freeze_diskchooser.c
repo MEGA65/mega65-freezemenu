@@ -33,6 +33,10 @@ short display_offset=0;
 
 char *reading_disk_list_message="SCANNING DIRECTORY ...";
 
+char *diskchooser_instructions=
+  "  SELECT DISK IMAGE, THEN PRESS RETURN  "
+  "  OR PRESS RUN/STOP TO LEAVE UNCHANGED  ";
+
 unsigned char normal_row[40]={
   0,1,0,1,0,1,0,1,
   0,1,0,1,0,1,0,1,
@@ -57,8 +61,22 @@ void draw_disk_image_list(void)
   POKE(SCREEN_ADDRESS+1,0);
   POKE(SCREEN_ADDRESS+2,' ');
   POKE(SCREEN_ADDRESS+3,0);
-  lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+4,40*2*25-4);
+  lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+4,40*2*23-4);
 
+  // Draw instructions
+  for(i=0;i<80;i++) {
+    if (diskchooser_instructions[i]>='A'&&diskchooser_instructions[i]<='Z') 
+      POKE(SCREEN_ADDRESS+23*80+(i<<1)+0,diskchooser_instructions[i]&0x1f);
+    else
+      POKE(SCREEN_ADDRESS+23*80+(i<<1)+0,diskchooser_instructions[i]);
+    POKE(SCREEN_ADDRESS+23*80+(i<<1)+1,0);
+  }
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*80)+0,40);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*80)+40,40);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(24*80)+0,40);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(24*80)+40,40);
+
+  
   for(i=0;i<23;i++) {
     if ((display_offset+i)<file_count) {
       // Real line
@@ -108,7 +126,6 @@ char *freeze_select_disk_image(void)
     POKE(SCREEN_ADDRESS+12*40*2+(9*2)+(x*2),reading_disk_list_message[x]&0x3f);
 
   dir=opendir();
-
   dirent=readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
     x=strlen(dirent->d_name)-4;
@@ -116,7 +133,7 @@ char *freeze_select_disk_image(void)
       if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
 	// File is a disk image
 	lfill(0x40000L+(file_count*64),' ',64);
-	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x);
+	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
 	file_count++;
       }
     }
@@ -142,6 +159,13 @@ char *freeze_select_disk_image(void)
     switch(x) {
     case 0x03:             // RUN-STOP = make no change
       return NULL;
+    case 0x0d:             // Return = select this disk.
+      // Copy name out
+      lcopy(0x40000L+(selection_number*64),disk_name_return,32);
+      // Then null terminate it
+      for(x=31;x;x--)
+	if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
+      return disk_name_return;      
     case 0x11: case 0x9d:  // Cursor down or left
       selection_number++;
       if (selection_number>=file_count) selection_number=0;
