@@ -652,15 +652,20 @@ int main(int argc,char **argv)
 	  if ((unsigned short)disk_image==0xFFFF) {
 	    // Have no disk image
 	  } else if (disk_image) {
-	    // Replace disk image name in process descriptor block
-	    unsigned char i;
-	    for(i=0;(i<64)&&disk_image[i];i++)
-	      freeze_poke(0xFFFBD00L+0x15+i,disk_image[i]);
-	    // Update length of name
-	    freeze_poke(0xFFFBD00L+0x13,i);
-	    // Pad with spaces as required by hypervisor
-	    for(;i<64;i++)
-	      freeze_poke(0xFFFBD00L+0x15+i,' ');
+
+	      {
+	      unsigned char i;
+	      POKE(0xD020U,6);
+	    
+	      // Replace disk image name in process descriptor block
+	      for(i=0;(i<64)&&disk_image[i];i++)
+		freeze_poke(0xFFFBD00L+0x15+i,disk_image[i]);
+	      // Update length of name
+	      freeze_poke(0xFFFBD00L+0x13,i);
+	      // Pad with spaces as required by hypervisor
+	      for(;i<64;i++)
+		freeze_poke(0xFFFBD00L+0x15+i,' ');
+	    }
 	  }
 	}
 	draw_freeze_menu();

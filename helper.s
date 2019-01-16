@@ -1,15 +1,61 @@
 
+	.export _mega65_dos_attachd81
 	.export	_fetch_freeze_region_list_from_hypervisor
 	.export _find_freeze_slot_start_sector
 	.export _unfreeze_slot
 	.export _read_file_from_sdcard
 	.export _get_freeze_slot_count
-	.export _opendir, _readdir, _closedir
+	.export _opendir, _readdir, _closedir	
 	
 	.include "zeropage.inc"
 	
 .SEGMENT "CODE"
 
+_mega65_dos_attachd81:
+	;; char mega65_dos_attachd81(char *image_name);
+
+	;; Get pointer to file name
+	;; sp here is the ca65 sp ZP variable, not the stack pointer of a 4510
+	ldy #1
+	lda (sp),y
+	sta ptr1+1
+	sta $0441
+	dey
+	lda (sp),y
+	sta ptr1
+	sta $0440
+	
+	;; Copy file name
+	ldy #0
+@NameCopyLoop:
+	lda (ptr1),y
+	sta $0400,y
+	iny
+	cmp #0
+	bne @NameCopyLoop
+	
+	;;  Call dos_setname()
+	ldy #>$0400
+	ldx #<$0400
+	lda #$2E     		; dos_setname Hypervisor trap
+	STA $D640		; Do hypervisor trap
+	NOP			; Wasted instruction slot required following hyper trap instruction
+	;; XXX Check for error (carry would be clear)
+
+	;; Try to attach it
+	LDA #$40
+	STA $D640
+	NOP
+
+	;; return inverted carry flag, so result of 0 = success
+	PHP
+	PLA
+	AND #$01
+	EOR #$01
+	LDX #$00
+	
+	RTS
+	
 _unfreeze_slot:	
 
 	;; Move 16-bit address from A/X to X/Y

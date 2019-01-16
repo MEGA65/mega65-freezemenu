@@ -165,12 +165,30 @@ char *freeze_select_disk_image(void)
       // Then null terminate it
       for(x=31;x;x--)
 	if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
-      return disk_name_return;      
+
+      // Try to mount it, with border black while working
+      POKE(0xD020U,0);
+      if (mega65_dos_attachd81(disk_name_return)) {
+	// Mounting the image failed
+	POKE(0xD020U,2);
+
+	// XXX - Get DOS error code, and replace directory listing area with
+	// appropriate error message
+
+	break;
+      }
+      POKE(0xD020U,6);
+
+      // Mounted ok, so return this image
+      return disk_name_return;
+      break;
     case 0x11: case 0x9d:  // Cursor down or left
+      POKE(0xD020U,6);
       selection_number++;
       if (selection_number>=file_count) selection_number=0;
       break;
     case 0x91: case 0x1d:  // Cursor up or right
+      POKE(0xD020U,6);
       selection_number--;
       if (selection_number<0) selection_number=file_count-1;
       break;
