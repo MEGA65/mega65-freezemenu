@@ -6,7 +6,8 @@ LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
 		C65THUMB.M65 \
-		C64THUMB.M65
+		C64THUMB.M65 \
+		GUSTHUMB.M65
 
 M65IDESOURCES=	freezer.c \
 		frozen_memory.c \
@@ -64,6 +65,9 @@ FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CL65)
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
+
+GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatter
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 
 
 tools/thumbnail-surround-formatter:
 	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
