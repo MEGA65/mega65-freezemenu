@@ -487,15 +487,27 @@ void draw_freeze_menu(void)
       POKE(SCREEN_ADDRESS+i*2+0,freeze_menu[i]);
     POKE(SCREEN_ADDRESS+i*2+1,0);
   }
-
+  
   // Draw the thumbnail surround area
   if ((process_descriptor.process_name[0]>=' ')
       &&(process_descriptor.process_name[0]<=0x7f))
     {
+      unsigned char snail=0;
       uint32_t screen_data_start;
       unsigned short *tile_num;
       unsigned short tile_offset;
-      read_file_from_sdcard("C65THUMB.M65",0x052000L);
+      if (detect_rom()[3]=='5') {
+	if (detect_cpu_speed()==1) {
+	  read_file_from_sdcard("GUSTHUMB.M65",0x052000L);
+	  snail=1;
+	} else {
+	  read_file_from_sdcard("C65THUMB.M65",0x052000L);
+	  snail=0;
+	}
+      } else {
+	read_file_from_sdcard("C64THUMB.M65",0x052000L);
+	snail=0;
+      }
       
       // Work out where the tile data begins
       screen_data_start=0x52000L+0x300L+0x40L;
@@ -517,12 +529,20 @@ void draw_freeze_menu(void)
       // Now draw the 10x6 character block for thumbnail display itself
       // This sits in the region below the menu where we will also have left and right arrows,
       // the program name etc, so you can easily browse through the freeze slots.
-      for(x=0;x<9;x++)
-	for(y=0;y<6;y++) {
-	  POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
-	  POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
-	}
-    }  
+      if (snail) {
+	for(x=0;x<9;x++)
+	  for(y=0;y<6;y++) {
+	    POKE(SCREEN_ADDRESS+(80*16)+(8*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
+	    POKE(SCREEN_ADDRESS+(80*16)+(8*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+	  }
+      } else {
+	for(x=0;x<9;x++)
+	  for(y=0;y<6;y++) {
+	    POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+0,x*6+y); // $50000 base address
+	    POKE(SCREEN_ADDRESS+(80*14)+(5*2)+(x*2)+(y*80)+1,0x14); // $50000 base address
+	  }
+      }
+    }
 }  
 
 #ifdef __CC65__
