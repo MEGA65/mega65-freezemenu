@@ -508,6 +508,12 @@ void draw_freeze_menu(void)
 	read_file_from_sdcard("C64THUMB.M65",0x052000L);
 	snail=0;
       }
+#if 0
+      if (detect_cpu_speed()==40) {
+	read_file_from_sdcard("F40THUMB.M65",0x052000L);
+	snail=1;
+      }
+#endif
       
       // Work out where the tile data begins
       screen_data_start=0x52000L+0x300L+0x40L;
