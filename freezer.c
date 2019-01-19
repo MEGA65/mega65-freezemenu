@@ -35,7 +35,8 @@ unsigned char *freeze_menu=
   "         MEGA65 FREEZE MENU V0.1        "
   "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
   " cccccccccccccccccccccccccccccccccccccc "
-  " F1 - BACKUP  F3 - RESTART  F7 - SWITCH "
+#define LOAD_RESUME_OFFSET (3*40+4)
+  " F3-LOAD      F5-SWAP   F7-SAVE TO SLOT "
   " cccccccccccccccccccccccccccccccccccccc "
 #define CPU_MODE_OFFSET (5*40+13)
 #define ROM_PROTECT_OFFSET (5*40+36)
@@ -58,6 +59,7 @@ unsigned char *freeze_menu=
 #define PROCESS_ID_OFFSET (16*40+34)
 #define SLOT_NUMBER_OFFSET (17*40+34)
   "                     TASK ID:           "
+#define FREEZE_SLOT_OFFSET (17*40+20)
   "                     FREEZE SLOT:       "
   "                                        "
   "                     DISK IMAGE:        "
@@ -383,6 +385,19 @@ void draw_freeze_menu(void)
 
   // Update messages based on the settings we allow to be easily changed
 
+  if (slot_number) {
+    lcopy("LOAD  ",&freeze_menu[LOAD_RESUME_OFFSET],6);
+    // Display slot ID as decimal
+    screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);
+    lcopy("FREEZE SLOT:       ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
+  
+  } else {
+    lcopy("RESUME",&freeze_menu[LOAD_RESUME_OFFSET],6);
+
+    // Display "- PAUSED STATE -"
+    lcopy(" - PAUSED STATE -   ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
+  }
+  
   // CPU MODE
   if (freeze_peek(0xffd367dL)&0x20)
     lcopy("  4502",&freeze_menu[CPU_MODE_OFFSET],6);
@@ -438,9 +453,6 @@ void draw_freeze_menu(void)
   // Display process ID as decimal
   screen_decimal(&freeze_menu[PROCESS_ID_OFFSET],process_descriptor.task_id);
 
-  // Display slot ID as decimal
-  screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);
-  
 
   // Blank out process descriptor fields
   lfill(&freeze_menu[PROCESS_NAME_OFFSET],'?',16);
@@ -574,6 +586,9 @@ int main(int argc,char **argv)
 
   // Enable extended attributes so we can use reverse
   POKE(0xD031U,PEEK(0xD031U)|0x20);
+
+  // Correct horizontal scaling
+  POKE(0xD05AU,0x78);
     
   set_palette();
   
@@ -698,8 +713,25 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 	
-      case 0xf1: // F1 = backup
-      case 0xf7: // F7 = Switch tasks
+      case 0xf7: // F7 = save to slot
+	{
+	  // Get start sectors of the source and destination slots
+	  unsigned short i;
+	  uint32_t dest_freeze_slot_start_sector;
+	  find_freeze_slot_start_sector(0);
+	  freeze_slot_start_sector = *(uint32_t *)0xD681U;
+	  find_freeze_slot_start_sector(slot_number);
+	  dest_freeze_slot_start_sector = *(uint32_t *)0xD681U;
+	  // 512KB = 1024 sectors
+	  for(i=0;i<1024;i++) {
+	    POKE(0xD020U,0x0e);
+	    sdcard_readsector(freeze_slot_start_sector+i);
+	    POKE(0xD020U,0x00);
+	    sdcard_writesector(dest_freeze_slot_start_sector+i);
+	  }
+	  POKE(0xD020U,6);
+	}
+	break;
 
       case 'R': case 'r': // Switch ROMs
 	
