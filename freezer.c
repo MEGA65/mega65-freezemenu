@@ -387,10 +387,9 @@ void draw_freeze_menu(void)
 
   if (slot_number) {
     lcopy("LOAD  ",&freeze_menu[LOAD_RESUME_OFFSET],6);
+    lcopy(" FREEZE SLOT:      ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
     // Display slot ID as decimal
-    screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);
-    lcopy("FREEZE SLOT:       ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
-  
+    screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);  
   } else {
     lcopy("RESUME",&freeze_menu[LOAD_RESUME_OFFSET],6);
 
@@ -717,17 +716,25 @@ int main(int argc,char **argv)
 	{
 	  // Get start sectors of the source and destination slots
 	  unsigned short i;
+	  unsigned char j;
 	  uint32_t dest_freeze_slot_start_sector;
 	  find_freeze_slot_start_sector(0);
 	  freeze_slot_start_sector = *(uint32_t *)0xD681U;
 	  find_freeze_slot_start_sector(slot_number);
 	  dest_freeze_slot_start_sector = *(uint32_t *)0xD681U;
 	  // 512KB = 1024 sectors
-	  for(i=0;i<1024;i++) {
-	    POKE(0xD020U,0x0e);
-	    sdcard_readsector(freeze_slot_start_sector+i);
+	  // Process in 64KB blocks, to try to make life easier for the SD card controller
+	  for(i=0;i<1024;i+=128) {
+	    POKE(0xD020U,0x0e);	    
+	    for(j=0;j<128;j++) {
+	      sdcard_readsector(freeze_slot_start_sector+i+j);
+	      lcopy(sector_buffer,0x40000U+(j<<9),512);
+	    }
 	    POKE(0xD020U,0x00);
-	    sdcard_writesector(dest_freeze_slot_start_sector+i);
+	    for(j=0;j<128;j++) {
+	      lcopy(0x40000U+(j<<9),sector_buffer,512);
+	      sdcard_writesector(dest_freeze_slot_start_sector+i);
+	    }
 	  }
 	  POKE(0xD020U,6);
 	}
