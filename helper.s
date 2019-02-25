@@ -100,10 +100,11 @@ _fetch_freeze_region_list_from_hypervisor:
 _find_freeze_slot_start_sector:	
 
 	;; Move 16-bit address from A/X to X/Y
+	;; XXX - We had to swap the X/Y byte order around for this to work: Why???
 	PHX
-	TAX
-	PLA
 	TAY
+	PLA
+	TAX
 
 	;; Call hypervisor trap
 	LDA #$10    ; subfunction for syspart trap to put start sector of freeze slot into $D681-$D684
