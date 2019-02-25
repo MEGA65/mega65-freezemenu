@@ -597,7 +597,7 @@ int main(int argc,char **argv)
   slot_number=0;
   find_freeze_slot_start_sector(slot_number);
   freeze_slot_start_sector = *(uint32_t *)0xD681U;
-
+    
   // SD or SDHC card?
   if (PEEK(0xD680U)&0x10) sdhc_card=1; else sdhc_card=0;
 
@@ -627,6 +627,7 @@ int main(int argc,char **argv)
 	POKE(0xD020U,0);
 	find_freeze_slot_start_sector(slot_number);
 	freeze_slot_start_sector = *(uint32_t *)0xD681U;
+
 	draw_freeze_menu();
 	if ((process_descriptor.process_name[0]>=' ')
 	    &&(process_descriptor.process_name[0]<=0x7f)) 	  
@@ -639,6 +640,7 @@ int main(int argc,char **argv)
 	POKE(0xD020U,0);
 	find_freeze_slot_start_sector(slot_number);
 	freeze_slot_start_sector = *(uint32_t *)0xD681U;
+
 	draw_freeze_menu();
 	if ((process_descriptor.process_name[0]>=' ')
 	    &&(process_descriptor.process_name[0]<=0x7f)) 	  
@@ -715,13 +717,14 @@ int main(int argc,char **argv)
       case 0xf7: // F7 = save to slot
 	{
 	  // Get start sectors of the source and destination slots
-	  unsigned short i;
-	  unsigned char j;
+	  uint32_t i;
+	  uint32_t j;
 	  uint32_t dest_freeze_slot_start_sector;
 	  find_freeze_slot_start_sector(0);
 	  freeze_slot_start_sector = *(uint32_t *)0xD681U;
 	  find_freeze_slot_start_sector(slot_number);
 	  dest_freeze_slot_start_sector = *(uint32_t *)0xD681U;
+
 	  // 512KB = 1024 sectors
 	  // Process in 64KB blocks, to try to make life easier for the SD card controller
 	  for(i=0;i<1024;i+=128) {
@@ -733,7 +736,7 @@ int main(int argc,char **argv)
 	    POKE(0xD020U,0x00);
 	    for(j=0;j<128;j++) {
 	      lcopy(0x40000U+(j<<9),sector_buffer,512);
-	      sdcard_writesector(dest_freeze_slot_start_sector+i);
+	      sdcard_writesector(dest_freeze_slot_start_sector+i+j);
 	    }
 	  }
 	  POKE(0xD020U,6);
