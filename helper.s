@@ -60,9 +60,9 @@ _unfreeze_slot:
 
 	;; Move 16-bit address from A/X to X/Y
 	PHX
-	TAX
-	PLA
 	TAY
+	PLA
+	TAX	
 
 	;; Call hypervisor trap
 	LDA #$12    ; subfunction for syspart trap to unfreeze from a slot
