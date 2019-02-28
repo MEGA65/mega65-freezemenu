@@ -32,7 +32,7 @@ void clear_sector_buffer(void)
 }
 
 unsigned char *freeze_menu=
-  "         MEGA65 FREEZE MENU V0.1        "
+  "         MEGA65 FREEZE MENU V0.1.1      "
   "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
   " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3*40+4)
@@ -201,9 +201,6 @@ void screen_of_death(char *msg)
   POKE(0,0x41);
   POKE(0xD02FU,0x47); POKE(0xD02FU,0x53);
 
-  // Silence SIDs
-  POKE(0xD418U,0);  POKE(0xD438U,0);
-  
   // Reset video mode
   POKE(0xD05DU,0x01); POKE(0xD011U,0x1b); POKE(0xD016U,0xc8);
   POKE(0xD018U,0x17); // lower case
@@ -591,7 +588,10 @@ int main(int argc,char **argv)
 
   // Correct horizontal scaling
   POKE(0xD05AU,0x78);
-    
+
+  // Silence SIDs
+  POKE(0xD418U,0);  POKE(0xD438U,0);
+ 
   set_palette();
   
   request_freeze_region_list();
