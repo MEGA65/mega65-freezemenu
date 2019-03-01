@@ -102,9 +102,12 @@ void draw_audio_mixer(void)
 
     colour=12;
     if (((c&0x1e)>>1)==select_row) colour=13;
-    audio_menu[37]=nybl_to_hex(c>>5);
     if ((c>>5)==select_column) {
       if (colour==13) colour=1; else colour=13;
+    }
+    if (colour==1) {
+      audio_menu[33]=nybl_to_hex(c>>4);
+      audio_menu[34]=nybl_to_hex(c&0xf);
     }
 
     lpoke(COLOUR_RAM_ADDRESS+offset+offset+1,colour);
@@ -144,6 +147,12 @@ void do_audio_mixer(void)
       
       // Flush char from input buffer
       POKE(0xD610U,0);
+
+      // Get coefficient number ready
+      i=(select_column<<5);
+      i+=(select_row<<1);
+      i++;
+      value=audioxbar_getcoefficient(i);
       
       // Process char
       switch(c) {
@@ -161,20 +170,40 @@ void do_audio_mixer(void)
       case 0x9d:
 	select_column--; select_column&=0x7;
 	break;
+      case 0xF1:
+	value++;
+	audioxbar_setcoefficient(i-1,value);
+	audioxbar_setcoefficient(i,value);
+	break;
+      case 0xF3:
+	value+=0x10;
+	audioxbar_setcoefficient(i-1,value);
+	audioxbar_setcoefficient(i,value);
+	break;
+      case 0xF5:
+	value--;
+	audioxbar_setcoefficient(i-1,value);
+	audioxbar_setcoefficient(i,value);
+	break;
+      case 0xF7:
+	value-=0x10;
+	audioxbar_setcoefficient(i-1,value);
+	audioxbar_setcoefficient(i,value);
+	break;
       case 'm': case 'M':
 	if (audioxbar_getcoefficient(0x14)) {
-	  for(i=0x20;i<0x100;i+=20) {
+	  for(i=0x00;i<0x100;i+=0x20) {
 	    audioxbar_setcoefficient(i+0x14,0);
 	    audioxbar_setcoefficient(i+0x15,0);
 	    audioxbar_setcoefficient(i+0x16,0);
 	    audioxbar_setcoefficient(i+0x17,0);
 	  }
 	} else {
-	  for(i=0x20;i&0x100;i+=20) {
-	    audioxbar_setcoefficient(i+0x14,0xff);
-	    audioxbar_setcoefficient(i+0x15,0xff);
-	    audioxbar_setcoefficient(i+0x16,0xff);
-	    audioxbar_setcoefficient(i+0x17,0xff);
+	  for(i=0x00;i<0x100;i+=0x20) {
+	    audioxbar_setcoefficient(i+0x14,0x30);
+	    audioxbar_setcoefficient(i+0x15,0x30);
+	    audioxbar_setcoefficient(i+0x16,0x30);
+	    audioxbar_setcoefficient(i+0x17,0x30);
 	  }
 	}
 	break;
