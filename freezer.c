@@ -374,6 +374,7 @@ void draw_thumbnail(void)
   }
   // Copy to final area
   lcopy(0xA000U,0x50000U,4096);
+
 }
 
 struct process_descriptor_t process_descriptor;
@@ -560,6 +561,8 @@ void draw_freeze_menu(void)
 	  }
       }
     }
+
+
 }  
 
 #ifdef __CC65__
@@ -591,23 +594,25 @@ int main(int argc,char **argv)
 
   // Silence SIDs
   POKE(0xD418U,0);  POKE(0xD438U,0);
- 
+
   set_palette();
   
-  request_freeze_region_list();
-
   // Now find the start sector of the slot, and make a copy for safe keeping
   slot_number=0;
   find_freeze_slot_start_sector(slot_number);
   freeze_slot_start_sector = *(uint32_t *)0xD681U;
-    
+
   // SD or SDHC card?
   if (PEEK(0xD680U)&0x10) sdhc_card=1; else sdhc_card=0;
-
-  setup_menu_screen();
-  draw_freeze_menu();
-  draw_thumbnail();
   
+  setup_menu_screen();
+
+  request_freeze_region_list();
+  
+  draw_freeze_menu();
+
+  draw_thumbnail();
+
   // Flush input buffer
   mega65_fast();
   while (PEEK(0xD610U)) POKE(0xD610U,0);
