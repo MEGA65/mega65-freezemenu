@@ -10,6 +10,7 @@ FILES=		FREEZER.M65 \
 		GUSTHUMB.M65
 
 M65IDESOURCES=	freezer.c \
+		freeze_audiomix.c \
 		frozen_memory.c \
 		freeze_monitor.c \
 		freeze_diskchooser.c \
@@ -19,6 +20,7 @@ M65IDESOURCES=	freezer.c \
 		fdisk_hal_mega65.c
 
 ASSFILES=	freezer.s \
+		freeze_audiomix.s \
 		frozen_memory.s \
 		freeze_monitor.s \
 		freeze_diskchooser.s \

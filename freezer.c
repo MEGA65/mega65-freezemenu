@@ -43,14 +43,14 @@ unsigned char *freeze_menu=
   " (C)PU MODE:   4510  (P)ROTECT ROM: YES "
 #define ROM_NAME_OFFSET (6*40+8)
 #define CART_ENABLE_OFFSET (6*40+36)
-  " (R)OM:  C65 911101  C(A)RT ENABLE: YES "
+  " (R)OM:  C65 911101  CAR(T) ENABLE: YES "
 #define CPU_FREQ_OFFSET (7*40+13)
 #define VIDEO_MODE_OFFSET (7*40+33)
   " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
-  " D - DISK SELECT     S - VIEW SPRITES   "
-  " X - POKE FINDER     K - SPRITE KILLER  "
+  " A - AUDIO MIXER     K - SPRITE KILLER  "
+  " D - DISK SELECT     X - POKE FINDER    "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
 #define PROCESS_NAME_OFFSET (14*40+21)
@@ -672,7 +672,13 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 
-      case 'A': case 'a': // Toggle cartridge enable
+      case 'A': case 'a': // Audio mixer
+	do_audio_mixer();
+	setup_menu_screen();
+	draw_freeze_menu();
+	break;
+	
+      case 'T': case 't': // Toggle cartridge enable
 	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x01);
 	draw_freeze_menu();
 	break;
