@@ -183,7 +183,7 @@ void set_memory()
 
     // Write changes back
     lcopy((long)mon_sector,(long)sector_buffer,512);      
-    sdcard_writesector(freeze_slot_start_sector+mon_sector_num);
+    sdcard_writesector(freeze_slot_start_sector+mon_sector_num,0);
     
     // After writing memory values, redisplay the modified region
     mon_sector_num=-1;

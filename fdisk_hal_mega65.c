@@ -167,7 +167,7 @@ void sdcard_readsector(const uint32_t sector_number)
 
 uint8_t verify_buffer[512];
 
-void sdcard_writesector(const uint32_t sector_number)
+void sdcard_writesector(const uint32_t sector_number,uint8_t is_multi)
 {
   // Copy buffer into the SD card buffer, and then execute the write job
   uint32_t sector_address;
@@ -219,7 +219,8 @@ void sdcard_writesector(const uint32_t sector_number)
 	  POKE(sd_ctl,0); // begin reset
 	  usleep(500000);
 	  POKE(sd_ctl,1); // end reset
-	  POKE(sd_ctl,3); // retry write
+	  if (is_multi) POKE(sd_ctl,4);
+	  else POKE(sd_ctl,3); // retry write
 
 	}
 	// Show we are doing something
@@ -227,7 +228,8 @@ void sdcard_writesector(const uint32_t sector_number)
       }
     
     // Command write
-    POKE(sd_ctl,3);
+    if (is_multi) POKE(sd_ctl,4);
+    else POKE(sd_ctl,3); 
     
     // Wait for write to complete
     counter=0;
@@ -239,140 +241,9 @@ void sdcard_writesector(const uint32_t sector_number)
 	  POKE(sd_ctl,0); // begin reset
 	  usleep(500000);
 	  POKE(sd_ctl,1); // end reset
-	  POKE(sd_ctl,3); // retry write
-
-	}
-	// Show we are doing something
-	//	POKE(0x809f,1+(PEEK(0x809f)&0x7f));
-      }
-
-    write_count++;
-    POKE(0xD020,write_count&0x0f);
-
-    // Note result
-    result=PEEK(sd_ctl);
-    
-    if (!(PEEK(sd_ctl)&0x67)) {
-      write_count++;
-      
-      POKE(0xD020,write_count&0x0f);
-
-      // There is a bug in the SD controller: You have to read between writes, or it
-      // gets really upset.
-
-      // But sometimes even that doesn't work, and we have to reset it.
-
-      // Does it just need some time between accesses?
-      
-      POKE(sd_ctl,2); // read the sector we just wrote
-
-      while (PEEK(sd_ctl)&3) {
-      	continue;
-      }
-
-      // Copy the read data to a buffer for verification
-      lcopy(sd_sectorbuffer,(long)verify_buffer,512);
-
-      // VErify that it matches the data we wrote
-      for(i=0;i<512;i++) {
-	if (sector_buffer[i]!=verify_buffer[i]) break;
-      }
-      if (i!=512) {
-	// VErify error has occurred
-	//	write_line("Verify error for sector $$$$$$$$",0);
-	screen_hex(screen_line_address-80+24,sector_number);
-      }
-      else {
-      //      write_line("Wrote sector $$$$$$$$, result=$$",2);      
-      //      screen_hex(screen_line_address-80+2+14,sector_number);
-      //      screen_hex(screen_line_address-80+2+30,result);
-
-	return;
-      }
-    }
-
-    POKE(0xd020,(PEEK(0xd020)+1)&0xf);
-
-  }
-
-  //  write_line("Write error @ $$$$$$$$$",2);      
-  //  screen_hex(screen_line_address-80+2+16,sector_number);
-  
-}
-
-void sdcard_writefirstsector(const uint32_t sector_number)
-{
-  // Copy buffer into the SD card buffer, and then execute the write job
-  uint32_t sector_address;
-  int i;
-  char tries=0,result;
-  uint16_t counter=0;
-  
-  // Set address to read/write
-  POKE(sd_ctl,1); // end reset
-  if (!sdhc_card) sector_address=sector_number*512;
-  else sector_address=sector_number;
-  POKE(sd_addr+0,(sector_address>>0)&0xff);
-  POKE(sd_addr+1,(sector_address>>8)&0xff);
-  POKE(sd_addr+2,(sector_address>>16)&0xff);
-  POKE(sd_addr+3,(sector_address>>24)&0xff);
-
-  // Read the sector and see if it already has the correct contents.
-  // If so, nothing to write
-
-  POKE(sd_ctl,2); // read the sector we just wrote
-  
-  while (PEEK(sd_ctl)&3) {
-    continue;
-  }
-  
-  // Copy the read data to a buffer for verification
-  lcopy(sd_sectorbuffer,(long)verify_buffer,512);
-  
-  // VErify that it matches the data we wrote
-  for(i=0;i<512;i++) {
-    if (sector_buffer[i]!=verify_buffer[i]) break;
-  }
-  if (i==512) {
-    return;
-  } 
-  
-  while(tries<10) {
-
-    // Copy data to hardware sector buffer via DMA
-    lcopy((long)sector_buffer,sd_sectorbuffer,512);
-  
-    // Wait for SD card to be ready
-    counter=0;
-    while (PEEK(sd_ctl)&3)
-      {
-	counter++;
-	if (!counter) {
-	  // SD card not becoming ready: try reset
-	  POKE(sd_ctl,0); // begin reset
-	  usleep(500000);
-	  POKE(sd_ctl,1); // end reset
-	  POKE(sd_ctl,4); // retry write
-
-	}
-	// Show we are doing something
-	//	POKE(0x804f,1+(PEEK(0x804f)&0x7f));
-      }
-    
-    // Command write
-    POKE(sd_ctl,4);
-    
-    // Wait for write to complete
-    counter=0;
-    while (PEEK(sd_ctl)&3)
-      {
-	counter++;
-	if (!counter) {
-	  // SD card not becoming ready: try reset
-	  POKE(sd_ctl,0); // begin reset
-	  usleep(500000);
-	  POKE(sd_ctl,1); // end reset
-	  POKE(sd_ctl,4); // retry write
+	  // Retry write
+	  if (is_multi) POKE(sd_ctl,4);
+	  else POKE(sd_ctl,3); 
 
 	}
 	// Show we are doing something
@@ -435,6 +306,10 @@ void sdcard_writefirstsector(const uint32_t sector_number)
 
 void sdcard_writenextsector(void)
 {
+  // Copy data to hardware sector buffer via DMA
+  lcopy((long)sector_buffer,sd_sectorbuffer,512);
+
+  // Command write of follow-on block in multi-block write job
   while (PEEK(sd_ctl)&3) {
     continue;
   }
@@ -469,11 +344,50 @@ void sdcard_erase(const uint32_t first_sector,const uint32_t last_sector)
 
   //  fprintf(stderr,"ERASING SECTORS %d..%d\r\n",first_sector,last_sector);
 
+#ifndef NOFAST_ERASE
+  POKE(sd_addr+0,(first_sector>>0)&0xff);
+  POKE(sd_addr+1,(first_sector>>8)&0xff);
+  POKE(sd_addr+2,(first_sector>>16)&0xff);
+  POKE(sd_addr+3,(first_sector>>24)&0xff);
+#endif   
+  
   for(n=first_sector;n<=last_sector;n++) {
+
+#ifndef NOFAST_ERASE
+    // Wait for SD card to go ready
+    while (PEEK(sd_ctl)&3) continue;
+
+    if (n==first_sector) {
+      // First sector of multi-sector write
+      POKE(sd_ctl,0x04);
+    } else
+      // All other sectors
+      POKE(sd_ctl,0x05);
+
+    // Wait for SD card to go busy
+    while (!(PEEK(sd_ctl)&3)) continue;
+
+    // Wait for SD card to go ready
+    while (PEEK(sd_ctl)&3) continue;
+       
+#else
     sdcard_writesector(n);
+#endif
+    
     // Show count-down
     screen_decimal(screen_line_address,last_sector-n);
     //    fprintf(stderr,"."); fflush(stderr);
   }
+
+#ifndef NOFAST_ERASE
+  // Then say when we are done
+  POKE(sd_ctl,0x06);
+  
+  // Wait for SD card to go busy
+  while (!(PEEK(sd_ctl)&3)) continue;
+  
+  // Wait for SD card to go ready
+  while (PEEK(sd_ctl)&3) continue;
+#endif    
   
 }

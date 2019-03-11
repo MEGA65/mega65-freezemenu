@@ -169,7 +169,7 @@ void freeze_poke(uint32_t addr,unsigned char v)
   sector_buffer[offset&0x1ff]=v;
 
   // Write sector back
-  sdcard_writesector(freeze_slot_start_sector+freeze_slot_offset); 
+  sdcard_writesector(freeze_slot_start_sector+freeze_slot_offset,0); 
 
 }
 

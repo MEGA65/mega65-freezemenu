@@ -32,7 +32,7 @@ void clear_sector_buffer(void)
 }
 
 unsigned char *freeze_menu=
-  "         MEGA65 FREEZE MENU V0.1.1      "
+  "        MEGA65 FREEZE MENU V0.1.2       "
   "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
   " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3*40+4)
@@ -751,7 +751,7 @@ int main(int argc,char **argv)
 	    POKE(0xD020U,0x00);
 	    for(j=0;j<128;j++) {
 	      lcopy(0x40000U+(j<<9),sector_buffer,512);
-	      if (!j) sdcard_writefirstsector(dest_freeze_slot_start_sector+i+j);
+	      if (!j) sdcard_writesector(dest_freeze_slot_start_sector+i+j,1);
 	      else sdcard_writenextsector();
 	    }
 	    // Close multi-sector write job
