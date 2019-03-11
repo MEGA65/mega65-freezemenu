@@ -740,7 +740,8 @@ int main(int argc,char **argv)
 	  dest_freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
 	  // 512KB = 1024 sectors
-	  // Process in 64KB blocks, to try to make life easier for the SD card controller
+	  // Process in 64KB blocks, so that we can do multi-sector writes
+	  // and generally be about 10x faster than otherwise.
 	  for(i=0;i<1024;i+=128) {
 	    POKE(0xD020U,0x0e);	    
 	    for(j=0;j<128;j++) {
@@ -750,8 +751,11 @@ int main(int argc,char **argv)
 	    POKE(0xD020U,0x00);
 	    for(j=0;j<128;j++) {
 	      lcopy(0x40000U+(j<<9),sector_buffer,512);
-	      sdcard_writesector(dest_freeze_slot_start_sector+i+j);
+	      if (!j) sdcard_writefirstsector(dest_freeze_slot_start_sector+i+j);
+	      else sdcard_writenextsector();
 	    }
+	    // Close multi-sector write job
+	    sdcard_writemultidone();
 	  }
 	  POKE(0xD020U,6);
 
