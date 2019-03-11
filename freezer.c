@@ -751,11 +751,17 @@ int main(int argc,char **argv)
 	    POKE(0xD020U,0x00);
 	    for(j=0;j<128;j++) {
 	      lcopy(0x40000U+(j<<9),sector_buffer,512);
+#ifdef USE_MULTIBLOCK_WRITE
 	      if (!j) sdcard_writesector(dest_freeze_slot_start_sector+i+j,1);
 	      else sdcard_writenextsector();
+#else
+	      sdcard_writesector(dest_freeze_slot_start_sector+i+j,0);
+#endif
 	    }
+#ifdef USE_MULTIBLOCK_WRITE
 	    // Close multi-sector write job
 	    sdcard_writemultidone();
+#endif
 	  }
 	  POKE(0xD020U,6);
 
