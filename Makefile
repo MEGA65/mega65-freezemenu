@@ -1,7 +1,8 @@
 
 CC65=	cc65/bin/cc65
 CL65=	cc65/bin/cl65
-COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02 -Icc65/include
+#COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02 -Icc65/include
+COPTS=	-t c64 -Os --cpu 65c02 -Icc65/include
 LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
