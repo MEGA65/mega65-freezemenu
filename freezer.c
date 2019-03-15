@@ -36,7 +36,7 @@ unsigned char *freeze_menu=
   "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
   " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3*40+4)
-  " F3-LOAD      F5-SWAP   F7-SAVE TO SLOT "
+  " F3-LOAD     F5-RESET   F7-SAVE TO SLOT "
   " cccccccccccccccccccccccccccccccccccccc "
 #define CPU_MODE_OFFSET (5*40+13)
 #define ROM_PROTECT_OFFSET (5*40+36)
@@ -656,16 +656,6 @@ int main(int argc,char **argv)
 	POKE(0xD020U,6);
 	break;
   
-      case 0xf3: // F3 = resume
-	// Load memory from freeze slot $0000, i.e., the temporary save space
-	// This implicitly restarts the frozen program
-	unfreeze_slot(slot_number);
-
-	// should never get here
-	screen_of_death("unfreeze failed");
-	
-	break;
-
       case 'M': case 'm': // Monitor
 	freeze_monitor();
 	setup_menu_screen();
@@ -726,6 +716,31 @@ int main(int argc,char **argv)
 	  }
 	}
 	draw_freeze_menu();
+	break;
+
+      case 0xf5: // F5 = Reset
+	{
+	  // Set C64 memory map, PC to reset vector and resume
+	  freeze_poke(0xFFD3640U+8,freeze_peek(0x2FFFCL));
+	  freeze_poke(0xFFD3640U+9,freeze_peek(0x2FFFDL));
+	  // Reset $01 port values
+	  freeze_poke(0xFFD3640U+0x10,0x3f);
+	  freeze_poke(0xFFD3640U+0x11,0x3f);
+	  // disable interrupts, clear decimal mode
+	  freeze_poke(0xFFD3640U+0x07,0xe7);
+	  // Clear memory mapping
+	  for(c=0x0a;c<=0x0f;c++) freeze_poke(0xFFD3640U+c,0);
+	  
+	}
+	// fall through
+      case 0xf3: // F3 = resume
+	// Load memory from freeze slot $0000, i.e., the temporary save space
+	// This implicitly restarts the frozen program
+	unfreeze_slot(slot_number);
+
+	// should never get here
+	screen_of_death("unfreeze failed");
+	
 	break;
 	
       case 0xf7: // F7 = save to slot
