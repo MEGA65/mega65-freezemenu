@@ -198,6 +198,7 @@ unsigned char ascii_to_screencode(char c)
 
 void screen_of_death(char *msg)
 {
+#if 0
   POKE(0,0x41);
   POKE(0xD02FU,0x47); POKE(0xD02FU,0x53);
 
@@ -227,7 +228,7 @@ void screen_of_death(char *msg)
   for(i=0;deadly_haiku[0][i];i++) POKE(0x0400+10*40+11+i,ascii_to_screencode(deadly_haiku[0][i]));
   for(i=0;deadly_haiku[1][i];i++) POKE(0x0400+12*40+11+i,ascii_to_screencode(deadly_haiku[1][i]));
   for(i=0;deadly_haiku[2][i];i++) POKE(0x0400+14*40+11+i,ascii_to_screencode(deadly_haiku[2][i]));  
-  
+#endif  
   while(1) continue;
   
 }
@@ -582,6 +583,10 @@ int main(int argc,char **argv)
   POKE(0xD01AU,0x00);
   // XXX add missing C65 AND M65 peripherals
   // C65 UART, ethernet etc
+
+  // Bank out BASIC ROM, leave KERNAL and IO in
+  POKE(0x00,0x3F);
+  POKE(0x01,0x36);
   
   // No decimal mode!
   __asm__("cld");
@@ -742,7 +747,7 @@ int main(int argc,char **argv)
 	screen_of_death("unfreeze failed");
 	
 	break;
-	
+
       case 0xf7: // F7 = save to slot
 	{
 	  // Get start sectors of the source and destination slots
