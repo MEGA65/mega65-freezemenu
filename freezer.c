@@ -579,6 +579,10 @@ unsigned char touch_keys[2][9]={
 unsigned short x;
 unsigned short y;
 
+unsigned char last_touch=0;
+unsigned char last_x;
+char swipe_dir=0;
+
 void poll_touch_panel(void)
 {
   if (PEEK(0xD6B0U)&1) {
@@ -670,15 +674,33 @@ int main(int argc,char **argv)
       if (!c) {
 	// Check for touch panel activity
 	poll_touch_panel();
-	if (y>8&&y<17) {
-	  if (x<26) x=0; else x=1;
-	  c=touch_keys[x][y-9];
-	  // Wait for touch to be released
-	  // XXX - Records touch event as where your finger was when you touched, not released.
-	  while(PEEK(0xD6B0)&1) continue;
+	if ((last_touch&1)&&(!(PEEK(0xD6B0)&1))) {
+	  if (y>8&&y<17) {
+	    if (x<26) x=0; else x=1;
+	    c=touch_keys[x][y-9];
+	    // Wait for touch to be released
+	    // XXX - Records touch event as where your finger was when you touched, not released.
+	    while(PEEK(0xD6B0)&1) continue;
+	  }
+	}
+	
+	// Check for side/side swiping
+	// (In theory the touch panel supports gestures, but we have not got them working.
+	// so we will just infer them.  Move sideways more than 3 characters within a short
+	// period of time will be deemed to be a side swipe).
+	if (PEEK(0xD6B0)&1) {
+	  if (y>17) {
+	    if (x>last_x&&swipe_dir>0) swipe_dir++;
+	    if (x>last_x&&swipe_dir<0) swipe_dir=1;
+	    if (x<last_x&&swipe_dir<0) swipe_dir--;
+	    if (x<last_x&&swipe_dir>0) swipe_dir=-1;
+	    if (swipe_dir<-3) { c=0x9d; swipe_dir=0; }
+	    if (swipe_dir>3) { c=0x1d; swipe_dir=0; }
+	    last_x=x;
+	  }
 	}
       }
-      
+      last_touch=PEEK(0xD6B0);      
       
       // Process char
       if (c)
