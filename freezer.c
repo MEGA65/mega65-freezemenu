@@ -581,7 +581,7 @@ unsigned short y;
 
 unsigned char last_touch=0;
 unsigned char last_x;
-char swipe_dir=0;
+signed char swipe_dir=0;
 
 void poll_touch_panel(void)
 {
@@ -690,12 +690,15 @@ int main(int argc,char **argv)
 	// period of time will be deemed to be a side swipe).
 	if (PEEK(0xD6B0)&1) {
 	  if (y>17) {
-	    if (x>last_x&&swipe_dir>0) swipe_dir++;
 	    if (x>last_x&&swipe_dir<0) swipe_dir=1;
-	    if (x<last_x&&swipe_dir<0) swipe_dir--;
-	    if (x<last_x&&swipe_dir>0) swipe_dir=-1;
-	    if (swipe_dir<-3) { c=0x9d; swipe_dir=0; }
-	    if (swipe_dir>3) { c=0x1d; swipe_dir=0; }
+	    if (x>last_x&&swipe_dir>=0) swipe_dir++;
+
+	    if ((x<last_x)&&(swipe_dir>0)) swipe_dir=-1;
+	    if ((x<last_x)) swipe_dir--;
+
+	    if (swipe_dir==-5) { c=0x9d; swipe_dir=0; }
+	    if (swipe_dir==5) { c=0x1d; swipe_dir=0; }
+
 	    last_x=x;
 	  }
 	}
