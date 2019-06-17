@@ -566,6 +566,11 @@ void draw_freeze_menu(void)
 
 }  
 
+unsigned char joy_to_key[32]={
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0xF3, // With fire pressed
+  0,0,0,0,0,0,0,0x1D,0,0,0,0x9D,0,0x1D,0x9D,0     // without fire
+};
+
 #ifdef __CC65__
 void main(void)
 #else
@@ -624,14 +629,27 @@ int main(int argc,char **argv)
   
   // Main keyboard input loop
   while(1) {
-    if (PEEK(0xD610U)) {    
-
+    {    
       unsigned char c=PEEK(0xD610U);
-      
+
       // Flush char from input buffer
-      POKE(0xD610U,0);
+      if (c) POKE(0xD610U,0);
+      else {
+
+	// If no keyboard input, check for joystick input
+	// We should make this context sensitive, but for now just want
+	// easy choosing of frozen programs to run, so fire will be F3,
+	// and left and right on the joystick will be left and right
+	// cursor keys.
+	// We use a simple lookup table to do this
+	c=joy_to_key[PEEK(0xDC00)&PEEK(0xDC01)&0x1f];
+	// Then wait for joystick to release
+	while((PEEK(0xDC00)&PEEK(0xDC01)&0x1f)!=0x1f) continue;
+      }
+      
       
       // Process char
+      if (c)
       switch(c) {
 	
       case 0x11: // Cursor down
