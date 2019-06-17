@@ -696,8 +696,8 @@ int main(int argc,char **argv)
 	    if ((x<last_x)&&(swipe_dir>0)) swipe_dir=-1;
 	    if ((x<last_x)) swipe_dir--;
 
-	    if (swipe_dir==-5) { c=0x9d; swipe_dir=0; }
-	    if (swipe_dir==5) { c=0x1d; swipe_dir=0; }
+	    if (swipe_dir==-5) { c=0x1d; swipe_dir=0; }
+	    if (swipe_dir==5) { c=0x9d; swipe_dir=0; }
 
 	    last_x=x;
 	  }
