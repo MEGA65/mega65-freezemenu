@@ -571,6 +571,27 @@ unsigned char joy_to_key[32]={
   0,0,0,0,0,0,0,0x1D,0,0,0,0x9D,0,0x1D,0x9D,0     // without fire
 };
 
+unsigned char touch_keys[2][9]={
+  {0xF3,0x00,'c','r','f',0x00,'m','a','d'},
+  {0xF7,0x00,'p','t','v',0x00,'e','k','x'}
+};
+
+unsigned short x;
+unsigned short y;
+
+void poll_touch_panel(void)
+{
+  if (PEEK(0xD6B0U)&1) {
+    x=PEEK(0xD6B9)+((PEEK(0xD6BB)&0x03)<<8);
+    y=PEEK(0xD6BA)+((PEEK(0xD6BB)&0x30)<<4);
+    x=x>>4;
+    y=y>>4;
+  } else {
+    x=0;
+    y=0;
+  }
+}
+
 #ifdef __CC65__
 void main(void)
 #else
@@ -645,6 +666,17 @@ int main(int argc,char **argv)
 	c=joy_to_key[PEEK(0xDC00)&PEEK(0xDC01)&0x1f];
 	// Then wait for joystick to release
 	while((PEEK(0xDC00)&PEEK(0xDC01)&0x1f)!=0x1f) continue;
+      }
+      if (!c) {
+	// Check for touch panel activity
+	poll_touch_panel();
+	if (y>8&&y<17) {
+	  if (x<26) x=0; else x=1;
+	  c=touch_keys[x][y-9];
+	  // Wait for touch to be released
+	  // XXX - Records touch event as where your finger was when you touched, not released.
+	  while(PEEK(0xD6B0)&1) continue;
+	}
       }
       
       
