@@ -13,6 +13,8 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+signed char swipe_dir=0;
+
 // Used to quickly return from functions if a navigation key has been pressed
 // (used to avoid delays when navigating through the list of freeze slots
 #define NAVIGATION_KEY_CHECK() { if (((PEEK(0xD610U)&0x7f)==0x11)||((PEEK(0xD610U)&0x7f)==0x1D)) return; }
@@ -563,7 +565,6 @@ void draw_freeze_menu(void)
       }
     }
 
-
 }  
 
 unsigned char joy_to_key[32]={
@@ -581,7 +582,6 @@ unsigned short y;
 
 unsigned char last_touch=0;
 unsigned char last_x;
-signed char swipe_dir=0;
 
 void poll_touch_panel(void)
 {
@@ -688,18 +688,32 @@ int main(int argc,char **argv)
 	// (In theory the touch panel supports gestures, but we have not got them working.
 	// so we will just infer them.  Move sideways more than 3 characters within a short
 	// period of time will be deemed to be a side swipe).
-	if (PEEK(0xD6B0)&1) {
-	  if (y>17) {
+	if (y>17) {
+	  if (PEEK(0xD6B0)&1) {
 	    if (x>last_x&&swipe_dir<0) swipe_dir=1;
 	    if (x>last_x&&swipe_dir>=0) swipe_dir++;
+	    if (x>last_x) {
+	      // Swipe screen to the right
 
+	      // Copy is overlapping, so copy it somewhere else first, then copy it down
+	      lcopy(SCREEN_ADDRESS+(80*13),0x40000L,12*80-2);
+	      lcopy(0x40000,SCREEN_ADDRESS+(80*13)+2,12*80-2);
+	    }
+	    
 	    if ((x<last_x)&&(swipe_dir>0)) swipe_dir=-1;
 	    if ((x<last_x)) swipe_dir--;
+	    if (x<last_x) {
+	      // Swipe screen to the left
+	      lcopy(SCREEN_ADDRESS+(80*13),SCREEN_ADDRESS+(80*13)-2,12*80-2);
+	    }
 
 	    if (swipe_dir==-5) { c=0x1d; swipe_dir=0; }
 	    if (swipe_dir==5) { c=0x9d; swipe_dir=0; }
 
 	    last_x=x;
+	} else {
+	    if (last_touch&1) {
+	    }
 	  }
 	}
       }

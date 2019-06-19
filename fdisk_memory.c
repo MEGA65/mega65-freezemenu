@@ -121,6 +121,50 @@ void lcopy(long source_address, long destination_address,
   return;
 }
 
+#if 0
+void lcopy_safe(unsigned long src, unsigned long dst, unsigned int count)
+{
+    static unsigned char copy_buffer[256];
+    static unsigned long i, copy_size;
+
+    if (count)
+    {
+        if (count < sizeof(copy_buffer))
+        {
+            // count is smaller than buffer, so we can safely copy this in one hit
+	  lcopy(src, (unsigned long)copy_buffer, count);
+            lcopy((unsigned long)copy_buffer, dst, count);
+        }
+        else if (src > dst)
+        {
+            // destination is lower than source, start from low side
+            for (i = 0; i < count; i += sizeof(copy_buffer))
+            {
+                copy_size = count - i;
+                if (copy_size > sizeof(copy_buffer))
+                    copy_size = sizeof(copy_buffer);
+                lcopy(src + i, (unsigned long)copy_buffer, copy_size);
+                lcopy((unsigned long)copy_buffer, dst + i, copy_size);
+            }
+        }
+        else if (src < dst)
+        {
+            // destination is higher than source, start from high side
+            for (i = count; i > 0;)
+            {
+                copy_size = i > sizeof(copy_buffer)
+                    ? sizeof(copy_buffer)
+                    : i;
+                i -= copy_size;
+                lcopy(src + i, (unsigned long)copy_buffer, copy_size);
+                lcopy((unsigned long)copy_buffer, dst + i, copy_size);
+            }
+        }
+    }
+}
+#endif
+
+
 void lfill(long destination_address, unsigned char value,
 	  unsigned int count)
 {
