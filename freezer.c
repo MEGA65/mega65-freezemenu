@@ -51,7 +51,7 @@ unsigned char *freeze_menu=
   " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
-  " A - AUDIO MIXER     K - SPRITE KILLER  "
+  " J - SWAP JOYSTICKS  K - SPRITE KILLER  "
   " D - DISK SELECT     X - POKE FINDER    "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
@@ -573,7 +573,7 @@ unsigned char joy_to_key[32]={
 };
 
 unsigned char touch_keys[2][9]={
-  {0xF3,0x00,'c','r','f',0x00,'m','a','d'},
+  {0xF3,0x00,'c','r','f',0x00,'m','j','d'},
   {0xF7,0x00,'p','t','v',0x00,'e','k','x'}
 };
 
@@ -683,6 +683,21 @@ int main(int argc,char **argv)
 	    while(PEEK(0xD6B0)&1) continue;
 	  }
 	}
+
+
+	// Set speaker volume by placing finger along top edge of screen.
+	if (y>0&&y<7) {
+	  if (PEEK(0xD6B0)&1) {
+	    if (x>5) x-=5; else x=0;
+	    if (x>39) x=39;
+	    for(y=0;y<x*2;y+=2) lpoke(SCREEN_ADDRESS+y,0xA0);
+	    for(;y<80;y+=2) lpoke(SCREEN_ADDRESS+y,0x20);
+	    y=0;
+	    lpoke(0xFFD7035L,0xff-(x*5));
+	  }
+	  
+	}
+
 	
 	// Check for side/side swiping
 	// (In theory the touch panel supports gestures, but we have not got them working.
@@ -756,9 +771,16 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 
+#ifdef WITH_AUDIOMIXER
       case 'A': case 'a': // Audio mixer
 	do_audio_mixer();
 	setup_menu_screen();
+	draw_freeze_menu();
+	break;
+#endif
+
+      case 'J': case 'j': // Toggle joystick swap
+	freeze_poke(0xFFD3612L,freeze_peek(0xFFD3612L)^0x20);
 	draw_freeze_menu();
 	break;
 	

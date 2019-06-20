@@ -8,6 +8,8 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+#ifdef WITH_AUDIOMIXER
+
 unsigned char *audio_menu=
   "         MEGA65 AUDIO MIXER MENU        "
   "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
@@ -219,3 +221,5 @@ void do_audio_mixer(void)
   }
   
 }
+
+#endif

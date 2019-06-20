@@ -88,7 +88,7 @@ void lpoke(long address, unsigned char value)
   dmalist.source_addr=(unsigned int)&dma_byte;
   dmalist.source_bank=0;
   dmalist.dest_addr=address&0xffff;
-  dmalist.dest_bank=(address>>16)&0x7f;
+  dmalist.dest_bank=(address>>16)&0x0f;
 
   do_dma(); 
   return;
