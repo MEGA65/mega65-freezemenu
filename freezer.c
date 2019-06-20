@@ -41,8 +41,8 @@ unsigned char *freeze_menu=
   " F3-LOAD     F5-RESET   F7-SAVE TO SLOT "
   " cccccccccccccccccccccccccccccccccccccc "
 #define CPU_MODE_OFFSET (5*40+13)
-#define ROM_PROTECT_OFFSET (5*40+36)
-  " (C)PU MODE:   4510  (P)ROTECT ROM: YES "
+#define JOY_SWAP_OFFSET (5*40+36)
+  " (C)PU MODE:   4510  (J)OY SWAP:    YES "
 #define ROM_NAME_OFFSET (6*40+8)
 #define CART_ENABLE_OFFSET (6*40+36)
   " (R)OM:  C65 911101  CAR(T) ENABLE: YES "
@@ -51,7 +51,7 @@ unsigned char *freeze_menu=
   " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
-  " J - SWAP JOYSTICKS  K - SPRITE KILLER  "
+  " P - (UN)PROTECT ROM K - SPRITE KILLER  "
   " D - DISK SELECT     X - POKE FINDER    "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
@@ -407,9 +407,9 @@ void draw_freeze_menu(void)
   else
     lcopy("  AUTO",&freeze_menu[CPU_MODE_OFFSET],6);
 
-  // ROM area write protect
-  lcopy((freeze_peek(0xffd367dL)&0x04)?"YES":" NO",
-	&freeze_menu[ROM_PROTECT_OFFSET],3);
+  // Joystick 1/2 swap
+  lcopy((PEEK(0xd612L)&0x20)?"YES":" NO",
+	&freeze_menu[JOY_SWAP_OFFSET],3);
 
   // ROM version
   lcopy((long)detect_rom(),&freeze_menu[ROM_NAME_OFFSET],11);
@@ -573,8 +573,8 @@ unsigned char joy_to_key[32]={
 };
 
 unsigned char touch_keys[2][9]={
-  {0xF3,0x00,'c','r','f',0x00,'m','j','d'},
-  {0xF7,0x00,'p','t','v',0x00,'e','k','x'}
+  {0xF3,0x00,'c','r','f',0x00,'m','a','d'},
+  {0xF7,0x00,'j','t','v',0x00,'e','k','x'}
 };
 
 unsigned short x;
@@ -780,7 +780,8 @@ int main(int argc,char **argv)
 #endif
 
       case 'J': case 'j': // Toggle joystick swap
-	freeze_poke(0xFFD3612L,freeze_peek(0xFFD3612L)^0x20);
+	POKE(0xD612L,PEEK(0xD612L)^0x20);
+		    
 	draw_freeze_menu();
 	break;
 	
@@ -789,11 +790,13 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 
+#if 0
       case 'P': case 'p': // Toggle ROM area write-protect
 	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x04);
 	draw_freeze_menu();
 	break;
-
+#endif
+	
       case 'c': case 'C': // Toggle CPU mode
 	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x20);
 	draw_freeze_menu();
