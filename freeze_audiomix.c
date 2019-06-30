@@ -34,7 +34,7 @@ unsigned char *audio_menu=
   " MASTERb                                "
   " cccccccccccccccccccccccccccccccccccccc "
   " USE CURSOR KEYS TO SELECT COEFFICIENTS "
-  " F1,F3 INCREASES VALUE, F5,F7 DECREASES "
+  " F1,F5 INCREASES VALUE, F3,F7 DECREASES "
   "  RUN/STOP - EXIT, M - TOGGLE MIC MUTE  "
   "\0";
 
@@ -177,12 +177,12 @@ void do_audio_mixer(void)
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
 	break;
-      case 0xF3:
+      case 0xF5:
 	value+=0x10;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
 	break;
-      case 0xF5:
+      case 0xF3:
 	value--;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
