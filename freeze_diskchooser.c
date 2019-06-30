@@ -59,6 +59,11 @@ unsigned char dir_line_colour[40]={
 
 char disk_name_return[32];
 
+unsigned char joy_to_key_disk[32]={
+  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x0d, // With fire pressed
+  0,0,0,0,0,0,0,0x9d,0,0,0,0x1d,0,0x11,0x91,0     // without fire
+};
+
 char draw_directory_entry(unsigned char screen_row)
 {
   char type;
@@ -302,6 +307,13 @@ char *freeze_select_disk_image(void)
   while(1) {
     x=PEEK(0xD610U);
 
+    if(!x) {
+      // We use a simple lookup table to do this
+      x=joy_to_key_disk[PEEK(0xDC00)&PEEK(0xDC01)&0x1f];
+      // Then wait for joystick to release
+      while((PEEK(0xDC00)&PEEK(0xDC01)&0x1f)!=0x1f) continue;
+    }
+    
     if (!x) {
       idle_time++;
       if (idle_time==100) {

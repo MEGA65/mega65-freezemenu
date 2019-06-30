@@ -567,11 +567,16 @@ void draw_freeze_menu(void)
 
 }  
 
+// Left/right do left/right
+// fire = F3
+// down = disk menu
+// up = toggle PAL/NTSC ?
 unsigned char joy_to_key[32]={
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0xF3, // With fire pressed
-  0,0,0,0,0,0,0,0x1D,0,0,0,0x9D,0,0x1D,0x9D,0     // without fire
+  0,0,0,0,0,0,0,0x1d,0,0,0,0x9d,0,'d','v',0     // without fire
 };
 
+#ifdef WITH_TOUCH
 unsigned char touch_keys[2][9]={
   {0xF3,0x00,'c','r','f',0x00,'m','a','d'},
   {0xF7,0x00,'j','t','v',0x00,'e','k','x'}
@@ -595,6 +600,7 @@ void poll_touch_panel(void)
     y=0;
   }
 }
+#endif
 
 #ifdef __CC65__
 void main(void)
@@ -671,6 +677,7 @@ int main(int argc,char **argv)
 	// Then wait for joystick to release
 	while((PEEK(0xDC00)&PEEK(0xDC01)&0x1f)!=0x1f) continue;
       }
+#ifdef WITH_TOUCH
       if (!c) {
 	// Check for touch panel activity
 	poll_touch_panel();
@@ -683,7 +690,6 @@ int main(int argc,char **argv)
 	    while(PEEK(0xD6B0)&1) continue;
 	  }
 	}
-
 
 	// Set speaker volume by placing finger along top edge of screen.
 	if (y>0&&y<7) {
@@ -733,6 +739,7 @@ int main(int argc,char **argv)
 	}
       }
       last_touch=PEEK(0xD6B0);      
+#endif
       
       // Process char
       if (c)

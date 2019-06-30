@@ -2,6 +2,9 @@
 #include <ctype.h>
 #include <stdint.h>
 
+#define WITH_AUDIOMIXER
+// #define WITH_TOUCH
+
 char cdecl mega65_dos_attachd81(char *image_name);
 void fetch_freeze_region_list_from_hypervisor(unsigned short);
 unsigned char fastcall find_freeze_slot_start_sector(unsigned short);
