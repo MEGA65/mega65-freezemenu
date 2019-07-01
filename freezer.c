@@ -513,8 +513,13 @@ void draw_freeze_menu(void)
       unsigned short tile_offset;
       if (detect_rom()[3]=='5') {
 	if (detect_cpu_speed()==1) {
+#ifdef WITH_GUS
 	  read_file_from_sdcard("GUSTHUMB.M65",0x052000L);
 	  snail=1;
+#else	
+	  read_file_from_sdcard("C64THUMB.M65",0x052000L);
+	  snail=0;
+#endif
 	} else {
 	  read_file_from_sdcard("C65THUMB.M65",0x052000L);
 	  snail=0;
