@@ -787,7 +787,7 @@ int main(int argc,char **argv)
 #endif
 
       case 'J': case 'j': // Toggle joystick swap
-	POKE(0xD612L,PEEK(0xD612L)^0x20);
+	POKE(0xD612L,(PEEK(0xD612L)^0x20)&0xEF);
 		    
 	draw_freeze_menu();
 	break;
