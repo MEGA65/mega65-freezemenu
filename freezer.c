@@ -662,7 +662,11 @@ int main(int argc,char **argv)
   // Flush input buffer
   mega65_fast();
   while (PEEK(0xD610U)) POKE(0xD610U,0);
-  
+
+  // Ensure correct keyboard DDR etc
+  POKE(0xDC00U,0xFF);
+  POKE(0xDC02U,0x00);
+
   // Main keyboard input loop
   while(1) {
     {    
