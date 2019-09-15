@@ -838,7 +838,7 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 
-      case '8':
+      case '8': case '9':
 	// Change drive number of internal drives
 	freeze_poke(0x10113L-'8'+c,freeze_peek(0x10113L-'8'+c)^2);
 	draw_freeze_menu();
