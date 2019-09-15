@@ -64,7 +64,9 @@ unsigned char *freeze_menu=
 #define FREEZE_SLOT_OFFSET (17*40+20)
   "                     FREEZE SLOT:       "
   "                                        "
-  "                     DISK IMAGE:        "
+
+#define DRIVE_NUM_OFFSET (19*40+34)
+  "                     3.5\" DRIVE @       "
   "                                        "
 #define D81_IMAGE0_NAME_OFFSET (21*40+21)
   "                                        "
@@ -400,6 +402,14 @@ void draw_freeze_menu(void)
     // Display "- PAUSED STATE -"
     lcopy(" - PAUSED STATE -   ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
   }
+
+  // Draw drive numbers for internal drive
+  lfill(&freeze_menu[DRIVE_NUM_OFFSET],0,5);
+  screen_decimal(&freeze_menu[DRIVE_NUM_OFFSET],
+		 freeze_peek(0x10113L));
+  freeze_menu[DRIVE_NUM_OFFSET+2]='/';
+  screen_decimal(&freeze_menu[DRIVE_NUM_OFFSET+3],
+		 freeze_peek(0x10114L));
   
   // CPU MODE
   if (freeze_peek(0xffd367dL)&0x20)
@@ -828,6 +838,11 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 
+      case '8':
+	// Change drive number of internal drives
+	freeze_poke(0x10113L-'8'+c,freeze_peek(0x10113L-'8'+c)^2);
+	draw_freeze_menu();
+	break;
       case 'D': case 'd': // Select mounted disk image
 	{
 	  char *disk_image=freeze_select_disk_image();
