@@ -190,6 +190,8 @@ void setup_menu_screen(void)
   // (which we will use for showing the thumbnail)
   POKE(0xD054U,0x05);
   POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
+  // Fill colour RAM with sensible value at the start
+  lfill(0xff8000U,1,2000);
 
 }  
 
@@ -797,16 +799,8 @@ int main(int argc,char **argv)
 	draw_freeze_menu();
 	break;
 
-#ifdef WITH_AUDIOMIXER
       case 'A': case 'a': // Audio mixer
-	do_audio_mixer();
-	setup_menu_screen();
-	draw_freeze_menu();
-	break;
-#endif
-
-      case 'Z': case 'z':
-	mega65_dos_exechelper("PRETTY.M65");
+	mega65_dos_exechelper("AUDIOMIX.M65");
 	break;
 	
       case 'J': case 'j': // Toggle joystick swap

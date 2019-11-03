@@ -22,7 +22,6 @@ M65IDESOURCES=	freezer.c \
 		fdisk_hal_mega65.c
 
 ASSFILES=	freezer.s \
-		freeze_audiomix.s \
 		frozen_memory.s \
 		freeze_monitor.s \
 		freeze_diskchooser.s \
