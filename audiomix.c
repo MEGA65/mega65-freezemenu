@@ -145,6 +145,9 @@ void setup_menu_screen(void)
   POKE(0xD054U,0x05);
   POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
 
+  // Fill colour RAM with a value that won't cause problems in Super-Extended Attribute Mode
+  lfill(0xff80000U,1,2000);
+  
 }  
 
 
@@ -183,8 +186,8 @@ void screen_of_death(char *msg)
   // Reset CPU IO ports
   POKE(1,0x3f); POKE(0,0x3F);
   lfill(0x0400U,' ',1000);
-  lfill(0xd800U,1,1000);
-
+  lfill(0xff80000U,1,2000);
+  
   for(i=0;deadly_haiku[0][i];i++) POKE(0x0400+10*40+11+i,ascii_to_screencode(deadly_haiku[0][i]));
   for(i=0;deadly_haiku[1][i];i++) POKE(0x0400+12*40+11+i,ascii_to_screencode(deadly_haiku[1][i]));
   for(i=0;deadly_haiku[2][i];i++) POKE(0x0400+14*40+11+i,ascii_to_screencode(deadly_haiku[2][i]));  
