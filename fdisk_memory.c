@@ -197,3 +197,4 @@ void m65_io_enable(void)
   // Force to full speed
   POKE(0,65);
 }
+

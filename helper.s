@@ -1,6 +1,7 @@
 
 	.setcpu "65C02"
 	.export _mega65_dos_attachd81
+	.export _mega65_dos_exechelper
 	.export	_fetch_freeze_region_list_from_hypervisor
 	.export _find_freeze_slot_start_sector
 	.export _unfreeze_slot

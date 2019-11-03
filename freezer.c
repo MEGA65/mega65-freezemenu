@@ -805,6 +805,10 @@ int main(int argc,char **argv)
 	break;
 #endif
 
+      case 'Z': case 'z':
+	mega65_dos_exechelper("PRETTY.M65");
+	break;
+	
       case 'J': case 'j': // Toggle joystick swap
 	POKE(0xD612L,(PEEK(0xD612L)^0x20)&0xEF);
 		    

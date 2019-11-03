@@ -6,6 +6,7 @@ COPTS=	-t c64 -Os --cpu 65c02 -Icc65/include
 LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
+		AUDIOMIX.M65 \
 		C65THUMB.M65 \
 		C64THUMB.M65 \
 		GUSTHUMB.M65
@@ -28,6 +29,15 @@ ASSFILES=	freezer.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s
+
+AMASSFILES=	audiomix.s \
+		freeze_audiomix.s \
+		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
 		fdisk_hal_mega65.s \
 		charset.s \
 		helper.s
@@ -65,6 +75,9 @@ pngprepare:	pngprepare.c
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CL65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m freezer.map -o FREEZER.M65 $(ASSFILES)
+
+AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CL65)
+	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
