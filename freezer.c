@@ -375,7 +375,7 @@ void draw_thumbnail(void)
     for(x=0;x<73;x++) {
       // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
       POKE(0xA000U+(x&7)+(x>>3)*(64*6L)+((y&7)<<3)+(y>>3)*64,
-	   colour_table[PEEK(0x8800U+1+7+x+yoffset)]);
+	   colour_table[PEEK(0x8800U+4+7+x+yoffset)]);
     }
     NAVIGATION_KEY_CHECK();
     yoffset+=80;
