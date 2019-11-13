@@ -832,10 +832,40 @@ int main(int argc,char **argv)
 	break;
 
       case 'V': case 'v': // Toggle video mode
-	freeze_poke(0xFFD306fL,freeze_peek(0xFFD306fL)^0x80);
+	// Toggle video mode setting
+	// Then also toggle vertical border and text/graphics area positions, by updating the following:
+	// $FFD3048 = LSB, top border position
+	// $FFD3049.0-3 = MSB, top border position
+	// $FFD3049.7-4 = PRESERVE
+	// $FFD304A = LSB, bottom border position
+	// $FFD304B.0-3 = MSB, bottom border position
+	// $FFD304B.7-4 = PRESERVE
+	// $FFD304E = TEXTYPOS LSB
+	// $FFD304F.0-3 = TEXTYPOS MSB
+	// $FFD304F.4-7 = PRESERVE
+	// $FFD306F.0-5 = VIC-II first raster
+	c=freeze_peek(0xFFD306fL)&0x80;
+	if (c==0x80) {
+	  // Switch to PAL
+	  freeze_poke(0xFFD306fL,0x00);
+	  freeze_poke(0xFFD3048L,0x69);
+	  freeze_poke(0xFFD3049L,0x0+(lpeek(0xFFD3049L)&0xf0));
+	  freeze_poke(0xFFD304AL,0xFA);
+	  freeze_poke(0xFFD304BL,0x1+(lpeek(0xFFD304BL)&0xf0));
+	  freeze_poke(0xFFD304EL,0x69);
+	  freeze_poke(0xFFD304FL,0x0+(lpeek(0xFFD304FL)&0xf0));
+	} else {
+	  // Switch to NTSC
+	  freeze_poke(0xFFD306fL,0x98);
+	  freeze_poke(0xFFD3048L,0x39);
+	  freeze_poke(0xFFD3049L,0x0+(lpeek(0xFFD3049L)&0xf0));
+	  freeze_poke(0xFFD304AL,0xC9);
+	  freeze_poke(0xFFD304BL,0x1+(lpeek(0xFFD304BL)&0xf0));
+	  freeze_poke(0xFFD304EL,0x39);
+	  freeze_poke(0xFFD304FL,0x0+(lpeek(0xFFD304FL)&0xf0));
+	}	
 	draw_freeze_menu();
 	break;
-
       case '8': case '9':
 	// Change drive number of internal drives
 	freeze_poke(0x10113L-'8'+c,freeze_peek(0x10113L-'8'+c)^2);
