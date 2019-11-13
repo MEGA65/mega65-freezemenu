@@ -16,7 +16,7 @@ struct m65_dirent *readdir(unsigned char);
 void closedir(unsigned char);
 
 void freeze_monitor(void);
-char *freeze_select_disk_image(void);
+char *freeze_select_disk_image(unsigned char drive_id);
 
 void request_freeze_region_list(void);
 uint32_t address_to_freeze_slot_offset(uint32_t address);

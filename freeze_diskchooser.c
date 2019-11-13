@@ -261,7 +261,7 @@ void draw_disk_image_list(void)
   
 }
 
-char *freeze_select_disk_image(void)
+char *freeze_select_disk_image(unsigned char drive_id)
 {
   unsigned char x,dir;
   struct m65_dirent *dirent;
@@ -281,6 +281,20 @@ char *freeze_select_disk_image(void)
   for(x=0;reading_disk_list_message[x];x++)
     POKE(SCREEN_ADDRESS+12*40*2+(9*2)+(x*2),reading_disk_list_message[x]&0x3f);
 
+  // Add the pseudo disks
+  lcopy("- NO DISK -         ",0x40000L+(file_count*64),20);
+  file_count++;
+  if (drive_id==0) {
+    lcopy("- INTERNAL 3.5\" -   ",0x40000L+(file_count*64),20);
+    file_count++;
+  }
+  if (drive_id==1) {
+    lcopy("- 1565 DRIVE 1 -    ",0x40000L+(file_count*64),20);
+    file_count++;
+  }
+  lcopy("- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
+  file_count++;
+  
   dir=opendir();
   dirent=readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
@@ -337,16 +351,65 @@ char *freeze_select_disk_image(void)
       for(x=31;x;x--)
 	if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
 
+      // First, clear flags for the F011 image
+      if (drive_id==0) {
+	// Clear flags for drive 0
+	lpoke(0xffd368bL,lpeek(0xffd368bL)&0xb8);
+	lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
+      } else if (drive_id==1) {
+	// Clear flags for drive 1
+	lpoke(0xffd368bL,lpeek(0xffd368bL)&0x47);
+	lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
+      }
+      
       // Try to mount it, with border black while working
       POKE(0xD020U,0);
-      if (mega65_dos_attachd81(disk_name_return)) {
-	// Mounting the image failed
-	POKE(0xD020U,2);
+      if (disk_name_return[0]=='-') {
+	// Special case options
+	if (disk_name_return[3]=='O') {
+	  // No disk. Set image enable flag, and disable present flag
+	  if (drive_id==0) 
+	    lpoke(0xffd368bL,(lpeek(0xffd368bL)&0xb8)+0x01);
+	  if (drive_id==1) 
+	    lpoke(0xffd368bL,(lpeek(0xffd368bL)&0x47)+0x08);	  
+	} else
+	if (disk_name_return[2]=='I') {
+	  // Use internal drive (drive 0 only)
+	  lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x01);
+	} else
+	if (disk_name_return[2]=='I') {
+	  // Use 1565 external drive (drive 1 only)
+	  lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x05);
+	} else
+	if (disk_name_return[3]=='E') {
+	  // Create and mount new empty D81 file
+	}
+      }
+      else {
+	if (drive_id==0) 
+	  lpoke(0xffd368bL,(lpeek(0xffd368bL)&0xb8)+0x07);
+	if (drive_id==1) 
+	  lpoke(0xffd368bL,(lpeek(0xffd368bL)&0x47)+0x38);	  
+	if (mega65_dos_attachd81(disk_name_return)) {
+	  // Mounting the image failed
+	  POKE(0xD020U,2);
 
-	// XXX - Get DOS error code, and replace directory listing area with
-	// appropriate error message
-
-	break;
+	  // Mark drive as having nothing in it
+	  if (drive_id==0) {
+	    // Clear flags for drive 0
+	    lpoke(0xffd368bL,lpeek(0xffd368bL)&0xb8);
+	    lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
+	  } else if (drive_id==1) {
+	    // Clear flags for drive 1
+	    lpoke(0xffd368bL,lpeek(0xffd368bL)&0x47);
+	    lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
+	  }     
+	  
+	  // XXX - Get DOS error code, and replace directory listing area with
+	  // appropriate error message
+	  
+	  break;
+	}
       }
       POKE(0xD020U,6);
 

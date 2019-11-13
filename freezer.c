@@ -873,7 +873,7 @@ int main(int argc,char **argv)
 	break;
       case 'D': case 'd': // Select mounted disk image
 	{
-	  char *disk_image=freeze_select_disk_image();
+	  char *disk_image=freeze_select_disk_image(0);
 	  if ((unsigned short)disk_image==0xFFFF) {
 	    // Have no disk image
 	  } else if (disk_image) {
