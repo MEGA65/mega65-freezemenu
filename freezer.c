@@ -52,7 +52,7 @@ unsigned char *freeze_menu=
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
   " P - (UN)PROTECT ROM K - SPRITE KILLER  "
-  " D - DISK SELECT     X - POKE FINDER    "
+  " 0/1 - DISK SELECT   X - POKE FINDER    "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
 #define PROCESS_NAME_OFFSET (14*40+21)
@@ -70,6 +70,7 @@ unsigned char *freeze_menu=
   "                                        "
 #define D81_IMAGE0_NAME_OFFSET (21*40+21)
   "                                        "
+#define D81_IMAGE1_NAME_OFFSET (22*40+21)
   "                                        "
   "                                        "
   "                                        "
@@ -472,6 +473,7 @@ void draw_freeze_menu(void)
   // Blank out process descriptor fields
   lfill(&freeze_menu[PROCESS_NAME_OFFSET],'?',16);
   lfill(&freeze_menu[D81_IMAGE0_NAME_OFFSET],' ',19);
+  lfill(&freeze_menu[D81_IMAGE1_NAME_OFFSET],' ',19);
 
   if ((process_descriptor.process_name[0]>=' ')
       &&(process_descriptor.process_name[0]<=0x7f)) {
@@ -490,6 +492,15 @@ void draw_freeze_menu(void)
 	lcopy(process_descriptor.d81_image0_name,
 	      &freeze_menu[D81_IMAGE0_NAME_OFFSET],
 	      process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
+	      );
+    }
+    if (process_descriptor.d81_image1_namelen) {
+      for(i=0;i<process_descriptor.d81_image1_namelen;i++)
+	if (!process_descriptor.d81_image1_name[i]) break;
+      if (i==process_descriptor.d81_image1_namelen)
+	lcopy(process_descriptor.d81_image1_name,
+	      &freeze_menu[D81_IMAGE1_NAME_OFFSET],
+	      process_descriptor.d81_image1_namelen<19?process_descriptor.d81_image1_namelen:19
 	      );
     }
   }
@@ -871,7 +882,7 @@ int main(int argc,char **argv)
 	freeze_poke(0x10113L-'8'+c,freeze_peek(0x10113L-'8'+c)^2);
 	draw_freeze_menu();
 	break;
-      case 'D': case 'd': // Select mounted disk image
+      case '0': // Select mounted disk image
 	{
 	  char *disk_image=freeze_select_disk_image(0);
 	  if ((unsigned short)disk_image==0xFFFF) {
@@ -895,7 +906,32 @@ int main(int argc,char **argv)
 	}
 	draw_freeze_menu();
 	break;
+      case '1': // Select mounted disk image for 2nd drive
+	{
+	  char *disk_image=freeze_select_disk_image(1);
+	  if ((unsigned short)disk_image==0xFFFF) {
+	    // Have no disk image
+	  } else if (disk_image) {
 
+	      {
+	      unsigned char i;
+	      POKE(0xD020U,6);
+	    
+	      // Replace disk image name in process descriptor block
+	      for(i=0;(i<64)&&disk_image[i];i++)
+		freeze_poke(0xFFFBD00L+0x35+i,disk_image[i]);
+	      // Update length of name
+	      freeze_poke(0xFFFBD00L+0x14,i);
+	      // Pad with spaces as required by hypervisor
+	      for(;i<64;i++)
+		freeze_poke(0xFFFBD00L+0x35+i,' ');
+	    }
+	  }
+	}
+	draw_freeze_menu();
+	break;
+
+       
       case 0xf5: // F5 = Reset
 	{
 	  // Set C64 memory map, PC to reset vector and resume
