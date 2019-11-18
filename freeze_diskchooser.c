@@ -292,8 +292,9 @@ char *freeze_select_disk_image(unsigned char drive_id)
     lcopy("- 1565 DRIVE 1 -    ",0x40000L+(file_count*64),20);
     file_count++;
   }
-  lcopy("- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
-  file_count++;
+  // XXX - Uncomment after we implement this feature
+  //  lcopy("- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
+  //  file_count++;
   
   dir=opendir();
   dirent=readdir(dir);
