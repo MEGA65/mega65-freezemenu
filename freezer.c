@@ -894,12 +894,12 @@ int main(int argc,char **argv)
 	      POKE(0xD020U,6);
 	    
 	      // Replace disk image name in process descriptor block
-	      for(i=0;(i<64)&&disk_image[i];i++)
+	      for(i=0;(i<32)&&disk_image[i];i++)
 		freeze_poke(0xFFFBD00L+0x15+i,disk_image[i]);
 	      // Update length of name
 	      freeze_poke(0xFFFBD00L+0x13,i);
 	      // Pad with spaces as required by hypervisor
-	      for(;i<64;i++)
+	      for(;i<32;i++)
 		freeze_poke(0xFFFBD00L+0x15+i,' ');
 	    }
 	  }
@@ -918,12 +918,12 @@ int main(int argc,char **argv)
 	      POKE(0xD020U,6);
 	    
 	      // Replace disk image name in process descriptor block
-	      for(i=0;(i<64)&&disk_image[i];i++)
+	      for(i=0;(i<32)&&disk_image[i];i++)
 		freeze_poke(0xFFFBD00L+0x35+i,disk_image[i]);
 	      // Update length of name
 	      freeze_poke(0xFFFBD00L+0x14,i);
 	      // Pad with spaces as required by hypervisor
-	      for(;i<64;i++)
+	      for(;i<32;i++)
 		freeze_poke(0xFFFBD00L+0x35+i,' ');
 	    }
 	  }
