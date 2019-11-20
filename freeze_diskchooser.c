@@ -356,11 +356,18 @@ char *freeze_select_disk_image(unsigned char drive_id)
       if (drive_id==0) {
 	// Clear flags for drive 0
 	lpoke(0xffd368bL,lpeek(0xffd368bL)&0xb8);
-	lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
+  
+  // there seem to be an issue reliably using lpoke/lpeek here
+  // so for now we repeat to ensure we have what we want
+  while(lpeek(0xffd36a1L) & 1) {
+	   lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
+  }
       } else if (drive_id==1) {
 	// Clear flags for drive 1
 	lpoke(0xffd368bL,lpeek(0xffd368bL)&0x47);
-	lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
+  while(lpeek(0xffd36a1L) & 4) {
+	   lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
+  }
       }
       
       // Try to mount it, with border black while working
@@ -376,11 +383,15 @@ char *freeze_select_disk_image(unsigned char drive_id)
 	} else
 	if (disk_name_return[2]=='I') {
 	  // Use internal drive (drive 0 only)
-	  lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x01);
+    while(!(lpeek(0xffd36a1L) & 1)) {
+	     lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x01);
+    }
 	} else
-	if (disk_name_return[2]=='I') {
+	if (disk_name_return[2]=='1') {
 	  // Use 1565 external drive (drive 1 only)
-	  lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x05);
+    while(!(lpeek(0xffd36a1L) & 4)) {
+	     lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x04);
+    }
 	} else
 	if (disk_name_return[3]=='E') {
 	  // Create and mount new empty D81 file

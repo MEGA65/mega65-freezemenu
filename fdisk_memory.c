@@ -63,7 +63,7 @@ unsigned char lpeek(long address)
   dmalist.command=0x00; // copy
   dmalist.count=1;
   dmalist.source_addr=address&0xffff;
-  dmalist.source_bank=(address>>16)&0x7f;
+  dmalist.source_bank=(address>>16)&0x0f;
   dmalist.dest_addr=(unsigned int)&dma_byte;
   dmalist.dest_bank=0;
 
