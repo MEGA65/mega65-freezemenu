@@ -67,13 +67,13 @@ unsigned char *freeze_menu=
 
   "                     (0) INTERNAL DRIVE:"
 #define DRIVE0_NUM_OFFSET (20*40+37)
-  "                        (8) DEVICE #    "
+  "                         (8) DEVICE #   "
 #define D81_IMAGE0_NAME_OFFSET (21*40+22)
-  "                     (1) EXTERNAL 1565: "
-#define DRIVE1_NUM_OFFSET (22*40+37)
-  "                        (9) DEVICE #    "
-#define D81_IMAGE1_NAME_OFFSET (23*40+21)
   "                                        "
+  "                     (1) EXTERNAL 1565: "
+#define DRIVE1_NUM_OFFSET (23*40+37)
+  "                         (9) DEVICE #   "
+#define D81_IMAGE1_NAME_OFFSET (24*40+22)
   "                                        "
   "\0";
 
@@ -192,9 +192,10 @@ void setup_menu_screen(void)
   // (which we will use for showing the thumbnail)
   POKE(0xD054U,0x05);
   POKE(0xD058U,80); POKE(0xD059U,0); // 80 bytes per row
+
   // Fill colour RAM with sensible value at the start
   lfill(0xff8000U,1,2000);
-
+  
 }  
 
 
@@ -513,6 +514,11 @@ void draw_freeze_menu(void)
 
   lfill(SCREEN_ADDRESS,0,2000);
   lfill(0xFF80000L,1,2000);
+  // Make disk image names different colour to avoid confusion
+  for(i=40;i<80;i+=2) {
+    lpoke(0xff80000+21*80+1+i,0xe);
+    lpoke(0xff80000+24*80+1+i,0xe);
+  }
   
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
