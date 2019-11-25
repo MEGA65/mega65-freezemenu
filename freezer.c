@@ -52,7 +52,7 @@ unsigned char *freeze_menu=
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
   " P - (UN)PROTECT ROM K - SPRITE KILLER  "
-  " 0/1 - DISK SELECT   X - POKE FINDER    "
+  " A - AUDIO & VOLUME  X - POKE FINDER    "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
 #define PROCESS_NAME_OFFSET (14*40+21)
@@ -65,13 +65,14 @@ unsigned char *freeze_menu=
   "                     FREEZE SLOT:       "
   "                                        "
 
-#define DRIVE_NUM_OFFSET (19*40+34)
-  "                     3.5\" DRIVE @       "
-  "                                        "
-#define D81_IMAGE0_NAME_OFFSET (21*40+21)
-  "                                        "
-#define D81_IMAGE1_NAME_OFFSET (22*40+21)
-  "                                        "
+  "                     (0) INTERNAL DRIVE:"
+#define DRIVE0_NUM_OFFSET (20*40+37)
+  "                        (8) DEVICE #    "
+#define D81_IMAGE0_NAME_OFFSET (21*40+22)
+  "                     (1) EXTERNAL 1565: "
+#define DRIVE1_NUM_OFFSET (22*40+37)
+  "                        (9) DEVICE #    "
+#define D81_IMAGE1_NAME_OFFSET (23*40+21)
   "                                        "
   "                                        "
   "\0";
@@ -407,11 +408,11 @@ void draw_freeze_menu(void)
   }
 
   // Draw drive numbers for internal drive
-  lfill(&freeze_menu[DRIVE_NUM_OFFSET],0,5);
-  screen_decimal(&freeze_menu[DRIVE_NUM_OFFSET],
+  lfill(&freeze_menu[DRIVE0_NUM_OFFSET],0,2);
+  lfill(&freeze_menu[DRIVE1_NUM_OFFSET],0,2);
+  screen_decimal(&freeze_menu[DRIVE0_NUM_OFFSET],
 		 freeze_peek(0x10113L));
-  freeze_menu[DRIVE_NUM_OFFSET+2]='/';
-  screen_decimal(&freeze_menu[DRIVE_NUM_OFFSET+3],
+  screen_decimal(&freeze_menu[DRIVE1_NUM_OFFSET],
 		 freeze_peek(0x10114L));
   
   // CPU MODE
