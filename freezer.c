@@ -648,6 +648,10 @@ int main(int argc,char **argv)
   // XXX add missing C65 AND M65 peripherals
   // C65 UART, ethernet etc
 
+  // Enable HDMI audio, since we always run in NTSC mode, which has no
+  // problem with enabling the HDMI audio
+  POKE(0xD61A,0x01);
+  
   // Bank out BASIC ROM, leave KERNAL and IO in
   POKE(0x00,0x3F);
   POKE(0x01,0x36);
@@ -950,6 +954,10 @@ int main(int argc,char **argv)
       case 0xf3: // F3 = resume
 	// Load memory from freeze slot $0000, i.e., the temporary save space
 	// This implicitly restarts the frozen program
+	c=freeze_peek(0xFFD306fL)&0x80;
+	// Disable HDMI audio if in PAL mode, until we find and fix the cause of
+	// the problem with enabling audio on the ADV7511 HDMI driver when using 576p 50Hz PAL.
+	if (c) POKE(0xD61AU,0x01); else POKE(0xD61AU,0x00);
 	unfreeze_slot(slot_number);
 
 	// should never get here
