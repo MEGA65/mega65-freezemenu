@@ -869,6 +869,7 @@ int main(int argc,char **argv)
 	if (c==0x80) {
 	  // Switch to PAL
 	  freeze_poke(0xFFD306fL,0x00);
+	  freeze_poke(0xFFD3072L,0x00);
 	  freeze_poke(0xFFD3048L,0x69);
 	  freeze_poke(0xFFD3049L,0x0+(lpeek(0xFFD3049L)&0xf0));
 	  freeze_poke(0xFFD304AL,0xFA);
@@ -878,11 +879,12 @@ int main(int argc,char **argv)
 	} else {
 	  // Switch to NTSC
 	  freeze_poke(0xFFD306fL,0x87);
-	  freeze_poke(0xFFD3048L,0x28);
+	  freeze_poke(0xFFD3072L,0x18);
+	  freeze_poke(0xFFD3048L,0x2A);
 	  freeze_poke(0xFFD3049L,0x0+(lpeek(0xFFD3049L)&0xf0));
-	  freeze_poke(0xFFD304AL,0xb8);
+	  freeze_poke(0xFFD304AL,0xB9);
 	  freeze_poke(0xFFD304BL,0x1+(lpeek(0xFFD304BL)&0xf0));
-	  freeze_poke(0xFFD304EL,0x28);
+	  freeze_poke(0xFFD304EL,0x2A);
 	  freeze_poke(0xFFD304FL,0x0+(lpeek(0xFFD304FL)&0xf0));
 	}	
 	draw_freeze_menu();
