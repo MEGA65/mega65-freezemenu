@@ -5,9 +5,10 @@
 #define FOOTER_ADDRESS (SCREEN_ADDRESS+24*80)
 
 #define FOOTER_COPYRIGHT     0
-#define FOOTER_BLANK         1
-#define FOOTER_FATAL         2
-#define FOOTER_MAX           2
+#define FOOTER_SPRITED       1
+#define FOOTER_BLANK         2
+#define FOOTER_FATAL         3
+#define FOOTER_MAX           3
 
 #define ATTRIB_REVERSE 0x20
 #define ATTRIB_BLINK 0x10
