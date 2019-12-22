@@ -66,6 +66,9 @@ DATAFILES=	ascii8x8.bin
 
 all:	$(FILES)
 
+install:	all
+	m65ftp < install.mftp
+
 $(CC65):
 	git submodule init
 	git submodule update
@@ -89,7 +92,7 @@ AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CL65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CL65)
-	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(SEASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES)
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
