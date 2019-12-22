@@ -26,6 +26,7 @@ void freeze_poke(uint32_t addr,unsigned char v);
 unsigned char freeze_fetch_page(uint32_t addr,unsigned char *buffer);
 unsigned short get_freeze_slot_count(void);
 void do_audio_mixer(void);
+void do_sprite_editor(void);
 
 
 struct m65_dirent {

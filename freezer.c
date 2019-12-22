@@ -51,7 +51,7 @@ unsigned char *freeze_menu=
   " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
   " cccccccccccccccccccccccccccccccccccccc "
   " M - MONITOR         E - POKES          "
-  " P - (UN)PROTECT ROM K - SPRITE KILLER  "
+  " P - (UN)PROTECT ROM S - SPRITE EDITOR  "
   " A - AUDIO & VOLUME  X - POKE FINDER    "
   " cccccccccccccccccccccccccccccccccccccc "
   "                                        "
@@ -823,6 +823,10 @@ int main(int argc,char **argv)
       case 'A': case 'a': // Audio mixer
 	mega65_dos_exechelper("AUDIOMIX.M65");
 	break;
+
+      case 'S': case 's': // Sprite Editor
+	mega65_dos_exechelper("SPRITED.M65");
+	break;
 	
       case 'J': case 'j': // Toggle joystick swap
 	POKE(0xD612L,(PEEK(0xD612L)^0x20)&0xEF);
@@ -1012,7 +1016,6 @@ int main(int argc,char **argv)
 	
       case 'X': case 'x': // Poke finder
       case 'E': case 'e': // Enter POKEs
-      case 'S': case 's': // View sprites
       case 'k': case 'K': // Sprite killer
       default:
 	// For invalid or unimplemented functions flash the border and screen

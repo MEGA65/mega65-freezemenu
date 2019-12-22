@@ -7,6 +7,7 @@ LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
 		AUDIOMIX.M65 \
+		SPRITED.M65 \
 		C65THUMB.M65 \
 		C64THUMB.M65 \
 		GUSTHUMB.M65
@@ -34,6 +35,15 @@ ASSFILES=	freezer.s \
 
 AMASSFILES=	audiomix.s \
 		freeze_audiomix.s \
+		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s
+
+SEASSFILES=	sprited.s \
+		freeze_sprited.s \
 		frozen_memory.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
@@ -77,6 +87,9 @@ FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CL65)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CL65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
+
+SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CL65)
+	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(SEASSFILES)
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
