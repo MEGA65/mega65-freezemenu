@@ -94,6 +94,9 @@ AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CL65)
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CL65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES)
 
+C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 
+
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
 
