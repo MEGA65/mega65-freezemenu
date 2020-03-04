@@ -12,6 +12,8 @@ uint8_t c,value,select_row,select_column;
 uint8_t sprite_width=24;
 uint8_t sprite_height=21;
 uint16_t i;
+uint8_t x,y;
+
 
 uint8_t nybl_to_hex(uint8_t v)
 {
@@ -21,6 +23,64 @@ uint8_t nybl_to_hex(uint8_t v)
 
 void draw_sprite_editor(void)
 {
+  // XXX - Doesn't clear the screen first.
+  // If changing sprite size, then setup_screen() + display_footer() should be called
+  // again first.
+  
+  // Draw box based on sprite size.
+  // 64-pixel wide sprites obviously can't use 2 chars per pixel, but otherwise we do.
+  if (sprite_width<64) {
+    lfill(SCREEN_ADDRESS,0x62,sprite_width*2+2);
+    if (sprite_height<22)
+      // Whole sprite fits on screen
+      lfill(SCREEN_ADDRESS+(1+sprite_height)*80,0x80+0x62,sprite_width*2+2);
+    else
+      // Only part of the sprite fits on the screen
+      lfill(SCREEN_ADDRESS+22*80,0x080+0x62,sprite_width*2+2);
+  } else {
+    lfill(SCREEN_ADDRESS+1,0x62,sprite_width+2);
+    if (sprite_height<22)
+      // Whole sprite fits on screen
+      lfill(SCREEN_ADDRESS+(1+sprite_height)*80,0x80+0x62,sprite_width+2);
+    else
+      // Only part of the sprite fits on the screen
+      lfill(SCREEN_ADDRESS+22*80,0x80+0x62,sprite_width+2);
+  }
+  if (sprite_height<22) {
+    for(i=1;i<=sprite_height;i++) POKE(SCREEN_ADDRESS+80*i,0x80+0x20);
+    if (sprite_width<64)
+      for(i=1;i<=sprite_height;i++) POKE(SCREEN_ADDRESS+1+2*sprite_width+80*i,0x80+0x20);
+    else
+      for(i=1;i<=sprite_height;i++) POKE(SCREEN_ADDRESS+1+sprite_width+80*i,0x80+0x20);      
+  } else {
+    for(i=1;i<22;i++) POKE(SCREEN_ADDRESS+80*i,0x80+0x20);
+    if (sprite_width<64)
+      for(i=1;i<22;i++) POKE(SCREEN_ADDRESS+1+2*sprite_width+80*i,0x80+0x20);
+    else
+      for(i=1;i<22;i++) POKE(SCREEN_ADDRESS+1+sprite_width+80*i,0x80+0x20);      
+  }
+
+  // pixels
+  {
+    uint16_t line_address=SCREEN_ADDRESS+80+1;
+    uint16_t cursor_address;
+    uint8_t plot_char=0x80+0x20;
+    for(y=0;y<22;y++) {
+      cursor_address=line_address;
+      for(x=0;x<sprite_width;x++) {
+
+	if (x==select_column&&y==select_row) plot_char=0x80+0x2a;
+	if (sprite_width<64) {
+	  cursor_address+=2;
+	} else {
+	  cursor_address++;
+	}
+	
+      }
+      line_address+=80;
+    }
+  }
+  
 }
 
 void do_sprite_editor(void)
