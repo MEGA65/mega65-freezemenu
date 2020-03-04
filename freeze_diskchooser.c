@@ -442,7 +442,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
 
     // Adjust display position
     if (selection_number<display_offset) display_offset=selection_number;
-    if (selection_number>(display_offset+23)) display_offset=selection_number-22;
+    if (selection_number>(display_offset+22)) display_offset=selection_number-22;
     if (display_offset>(file_count-22)) display_offset=file_count-22;
     if (display_offset<0) display_offset=0;
 
