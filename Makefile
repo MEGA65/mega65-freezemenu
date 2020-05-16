@@ -80,7 +80,7 @@ $(CC65):
 ifeq ($(USE_LOCAL_CC65),"")
 	( cd cc65 && make -j 8 )
 else
-	echo "Using local installed CC65."
+	@echo "Using local installed CC65."
 endif
 
 ascii8x8.bin: ascii00-7f.png pngprepare
@@ -94,13 +94,13 @@ ascii.h:	asciih
 pngprepare:	pngprepare.c
 	$(CC) -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
 
-FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CL65)
+FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m freezer.map -o FREEZER.M65 $(ASSFILES)
 
-AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CL65)
+AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 
-SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CL65)
+SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
