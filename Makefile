@@ -75,9 +75,9 @@ install:	all
 	m65ftp < install.mftp
 
 $(CC65):
+ifeq ($(USE_LOCAL_CC65),"")
 	git submodule init
 	git submodule update
-ifeq ($(USE_LOCAL_CC65),"")
 	( cd cc65 && make -j 8 )
 else
 	@echo "Using local installed CC65."
