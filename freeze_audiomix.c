@@ -12,7 +12,7 @@
 
 unsigned char *audio_menu=
   "         MEGA65 AUDIO MIXER MENU        "
-  "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
+  "  (C) FLINDERS UNI, M.E.G.A. 2018-2020  "
   " cccccccccccccccccccccccccccccccccccccc "
   "        LFT RGT PH1 PH2 BTL BTR HDL HDR "
   "        cccccccccccccccccccccccccccccccc"
@@ -33,9 +33,9 @@ unsigned char *audio_menu=
   "  SPAREb                                "
   " MASTERb                                "
   " cccccccccccccccccccccccccccccccccccccc "
-  " USE CURSOR KEYS TO SELECT COEFFICIENTS "
-  " F1,F5 INCREASES VALUE, F3,F7 DECREASES "
-  "  RUN/STOP - EXIT, M - TOGGLE MIC MUTE  "
+  " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
+  " +/- ADJUST VALUE,    0/* - FAST ADJUST "
+  " F3 - EXIT,        M - TOGGLE MIC MUTE  "
   "\0";
 
 
@@ -136,6 +136,111 @@ void draw_audio_mixer(void)
 
 }
 
+unsigned char frames;
+unsigned char note;
+unsigned char sid_num;
+unsigned int sid_addr;
+unsigned int notes[5]={5001,5613,4455,2227,3338};
+
+void test_audio(unsigned char advanced_view)
+{
+  /*
+    Play notes and samples through 4 SIDs and left/right digi
+  */
+
+  // Reset all sids
+  lfill(0xffd3400,0,0x100);
+  
+  // Full volume on all SIDs
+  POKE(0xD418U,0x0f);
+  POKE(0xD438U,0x0f);
+  POKE(0xD458U,0x0f);
+  POKE(0xD478U,0x0f);
+
+  for(note=0;note<5;note++)
+    {
+      switch(note) {
+      case 0: sid_num=0; break;
+      case 1: sid_num=2; break;
+      case 2: sid_num=1; break;
+      case 3: sid_num=3; break;
+      case 4: sid_num=0; break;
+      }
+	
+      sid_addr=0xd400+(0x20*sid_num);
+
+      // Play note
+      POKE(sid_addr+0,notes[note]&0xff);
+      POKE(sid_addr+1,notes[note]>>8);
+      POKE(sid_addr+4,0x10);
+      POKE(sid_addr+5,0x0c);
+      POKE(sid_addr+6,0x00);
+      POKE(sid_addr+4,0x11);
+
+      if (advanced_view) {
+	// Highlight the appropriate part of the screen
+	for(i=5*80;i<7*80;i+=2) lpoke(0xff80001L+i,lpeek(0xff80001L+i)&0x0f);
+	switch(sid_num) {
+	case 0: 
+	  for(i=0;i<80;i+=2) lpoke(0xff80001L+6*80+i,lpeek(0xff80001L+6*80+i)|0x20);
+	  break;
+	case 1:
+	  for(i=0;i<80;i+=2) lpoke(0xff80001L+6*80+i,lpeek(0xff80001L+6*80+i)|0x60);
+	  break;
+	case 2: 
+	  for(i=0;i<80;i+=2) lpoke(0xff80001L+5*80+i,lpeek(0xff80001L+5*80+i)|0x20);
+	  break;
+	case 3: 
+	  for(i=0;i<80;i+=2) lpoke(0xff80001L+5*80+i,lpeek(0xff80001L+5*80+i)|0x60);
+	  break;
+	}
+      }
+      
+      // Wait 1/2 second before next note
+      // (==25 frames)
+      /* 
+	 So the trick here, is that we need to decide if we are doing 4-SID mode,
+	 where all SIDs are 1/2 volume (gain can of course be increased to compensate),
+	 or whether we allow the primary pair of SIDs to be louder.
+	 We have to write to 4-SID registers at least every couple of frames to keep them active
+      */
+      for(frames=0;frames<35;frames++) {
+	// Make sure all 4 SIDs remain active
+	// by proding while waiting
+	while(PEEK(0xD012U)!=0x80) {
+	  POKE(0xD438U,0x0f);
+	  POKE(0xD478U,0x0f);
+	  continue;
+	}
+	
+	while(PEEK(0xD012U)==0x80) continue;
+      }
+	 
+    }
+
+  // Clear highlight
+  if (advanced_view) {
+    for(i=5*80;i<7*80;i+=2) lpoke(0xff80001L+i,lpeek(0xff80001L+i)&0x0f);
+  }
+  // Silence SIDs gradually to avoid pops
+  for(frames=15;frames<=0;frames--) {
+    while(PEEK(0xD012U)!=0x80) {
+      POKE(0xD418U,frames);
+      POKE(0xD438U,frames);
+      POKE(0xD458U,frames);
+      POKE(0xD478U,frames);
+      continue;
+    }
+    
+    while(PEEK(0xD012U)==0x80) continue;
+  }
+
+  // Reset all sids
+  lfill(0xffd3400,0,0x100);
+
+  
+} 
+
 void do_audio_mixer(void)
 {
   select_row=15; select_column=0;
@@ -158,7 +263,7 @@ void do_audio_mixer(void)
       
       // Process char
       switch(c) {
-      case 0x03:
+      case 0x03: case 0xf3: // RUN/STOP or F3 to exit
 	return;
       case 0x11:
 	select_row++; select_row&=0x0f;
@@ -172,25 +277,28 @@ void do_audio_mixer(void)
       case 0x9d:
 	select_column--; select_column&=0x7;
 	break;
-      case 0xF1:
+      case '+':
 	value++;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
 	break;
-      case 0xF5:
+      case '0':
 	value+=0x10;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
 	break;
-      case 0xF3:
+      case '-':
 	value--;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
 	break;
-      case 0xF7:
+      case '*':
 	value-=0x10;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
+	break;
+      case 't': case 'T':
+	test_audio(1);
 	break;
       case 'm': case 'M':
 	if (audioxbar_getcoefficient(0x14)) {
