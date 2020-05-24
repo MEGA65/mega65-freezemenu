@@ -163,14 +163,15 @@ void draw_advanced_mixer(void)
 
 }
 
-char *numbers[64]={
+char *numbers[80]={
   "0","1","2","3","4","5","6","7","8","9",
   "10","11","12","13","14","15","16","17","18","19",
   "20","21","22","23","24","25","26","27","28","29",
   "30","31","32","33","34","35","36","37","38","39",
   "40","41","42","43","44","45","46","47","48","49",
   "50","51","52","53","54","55","56","57","58","59",
-  "60","61","62","63"
+  "60","61","62","63","64","65","66","67","68","69",
+  "70","71","72","73","74","75","76","77","78","79"
 };
 
 unsigned int minus_db_table[256]={
@@ -208,14 +209,22 @@ unsigned int minus_db_table[256]={
   1,1,1,1,1,1,1,0
 };
 
+unsigned char db=0;
+
+void val_to_db(unsigned int val)
+{
+  db=0;
+  while(val<minus_db_table[db]) db++;
+}
+
+
 unsigned char msg[11];
 void draw_db_bar(unsigned char line, unsigned int val)
 {
-  unsigned char db=0;  
   unsigned int bar_addr=audio_menu_simple+line*40+11;
   // Work out the approximate db value of the signal
-  while(val<minus_db_table[db]) db++;
-
+  val_to_db(val);
+  
   // Now draw the db bar.  We allow upto 20 chars wide
   // for the range 0 -- -79db = 1/4 char per dB.
   for(i=0;i<20;i++) {
@@ -238,6 +247,7 @@ void draw_db_bar(unsigned char line, unsigned int val)
   } else {
     i=0;
     POKE(bar_addr+i,'-'); i++;
+    if (db>79) db=79;
     for(;numbers[db][i-1];i++) POKE(bar_addr+i,numbers[db][i-1]);
     POKE(bar_addr+i,'D'); i++;
     POKE(bar_addr+i,'B'); i++;
@@ -245,56 +255,37 @@ void draw_db_bar(unsigned char line, unsigned int val)
   }
 }
 
+uint16_t v;
 void draw_simple_mixer(void)
 {
   uint16_t offset;
   uint8_t colour;
 
-  c=0;
-  do {
-
-    // Work out address of where to draw the value
-    offset=8+5*40;  // Start of first value location
-    offset+=((c&0x1e)>>1)*40; // Low bits of number indicate Y position
-    offset+=(c>>3)&0x1e; // High bits pick the column
-    offset+=(c&1)+(c&1); // lowest bit picks LSB/MSB
-    if (c&0x10) offset-=2; // XXX Why do we need this fudge factor?
-      
-    // And get the value to display
-    value=audioxbar_getcoefficient(c);
-    audio_menu[offset]=nybl_to_hex(value>>4);
-    audio_menu[offset+1]=nybl_to_hex(value&0xf);
-
-    // Now pick the colour to display
-    // We want to make it easy to find values, so we should
-    // have pairs of columns for odd and even rows, and a
-    // highlight colour for the currently selected coefficient
-    // (or just reverse video)
-
-    colour=12;
-    if (((c&0x1e)>>1)==select_row) colour=13;
-    if ((c>>5)==select_column) {
-      if (colour==13) colour=1; else colour=13;
-    }
-    if (colour==1) {
-      audio_menu[33]=nybl_to_hex(c>>4);
-      audio_menu[34]=nybl_to_hex(c&0xf);
-    }
-
-    lpoke(COLOUR_RAM_ADDRESS+offset+offset+1,colour);
-    lpoke(COLOUR_RAM_ADDRESS+offset+offset+3,colour);
-    
-  } while(++c);
-  
   // Update the volume bars and dB levels
   // display it after, so that we have no flicker
-
-  draw_db_bar(6,12345);  
-  draw_db_bar(7,20000);  
-  draw_db_bar(8,30000);  
-  draw_db_bar(9,40000);  
-  draw_db_bar(10,48000);  
-  draw_db_bar(11,55000);  
+  
+  // Left output channel
+  c=0x1e;  // Master volume control
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(6,v);  
+  c=0x00;  // Left SIDs
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(7,v);  
+  c=0x02;  // Right SIDs
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(8,v);  
+  c=0x10;  // Left DIGI
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(9,v);  
+  c=0x12;  // Right DIGI
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(10,v);  
+  
   
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
@@ -517,6 +508,20 @@ void do_audio_mixer(void)
       
       // Flush char from input buffer
       POKE(0xD610U,0);
+
+      switch(c) {
+      case 0x03: case 0xF3:  // RUN/STOP / F3 = Exit
+	return;
+      case 'A': case 'a': // Advanced mode
+	do_advanced_mixer();
+	break;
+      default:
+	// For invalid or unimplemented functions flash the border and screen
+	POKE(0xD020U,1); POKE(0xD021U,1);
+	usleep(150000L);
+	POKE(0xD020U,6); POKE(0xD021U,6);
+	break;
+      }      
     }
   }
 }
