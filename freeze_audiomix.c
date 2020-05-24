@@ -62,8 +62,8 @@ unsigned char *audio_menu_simple=
   "                                        "  
   " cccccccccccccccccccccccccccccccccccccc "
   " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
-  " +/- VOL, S - STEREO/MONO,  W - SWAP L/R"
-  " F3 - EXIT,     A - ADVANCED MIXER MODE "
+  " +/- VOL, S - STEREO/MONO, W - SWAP L/R "
+  " F3 - EXIT, M - MUTE, A - ADVANCED MODE "
   "\0";
 
 
@@ -224,18 +224,21 @@ void draw_db_bar(unsigned char line, unsigned int val)
   unsigned int bar_addr=audio_menu_simple+line*40+11;
   // Work out the approximate db value of the signal
   val_to_db(val);
+
   
   // Now draw the db bar.  We allow upto 20 chars wide
   // for the range 0 -- -79db = 1/4 char per dB.
   for(i=0;i<20;i++) {
-    // Filled bar
-    if ((79-db)>((i*4)+3)) POKE(bar_addr+i,0xa0);
-    // Empty cell
-    else if ((79-db)<(i*4)) POKE(bar_addr+i,0x20);
-    // 1/4, 1/2 and 3/4
-    else if ((79-db)==((i*4)+1)) POKE(bar_addr+i,101);
-    else if ((79-db)==((i*4)+2)) POKE(bar_addr+i,117);
-    else if ((79-db)==((i*4)+3)) POKE(bar_addr+i,118+0x80);
+    if (db>=39) {    
+      POKE(bar_addr+i,0x20);
+    } else {
+      // Filled bar
+      if ((39-db)>((i*2))) POKE(bar_addr+i,0xa0);
+      // Empty cell
+      else if ((39-db)<(i*2)) POKE(bar_addr+i,0x20);
+      // 1/2
+      else if ((39-db)==((i*2)+0)) POKE(bar_addr+i,117);
+    }
   }
 
   // And the annotation to the right
@@ -255,7 +258,104 @@ void draw_db_bar(unsigned char line, unsigned int val)
   }
 }
 
-uint16_t v;
+uint16_t v,v2;
+
+void plus_one_db(unsigned char row)
+{
+  switch(row) {
+  case 0: c=0xde; break;
+  case 1: c=0xc0; break;
+  case 2: c=0xc2; break;
+  case 3: c=0xd0; break;
+  case 4: c=0xd2; break;
+  case 5: c=0xfe; break;
+  case 6: c=0xe0; break;
+  case 7: c=0xe2; break;
+  case 8: c=0xf0; break;
+  case 9: c=0xf2; break;
+  }
+
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  val_to_db(v);
+  if (db) db--;
+  v=minus_db_table[db];
+  audioxbar_setcoefficient(c+0,v&0xff);
+  audioxbar_setcoefficient(c+1,v>>8);
+  
+}
+
+void swap_coefficients(unsigned char a, unsigned b)
+{
+  v=audioxbar_getcoefficient(a);
+  v2=audioxbar_getcoefficient(b);
+  audioxbar_setcoefficient(a,v2);
+  audioxbar_setcoefficient(b,v);
+}
+
+void minus_one_db(unsigned char row)
+{
+  switch(row) {
+  case 0: c=0xde; break;
+  case 1: c=0xc0; break;
+  case 2: c=0xc2; break;
+  case 3: c=0xd0; break;
+  case 4: c=0xd2; break;
+  case 5: c=0xfe; break;
+  case 6: c=0xe0; break;
+  case 7: c=0xe2; break;
+  case 8: c=0xf0; break;
+  case 9: c=0xf2; break;
+  }
+
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  val_to_db(v);
+  if (db<80) db++;
+  v=minus_db_table[db];
+  audioxbar_setcoefficient(c+0,v&0xff);
+  audioxbar_setcoefficient(c+1,v>>8);
+}
+
+void stereo_swap(void)
+{
+  // Swap left and right sides
+  swap_coefficients(0xc0,0xe2);
+  swap_coefficients(0xc1,0xe3);
+  swap_coefficients(0xc2,0xe0);
+  swap_coefficients(0xc3,0xe1);
+  swap_coefficients(0xd0,0xf2);
+  swap_coefficients(0xd1,0xf3);
+  swap_coefficients(0xd2,0xf0);
+  swap_coefficients(0xd3,0xf1);  
+}
+
+void stereo_toggle(void)
+{
+  v=audioxbar_getcoefficient(0xc0);
+  v2=audioxbar_getcoefficient(0xc2);
+  if (v==v2) {
+    // Make stereo with 12dB difference between left and right
+    for(i=0;i<=64;i+=16) {
+      audioxbar_setcoefficient(0xc0+i,minus_db_table[12]&0xff);
+      audioxbar_setcoefficient(0xc1+i,minus_db_table[12]>>8);
+      audioxbar_setcoefficient(0xc2+i,minus_db_table[3]&0xff);
+      audioxbar_setcoefficient(0xc3+i,minus_db_table[3]>>8);
+    }
+  } else {
+    // Make mono
+    for(i=0;i<=64;i+=16) {
+      audioxbar_setcoefficient(0xc0+i,minus_db_table[6]&0xff);
+      audioxbar_setcoefficient(0xc1+i,minus_db_table[6]>>8);
+      audioxbar_setcoefficient(0xc2+i,minus_db_table[6]&0xff);
+      audioxbar_setcoefficient(0xc3+i,minus_db_table[6]>>8);
+    }
+  }
+}
+
+unsigned char db_bar_highlight[80];
+unsigned char db_bar_lowlight[80];
+
 void draw_simple_mixer(void)
 {
   uint16_t offset;
@@ -265,26 +365,48 @@ void draw_simple_mixer(void)
   // display it after, so that we have no flicker
   
   // Left output channel
-  c=0x1e;  // Master volume control
+  c=0xde;  // Master volume control
   v=audioxbar_getcoefficient(c);
   v|=audioxbar_getcoefficient(c+1)<<8;
   draw_db_bar(6,v);  
-  c=0x00;  // Left SIDs
+  c=0xc0;  // Left SIDs
   v=audioxbar_getcoefficient(c);
   v|=audioxbar_getcoefficient(c+1)<<8;
   draw_db_bar(7,v);  
-  c=0x02;  // Right SIDs
+  c=0xc2;  // Right SIDs
   v=audioxbar_getcoefficient(c);
   v|=audioxbar_getcoefficient(c+1)<<8;
   draw_db_bar(8,v);  
-  c=0x10;  // Left DIGI
+  c=0xd0;  // Left DIGI
   v=audioxbar_getcoefficient(c);
   v|=audioxbar_getcoefficient(c+1)<<8;
   draw_db_bar(9,v);  
-  c=0x12;  // Right DIGI
+  c=0xd2;  // Right DIGI
   v=audioxbar_getcoefficient(c);
   v|=audioxbar_getcoefficient(c+1)<<8;
-  draw_db_bar(10,v);  
+  draw_db_bar(10,v);
+
+  // Right output channel
+  c=0xfe;  // Master volume control
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(14,v);  
+  c=0xe0;  // Left SIDs
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(15,v);  
+  c=0xe2;  // Right SIDs
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(16,v);  
+  c=0xf0;  // Left DIGI
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(17,v);  
+  c=0xf2;  // Right DIGI
+  v=audioxbar_getcoefficient(c);
+  v|=audioxbar_getcoefficient(c+1)<<8;
+  draw_db_bar(18,v);    
   
   
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
@@ -300,6 +422,22 @@ void draw_simple_mixer(void)
     POKE(SCREEN_ADDRESS+i*2+1,0);
   }
 
+  // Work out the line to highlight
+
+  select_column=6+select_row;
+  if (select_row>=5) select_column+=3;
+
+  for(i=6;i<20;i++) {
+    if (i==select_column) {
+      // Highligh colouring
+      lcopy(db_bar_highlight,COLOUR_RAM_ADDRESS+i*80,80);
+    } else {
+      // Normal colouring
+      if (i<11||i>13)
+	lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+i*80,80);
+    }
+  }
+  
 }
 
 
@@ -361,6 +499,21 @@ void test_audio(unsigned char advanced_view)
 	  for(i=0;i<80;i+=2) lpoke(0xff80001L+5*80+i,lpeek(0xff80001L+5*80+i)|0x60);
 	  break;
 	}
+      } else {
+	switch(note) {
+	case 0: case 2: case 4:
+	  lcopy(db_bar_highlight,COLOUR_RAM_ADDRESS+9*80,80);
+	  lcopy(db_bar_highlight,COLOUR_RAM_ADDRESS+17*80,80);
+	  lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+7*80,80);
+	  lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+15*80,80);
+	  break;
+	case 1: case 3:
+	  lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+9*80,80);
+	  lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+17*80,80);
+	  lcopy(db_bar_highlight,COLOUR_RAM_ADDRESS+7*80,80);
+	  lcopy(db_bar_highlight,COLOUR_RAM_ADDRESS+15*80,80);
+	  break;
+	}
       }
       
       // Wait 1/2 second before next note
@@ -388,6 +541,11 @@ void test_audio(unsigned char advanced_view)
   // Clear highlight
   if (advanced_view) {
     for(i=5*80;i<7*80;i+=2) lpoke(0xff80001L+i,lpeek(0xff80001L+i)&0x0f);
+  } else {
+    lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+9*80,80);
+    lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+17*80,80);
+    lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+7*80,80);
+    lcopy(db_bar_lowlight,COLOUR_RAM_ADDRESS+15*80,80);
   }
   // Silence SIDs gradually to avoid pops
   for(frames=15;frames<=0;frames--) {
@@ -463,7 +621,7 @@ void do_advanced_mixer(void)
 	value-=0x10;
 	audioxbar_setcoefficient(i-1,value);
 	audioxbar_setcoefficient(i,value);
-	break;
+	break; 
       case 't': case 'T':
 	test_audio(1);
 	break;
@@ -499,6 +657,27 @@ void do_advanced_mixer(void)
 
 void do_audio_mixer(void)
 {
+  select_row=0;
+
+  for(i=0;i<80;i+=2) {
+    db_bar_highlight[i+0]=0;
+    db_bar_lowlight[i+0]=0;
+    db_bar_highlight[i+1]=1;
+    db_bar_lowlight[i+1]=11;
+    if (i>=22&&i<46) {
+    db_bar_highlight[i+1]=5;
+    db_bar_lowlight[i+1]=13;
+    }
+    if (i>=46&&i<54) {
+    db_bar_highlight[i+1]=8;
+    db_bar_lowlight[i+1]=7;
+    }
+    if (i>=54&&i<70) {
+    db_bar_highlight[i+1]=2;
+    db_bar_lowlight[i+1]=10;
+    }
+  }
+  
   while(1) {
     draw_simple_mixer();
 
@@ -514,6 +693,43 @@ void do_audio_mixer(void)
 	return;
       case 'A': case 'a': // Advanced mode
 	do_advanced_mixer();
+	break;
+      case 0x1d: case '+': // Right = + 1 to DB of signal
+	plus_one_db(select_row);
+	break;
+      case 0x9d: case '-': // Left = -1 to DB of signal
+	minus_one_db(select_row);
+	break;
+      case 0x11:
+	select_row++;
+	if (select_row>=10) select_row=0;
+	break;
+      case 0x91:
+	select_row--;
+	if (select_row>=10) select_row=0;
+	break;
+      case 't': case 'T':
+	test_audio(0); // simple view highlighting
+	break;
+      case 'w': case 'W':
+	// Switch coefficients for left and right channels
+	stereo_swap();
+	break;
+      case 's': case 'S':
+	stereo_toggle();
+	break;
+      case 'm': case 'M': // Mute
+	if (audioxbar_getcoefficient(0xfe)) {
+	  audioxbar_setcoefficient(0xfe,0);
+	  audioxbar_setcoefficient(0xff,0);
+	  audioxbar_setcoefficient(0xde,0);
+	  audioxbar_setcoefficient(0xdf,0);
+	} else {
+	  audioxbar_setcoefficient(0xfe,0xff);
+	  audioxbar_setcoefficient(0xff,0xff);
+	  audioxbar_setcoefficient(0xde,0xff);
+	  audioxbar_setcoefficient(0xdf,0xff);
+	}
 	break;
       default:
 	// For invalid or unimplemented functions flash the border and screen
