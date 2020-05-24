@@ -694,10 +694,18 @@ void do_audio_mixer(void)
       case 'A': case 'a': // Advanced mode
 	do_advanced_mixer();
 	break;
-      case 0x1d: case '+': // Right = + 1 to DB of signal
+      case '+':
+	plus_one_db(0);
+	plus_one_db(5);
+	break;
+      case '-':
+	minus_one_db(0);
+	minus_one_db(5);
+	break;
+      case 0x1d: // Right = + 1 to DB of signal
 	plus_one_db(select_row);
 	break;
-      case 0x9d: case '-': // Left = -1 to DB of signal
+      case 0x9d: // Left = -1 to DB of signal
 	minus_one_db(select_row);
 	break;
       case 0x11:
