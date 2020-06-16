@@ -67,6 +67,7 @@ HEADERS=	Makefile \
 DATAFILES=	ascii8x8.bin
 
 %.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
+	$(warning ======== Making: $@)
 	$(CC65) $(COPTS) -o $@ $<
 
 all:	$(FILES)
@@ -75,6 +76,7 @@ install:	all
 	m65ftp < install.mftp
 
 $(CC65):
+	$(warning ======== Making: $@)
 ifeq ($(USE_LOCAL_CC65),"")
 	git submodule init
 	git submodule update
@@ -84,35 +86,46 @@ else
 endif
 
 ascii8x8.bin: ascii00-7f.png pngprepare
+	$(warning ======== Making: $@)
 	./pngprepare charrom ascii00-7f.png ascii8x8.bin
 
 asciih:	asciih.c
+	$(warning ======== Making: $@)
 	$(CC) -o asciih asciih.c
 ascii.h:	asciih
+	$(warning ======== Making: $@)
 	./asciih
 
 pngprepare:	pngprepare.c
+	$(warning ======== Making: $@)
 	$(CC) -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
+	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m freezer.map -o FREEZER.M65 $(ASSFILES)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
+	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65)
+	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
+	$(warning ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
+	$(warning ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
 
 GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatter
+	$(warning ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 
 
 tools/thumbnail-surround-formatter:
+	$(warning ======== Making: $@)
 	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
 
