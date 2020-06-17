@@ -133,7 +133,16 @@ tools/thumbnail-surround-formatter:
 
 
 clean:
-	rm -f $(FILES)
+	rm -f $(FILES) *.o \
+	audiomix.s \
+	freeze_*.s \
+	frozen_memory.s \
+	fdisk_*.s \
+	freezer.s sprited.s \
+	*.map \
+	ascii.h ascii8x8.bin asciih \
+	pngprepare \
+	tools/thumbnail-surround-formatter
 
 cleangen:
 	rm ascii8x8.bin
