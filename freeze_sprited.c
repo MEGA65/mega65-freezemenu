@@ -102,7 +102,7 @@ void do_sprite_editor(void)
 
       // Process char
       switch(c) {
-      case 0x03:
+      case 0xF3:
 	// Return screen to normal first
 	POKE(0xD054U,0);
 	POKE(0xD018U,0x15); // VIC-II hot register, so should reset most display settings

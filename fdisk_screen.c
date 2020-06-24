@@ -9,7 +9,7 @@ char screen_column=0;
 
 unsigned char *footer_messages[FOOTER_MAX+1]={
   "MEGA65 FREEZE MONITOR V00.01 :     X - RETURN TO FREEZE MENU, M - DISPLAY MEMORY",
-  "MEGA65 SPRITE EDITOR V00.01 :  1 - CLEAR, 2- DRAW ETC, H - HELP, RUN/STOP - EXIT",
+  "MEGA65 SPRITE EDITOR V00.01 :        1 - CLEAR, 2- DRAW ETC, H - HELP, F3 - EXIT",
   "                                                                                ",
   "A FATAL ERROR HAS OCCURRED, SORRY.                                              "
 };

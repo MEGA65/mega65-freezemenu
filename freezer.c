@@ -833,7 +833,7 @@ int main(int argc,char **argv)
 		    
 	draw_freeze_menu();
 	break;
-	
+
       case 'T': case 't': // Toggle cartridge enable
 	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x01);
 	draw_freeze_menu();
