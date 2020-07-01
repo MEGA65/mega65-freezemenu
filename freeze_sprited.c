@@ -396,6 +396,10 @@ static void DrawScreen()
     DrawToolbox();
 }
 
+unsigned short joy_delay_countdown = 0;
+unsigned short joy_delay = 10000;
+unsigned char fire_lock = 0;
+
 static void MainLoop()
 {
     FILEOPTIONS fileOpt;
@@ -406,8 +410,53 @@ static void MainLoop()
 
     while (1)
     {
-        key = cgetc();
-        switch (key)
+      if (kbhit())
+	{
+	  key = cgetc();
+	  joy_delay_countdown=0;
+	}
+      else {
+	key=0;
+	if ((PEEK(0xDC00)&0x1f)!=0x1f) {
+	  // Check joysticks
+
+	  if (!(PEEK(0xDC00)&0x10)) {
+	    // Toggle pixel
+	    if (!fire_lock) {
+	      key = 0x20;
+	      joy_delay_countdown=joy_delay_countdown>>3;
+	    }
+	    fire_lock = 1;	    
+	  }
+	  else fire_lock=0;
+	  	  
+	  if (joy_delay_countdown)
+	    joy_delay_countdown--;
+	  else {
+	    switch(PEEK(0xDC00)&0xf) {
+	    case 0x7:  // RIGHT
+	      joy_delay_countdown=joy_delay;
+	      fire_lock=0;
+	      key = CH_CURS_RIGHT; break;
+	    case 0xB: // LEFT
+	      fire_lock=0;
+	      joy_delay_countdown=joy_delay;
+	      key = CH_CURS_LEFT; break;
+	    case 0xE: // UP
+	      fire_lock=0;
+	      joy_delay_countdown=joy_delay;
+	      key = CH_CURS_UP; break;
+	    case 0xD: // DOWN
+	      fire_lock=0;
+	      joy_delay_countdown=joy_delay;
+	      key = CH_CURS_DOWN; break;
+	    default:
+	      key = 0;
+	    }
+	  }
+	}
+      }
+      switch (key)
         {
         case CH_CURS_DOWN:
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
@@ -507,14 +556,22 @@ static void MainLoop()
             InfoDialog();
             break;
 
+	case 0:
+	  // No key, do nothing
+	  break;
+	    
         default:
             // color keys
             if (key >= '0' && key <= '9')
-                g_state.color[g_state.currentColorIdx] = key - 48;
-            else if (key >= 0x41 && key <= 'f')
+	      {
+		g_state.color[g_state.currentColorIdx] = key - 48;
+		redrawTools = redrawCanvas = TRUE;
+	      }
+            else if (key >= 0x41 && key <= 'f') {
                 g_state.color[g_state.currentColorIdx] = 10 + key - 65;
+		redrawTools = redrawCanvas = TRUE;
+	    }
 
-            redrawTools = redrawCanvas = TRUE;
         }
 
         if (redrawCanvas)
