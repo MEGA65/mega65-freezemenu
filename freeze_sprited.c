@@ -452,7 +452,7 @@ void mouse_clip_position(void)
 
 char mouse_clicked(void)
 {
-  if (!(PEEK(0xDC01)&0x80)) mouse_click_flag=1;
+  if (!(PEEK(0xDC01)&0x10)) mouse_click_flag=1;
   if (mouse_click_flag) {
     mouse_click_flag=0;
     return 1;
@@ -474,11 +474,6 @@ void mouse_update_pointer(void)
     if (mouse_y&0x200) POKE(0xD05F,PEEK(0xD05F)|(1<<mouse_sprite_number));
     else  POKE(0xD078,PEEK(0xD078)&(0xFF-(1<<mouse_sprite_number)));
   }
-
-  gotoxy(0,0);
-  cputdec(mouse_x, 0, 0);
-  gotoxy(0,1);
-  cputdec(mouse_y, 0, 0);
 }
 
 void mouse_update_position(unsigned short *mx,unsigned short *my)
@@ -499,7 +494,7 @@ void mouse_update_position(unsigned short *mx,unsigned short *my)
   mouse_clip_position();
   mouse_update_pointer();
 
-  if (!(PEEK(0xDC01)&0x80)) mouse_click_flag=1;
+  if (!(PEEK(0xDC01)&0x10)) mouse_click_flag=1;
   
   if (mx) *mx=mouse_x;
   if (my) *my=mouse_y;
@@ -540,12 +535,9 @@ static void MainLoop()
 	    g_state.cursorX = (mx-55)/8;
 	    g_state.cursorY = (my-66)/8;
 	    DrawCursor();
+	    fire_lock=0;
 	  }
       }
-      if (mouse_clicked()) {
-	key=0x20;
-      }
-      
       if (kbhit())
 	{
 	  key = cgetc();
@@ -590,6 +582,12 @@ static void MainLoop()
 	      key = 0;
 	    }
 	  }
+	}
+      }
+      if (!key) {
+	if (mouse_clicked()) {
+	  if (!fire_lock) key=0x20;
+	  fire_lock=1;
 	}
       }
       switch (key)
