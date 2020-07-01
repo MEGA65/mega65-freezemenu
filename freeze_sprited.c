@@ -500,7 +500,7 @@ static void MainLoop()
             }
             break;
 
-        case 134: // F3
+        case 0xF3: // F3
             return;
 
         case '?':

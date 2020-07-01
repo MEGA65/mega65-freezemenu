@@ -422,11 +422,20 @@ int main(int argc,char **argv)
   // SD or SDHC card?
   if (PEEK(0xD680U)&0x10) sdhc_card=1; else sdhc_card=0;
   
-  setup_menu_screen();
 
   request_freeze_region_list();
 
+  // Back to 40 column, 8-bit text mode
+  POKE(0xD031U,0x00); 
+  POKE(0xD054U,0x00); 
+  // Lower case
+  POKE(0xD018U,0x16);
+  
   do_sprite_editor();
+
+  // Back to 40 column mode
+  POKE(0xD031U,0x00); 
+
   mega65_dos_exechelper("FREEZER.M65");
   
   return;
