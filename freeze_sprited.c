@@ -104,6 +104,9 @@ static void Initialize()
     POKE(0xD000,100);
     POKE(0xD001,100);
     POKE(0xD027,7);
+    POKE(0xD06C,0xF8);
+    POKE(0xD06D,0x07);
+    POKE(0xD06E,0x00);
     
     POKE(0xD031UL, 0xE0);  // Extended attributes + 80 mode
     POKE(REG_SCREEN_BASE_B0, SCREEN_ADDRESS & 0x0000FFUL);
