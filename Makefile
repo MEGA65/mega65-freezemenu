@@ -59,7 +59,8 @@ SEASSFILES=	sprited.s \
 		charset.s \
 		helper.s
 
-LIBCASSFILES=	../mega65-libc/cc65/src/conio.s
+LIBCASSFILES=	../mega65-libc/cc65/src/conio.s \
+		../mega65-libc/cc65/src/mouse.s
 
 HEADERS=	Makefile \
 		freezer.h \
