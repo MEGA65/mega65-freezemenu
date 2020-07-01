@@ -532,7 +532,17 @@ static void MainLoop()
     while (1)
     {
       mouse_update_position(&mx,&my);
+      if ((my>=66&&my<=236)&&(mx>=66&&mx<=236)) {
+	g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+	if ((((mx-66)/8)!=g_state.cursorX)||(((my-66)/8)!=g_state.cursorY))
+	  {
+	    redrawCanvas = redrawTools = TRUE;
+	    g_state.cursorX = (mx-66)/8;
+	    g_state.cursorY = (my-66)/8;
+	  }
+      }
       if (mouse_clicked()) {
+	key=0x20;
       }
       
       if (kbhit())
