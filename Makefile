@@ -114,7 +114,7 @@ AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 
-SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65)
+SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(LIBCASSFILES)
 
