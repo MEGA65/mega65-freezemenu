@@ -114,7 +114,7 @@ static void DrawCursor()
 {
     BYTE i = 0;
     revers(1);
-    blink(1),
+    blink(1);
     gotoxy(g_state.canvasLeftX + (g_state.cursorX * g_state.cellsPerPixel), 2 + g_state.cursorY);
     textcolor(g_state.color[g_state.currentColorIdx]);
 
