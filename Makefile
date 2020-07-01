@@ -59,6 +59,8 @@ SEASSFILES=	sprited.s \
 		charset.s \
 		helper.s
 
+LIBCASSFILES=	../mega65-libc/cc65/src/conio.s
+
 HEADERS=	Makefile \
 		freezer.h \
 		fdisk_memory.h \
@@ -113,7 +115,7 @@ AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(LIBCASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
