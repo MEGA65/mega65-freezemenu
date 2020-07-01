@@ -188,6 +188,9 @@ void setup_menu_screen(void)
   POKE(0xD018U,(((CHARSET_ADDRESS-0x8000U)>>11)<<1)+(((SCREEN_ADDRESS-0x8000U)>>10)<<4));
   POKE(0xDD00U,(PEEK(0xDD00U)&0xfc)|0x01);
 
+  // No extended attributes
+  POKE(0xD031U,0x00);
+  
   // 16-bit text mode with full colour for chars >$FF
   // (which we will use for showing the thumbnail)
   POKE(0xD054U,0x05);

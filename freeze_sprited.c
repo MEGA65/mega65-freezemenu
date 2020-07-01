@@ -86,13 +86,13 @@ static void Initialize()
 {
     // Set 40MHz, VIC-IV I/O, 80 column, screen RAM @ $8000
     POKE(0, 65);
-    POKE(53295UL, 71);
-    POKE(53295UL, 83);
+    POKE(0xD02fL, 0x47);
+    POKE(0xd02fL, 0x53);
     POKE(0xD031UL, 0xE0);  // Extended attributes + 80 mode
     POKE(REG_SCREEN_BASE_B0, SCREEN_ADDRESS & 0x0000FFUL);
     POKE(REG_SCREEN_BASE_B1, (SCREEN_ADDRESS & 0xFF00UL) >> 8);
     POKE(REG_SCREEN_BASE_B2, (SCREEN_ADDRESS & 0xFF0000UL) >> 16);
-    POKE(REG_SCREEN_BASE_B3, 0xF8);
+    POKE(REG_SCREEN_BASE_B3, (SCREEN_ADDRESS & 0xF000000UL) >> 24);
     POKE(0xD610U,0); // empty keyboard buffer
 
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
