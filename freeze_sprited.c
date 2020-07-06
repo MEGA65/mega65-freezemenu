@@ -1,7 +1,28 @@
 /* 
  * SPRED65 - The MEGA65 sprite editor  
  *
- * Copyright (c) 2020 Hernán Di Pietro.
+ * Copyright (c) 2020 Hernán Di Pietro, Paul Gardner-Stephen.
+ * 
+ *  This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ 
+    Version   0.5
+    Date      2020-07-06
+
+    CHANGELOG
+
+    v0.5        Uses conio for proper initialization and some of its
+                new features.  Color selection with MEGA/CTRL keys.
  */
 
 #include <cc65.h>
@@ -94,8 +115,8 @@ static void Initialize()
 {
     // Set 40MHz, VIC-IV I/O, 80 column, screen RAM @ $8000
     POKE(0, 65);
-    POKE(0xD02fL, 0x47);
-    POKE(0xd02fL, 0x53);
+
+    conioinit();
 
     // Set sprite 0 to our cursor
     lcopy((long)sprite_pointer,0x380,63);
@@ -107,13 +128,10 @@ static void Initialize()
     POKE(0xD06C,0xF8);
     POKE(0xD06D,0x07);
     POKE(0xD06E,0x00);
-    
-    POKE(0xD031UL, 0xE0);  // Extended attributes + 80 mode
-    POKE(REG_SCREEN_BASE_B0, SCREEN_ADDRESS & 0x0000FFUL);
-    POKE(REG_SCREEN_BASE_B1, (SCREEN_ADDRESS & 0xFF00UL) >> 8);
-    POKE(REG_SCREEN_BASE_B2, (SCREEN_ADDRESS & 0xFF0000UL) >> 16);
-    POKE(REG_SCREEN_BASE_B3, (SCREEN_ADDRESS & 0xF000000UL) >> 24);
-    POKE(0xD610U,0); // empty keyboard buffer
+
+    setscreenaddr(0x8000);
+    setscreensize(80,25);
+    setextendedattrib(1);
 
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
     g_state.color[COLOR_FORE] = DEFAULT_FORE_COLOR;
@@ -215,11 +233,8 @@ static void DrawCanvas()
 }
 
 static void DrawHeader()
-{
-    textcolor(COLOUR_LIGHTGREEN);
-    revers(1);
-    cputsxy(0, 0, "mega65 sprite editor v0.5                    copyright (c) 2020 hernan di pietro");
-    revers(0);
+{   
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.5                   copyright (c) 2020 hernan di pietro");
 }
 
 static void DrawToolbox()
@@ -242,31 +257,19 @@ static void DrawToolbox()
 
     textcolor(14);
 
-    cputsxy(TOOLBOX_COLUMN, 5, "01234567");
+    gotoxy(TOOLBOX_COLUMN, 5);
+    cprintf("{rvson}{blk} {wht} {red} {cyan} {pur} {grn} {blu} {yel} ");
     gotoxy(TOOLBOX_COLUMN, 6);
+    cprintf("{ora} {brn} {pink} {gray1} {gray2} {lgrn} {lblu} {gray3} {rvsoff}");
+    
     revers(1);
-    for (i = 0; i < 8; ++i)
-    {
-        textcolor(i);
-        cputc(' ');
-    }
+    textcolor(g_state.color[g_state.currentColorIdx]);
+    cputcxy(TOOLBOX_COLUMN + (g_state.color[g_state.currentColorIdx] % 8), 5 + (g_state.color[g_state.currentColorIdx] / 8), '*');
     revers(0);
-    textcolor(14);
-    cputsxy(TOOLBOX_COLUMN, 8, "89abcdef");
-    gotoxy(TOOLBOX_COLUMN, 7);
-    revers(1);
-    for (i = 8; i < 16; ++i)
-    {
-        textcolor(i);
-        cputc(' ');
-    }
-
-    cputcxy(TOOLBOX_COLUMN + (g_state.color[g_state.currentColorIdx] % 8), 6 + (g_state.color[g_state.currentColorIdx] / 8), '*');
-    revers(0);
-
+    
+    textcolor(COLOUR_GREY3);
     cputsxy(TOOLBOX_COLUMN + 11, 6, clrIndexName[g_state.currentColorIdx]);
 
-    textcolor(14);
     cputsxy(TOOLBOX_COLUMN, 10, ", . sel sprite");
     cputsxy(TOOLBOX_COLUMN, 11, "spc draw");
     if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
@@ -290,9 +293,9 @@ static void DrawToolbox()
 
     for(i = 10; i <= 21; ++i)
     {
-        ccellcolor(TOOLBOX_COLUMN,   i, COLOUR_GREY3);
-        ccellcolor(TOOLBOX_COLUMN+1, i, COLOUR_GREY3);
-        ccellcolor(TOOLBOX_COLUMN+2, i, COLOUR_GREY3);
+        cellcolor(TOOLBOX_COLUMN,   i, COLOUR_GREY3);
+        cellcolor(TOOLBOX_COLUMN+1, i, COLOUR_GREY3);
+        cellcolor(TOOLBOX_COLUMN+2, i, COLOUR_GREY3);
     }
 }
 
@@ -426,82 +429,101 @@ static void MainLoop()
 {
     FILEOPTIONS fileOpt;
 
-    unsigned char key = 0;
+    unsigned char key = 0, keymod = 0;
     BYTE redrawCanvas = FALSE;
     BYTE redrawTools = FALSE;
 
-    mouse_set_bounding_box(0+24,0+50,319+24-8,199+50);
-    mouse_warp_to(24,100);
+    mouse_set_bounding_box(0 + 24, 0 + 50, 319 + 24 - 8, 199 + 50);
+    mouse_warp_to(24, 100);
     mouse_bind_to_sprite(0);
-    
+
     while (1)
     {
-      mouse_update_position(&mx,&my);
-      if ((my>=66&&my<=233)&&(mx>=55&&mx<=235)) {
-	if ((((mx-55)/8)!=g_state.cursorX)||(((my-66)/8)!=g_state.cursorY))
-	  {
-            g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
-	    redrawTools = TRUE;
-	    g_state.cursorX = (mx-55)/8;
-	    g_state.cursorY = (my-66)/8;
-	    DrawCursor();
-	    fire_lock=0;
-	  }
-      }
-      if (kbhit())
-	{
-	  key = cgetc();
-	  joy_delay_countdown=0;
-	}
-      else {
-	key=0;
-	if ((PEEK(0xDC00)&0x1f)!=0x1f) {
-	  // Check joysticks
-
-	  if (!(PEEK(0xDC00)&0x10)) {
-	    // Toggle pixel
-	    if (!fire_lock) {
-	      key = 0x20;
-	      joy_delay_countdown=joy_delay_countdown>>3;
-	    }
-	    fire_lock = 1;	    
-	  }
-	  else fire_lock=0;
-	  	  
-	  if (joy_delay_countdown)
-	    joy_delay_countdown--;
-	  else {
-	    switch(PEEK(0xDC00)&0xf) {
-	    case 0x7:  // RIGHT
-	      joy_delay_countdown=joy_delay;
-	      fire_lock=0;
-	      key = CH_CURS_RIGHT; break;
-	    case 0xB: // LEFT
-	      fire_lock=0;
-	      joy_delay_countdown=joy_delay;
-	      key = CH_CURS_LEFT; break;
-	    case 0xE: // UP
-	      fire_lock=0;
-	      joy_delay_countdown=joy_delay;
-	      key = CH_CURS_UP; break;
-	    case 0xD: // DOWN
-	      fire_lock=0;
-	      joy_delay_countdown=joy_delay;
-	      key = CH_CURS_DOWN; break;
-	    default:
-	      key = 0;
-	    }
-	  }
-	}
-      }
-      if (!key) {
-	if (mouse_clicked()) {
-	  if (!fire_lock) key=0x20;
-	  fire_lock=1;
-	}
-      }
-      switch (key)
+        mouse_update_position(&mx, &my);
+        if ((my >= 66 && my <= 233) && (mx >= 55 && mx <= 235))
         {
+            if ((((mx - 55) / 8) != g_state.cursorX) || (((my - 66) / 8) != g_state.cursorY))
+            {
+                g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+                redrawTools = TRUE;
+                g_state.cursorX = (mx - 55) / 8;
+                g_state.cursorY = (my - 66) / 8;
+                DrawCursor();
+                fire_lock = 0;
+            }
+        }
+        if (kbhit())
+        {
+            key = cgetc();
+            joy_delay_countdown = 0;
+        }
+        else
+        {
+            key = 0;
+            if ((PEEK(0xDC00) & 0x1f) != 0x1f)
+            {
+                // Check joysticks
+
+                if (!(PEEK(0xDC00) & 0x10))
+                {
+                    // Toggle pixel
+                    if (!fire_lock)
+                    {
+                        key = 0x20;
+                        joy_delay_countdown = joy_delay_countdown >> 3;
+                    }
+                    fire_lock = 1;
+                }
+                else
+                    fire_lock = 0;
+
+                if (joy_delay_countdown)
+                    joy_delay_countdown--;
+                else
+                {
+                    switch (PEEK(0xDC00) & 0xf)
+                    {
+                    case 0x7: // RIGHT
+                        joy_delay_countdown = joy_delay;
+                        fire_lock = 0;
+                        key = CH_CURS_RIGHT;
+                        break;
+                    case 0xB: // LEFT
+                        fire_lock = 0;
+                        joy_delay_countdown = joy_delay;
+                        key = CH_CURS_LEFT;
+                        break;
+                    case 0xE: // UP
+                        fire_lock = 0;
+                        joy_delay_countdown = joy_delay;
+                        key = CH_CURS_UP;
+                        break;
+                    case 0xD: // DOWN
+                        fire_lock = 0;
+                        joy_delay_countdown = joy_delay;
+                        key = CH_CURS_DOWN;
+                        break;
+                    default:
+                        key = 0;
+                    }
+                }
+            }
+        }
+        if (!key)
+        {
+            if (mouse_clicked())
+            {
+                if (!fire_lock)
+                    key = 0x20;
+                fire_lock = 1;
+            }
+        }
+        switch (key)
+        {
+        case 0:
+            // No key, do nothing
+            break;
+
         case CH_CURS_DOWN:
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
             redrawTools = TRUE;
@@ -517,7 +539,7 @@ static void MainLoop()
             break;
 
         case CH_CURS_LEFT:
-            g_state.drawCellFn(g_state.cursorX, g_state.cursorY);   
+            g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
             g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
             redrawTools = TRUE;
             DrawCursor();
@@ -600,22 +622,62 @@ static void MainLoop()
             InfoDialog();
             break;
 
-	case 0:
-	  // No key, do nothing
-	  break;
-	    
-        default:
-            // color keys
-            if (key >= '0' && key <= '9')
-	      {
-		g_state.color[g_state.currentColorIdx] = key - 48;
-		redrawTools = redrawCanvas = TRUE;
-	      }
-            else if (key >= 0x41 && key <= 'f') {
-                g_state.color[g_state.currentColorIdx] = 10 + key - 65;
-		redrawTools = redrawCanvas = TRUE;
-	    }
+        // Color keys
+        //         1   2   3   4   5   6   7   8
+        // CTRL    $90 $05 $1c $9f $9c $1e &1f $9e 
+        // MEGA    $81 $95 $96 $97 $98 $99 $9a $9b 
 
+        case 0x90:// Ctrl + 1
+            g_state.color[g_state.currentColorIdx] = 0;
+            redrawTools = redrawCanvas = TRUE;
+            break;
+
+        case 0x5: // Ctrl + 2
+            g_state.color[g_state.currentColorIdx] = 1;
+            redrawTools = redrawCanvas = TRUE;
+            break;
+
+        case 0x1c: // Ctrl + 3
+            g_state.color[g_state.currentColorIdx] = 2;
+            redrawTools = redrawCanvas = TRUE;
+            break;
+        
+        case 0x9f:  // Ctrl + 4
+            g_state.color[g_state.currentColorIdx] = 3;
+            redrawTools = redrawCanvas = TRUE;
+        break;
+
+        case 0x9c: // Ctrl + 5
+            g_state.color[g_state.currentColorIdx] = 4;
+            redrawTools = redrawCanvas = TRUE;
+        break;
+
+        case 0x1e: // Ctrl + 6
+            g_state.color[g_state.currentColorIdx] = 5;
+            redrawTools = redrawCanvas = TRUE;
+        break;
+
+        case 0x1f: // Ctrl + 7
+            g_state.color[g_state.currentColorIdx] = 6;
+            redrawTools = redrawCanvas = TRUE;
+        break;
+
+        case 0x9e: // Ctrl + 8
+            g_state.color[g_state.currentColorIdx] = 7;
+            redrawTools = redrawCanvas = TRUE;
+        break;
+
+        case 0x81: // CBM + 1
+            g_state.color[g_state.currentColorIdx] = 8;
+            redrawTools = redrawCanvas = TRUE;
+      
+        default:
+            // Remaining CBM-2..8 keys (consecutive)
+            if (key >= 149 && key <= 156)  // Mega+ 1-8
+            {
+                 g_state.color[g_state.currentColorIdx] = 9 + (key - 149);
+                 redrawTools = redrawCanvas = TRUE;
+            }
         }
 
         if (redrawCanvas)
@@ -631,6 +693,8 @@ static void MainLoop()
 void do_sprite_editor()
 {
     Initialize();
+    //cprintf("{rvson}{yel}   formatted-print    {d}{red} {d}{cyan} {d}{grn} {wht}{blon}blink{bloff}{rvsoff} {lgrn}{u}{ulon}underline{uloff}");
+    //cgetc();    
     DrawScreen();
     MainLoop();
     DoExit();
