@@ -86,10 +86,12 @@ typedef struct tagAPPSTATE
     BYTE spriteWidth, spriteHeight;
     BYTE cellsPerPixel;
     BYTE color[4];
+    BYTE color_source[4];
     BYTE currentColorIdx;
     BYTE cursorX, cursorY;
     BYTE canvasLeftX;
     void (*drawCellFn)(BYTE,BYTE);
+    void (*togglePixelFn)(void);
 } APPSTATE;
 
 typedef struct tagFILEOPTIONS
@@ -100,7 +102,7 @@ typedef struct tagFILEOPTIONS
 
 static APPSTATE g_state;
 
-static const char *clrIndexName[] = {"bg", "fg", "mc1", "mc2"};
+static const char *clrIndexName[] = {"bg ", "fg ", "mc1", "mc2"};
 
 void UpdateSpriteParameters(void);
 
@@ -110,6 +112,18 @@ unsigned char sprite_pointer[63]={
   0x00, 0x03, 0x80, 0x00, 0x01, 0xC0, 0x00, 0x01, 0xC0, 0x00, 0x00, 0xE0, 0x00, 0x00, 0xE0, 0x00, 
   0x00, 0x70, 0x00, 0x00, 0x70, 0x00, 0x00, 0x38, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x00
 };
+
+    // Sprite 1 to test Multicolor
+
+    unsigned char test_mc [64] ={
+    0x00,0x38,0x00,0x00,0xea,0x00,0x03,0x6a,
+    0x80,0x01,0xb6,0x80,0x0f,0x6a,0xa0,0x0d,
+    0xda,0x60,0x3f,0x6a,0xa8,0x3d,0xb6,0xa8,
+    0x37,0x6a,0xa4,0x3d,0xea,0xa8,0x3f,0x7a,
+    0x68,0x3d,0xa6,0xa8,0x0f,0x6a,0xa0,0x0d,
+    0xda,0xa0,0x03,0x6a,0x80,0x01,0xa6,0x80,
+    0x00,0x7a,0x00,0x00,0x28,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x83};
 
 static void Initialize()
 {
@@ -122,12 +136,17 @@ static void Initialize()
     lcopy((long)sprite_pointer,0x380,63);
     POKE(0xD015,1);
     POKE(0x07F8,0x380/64);
+    POKE(0x07F9,(0x380+64)/64);
     POKE(0xD000,100);
     POKE(0xD001,100);
     POKE(0xD027,7);
     POKE(0xD06C,0xF8);
     POKE(0xD06D,0x07);
     POKE(0xD06E,0x00);
+
+
+    POKE(53276UL, 2);
+    lcopy((long)test_mc,0x380+64,64);
 
     setscreenaddr(0x8000);
     setscreensize(80,25);
@@ -165,8 +184,8 @@ static void DrawCursor()
 static void DrawMonoCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 8);
-    BYTE p = lpeek(byteAddr) & ( 0x80 >> (x % 8));
+    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 8);
+    const BYTE p = lpeek(byteAddr) & ( 0x80 >> (x % 8));
 
     revers(1);
     gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
@@ -180,12 +199,73 @@ static void DrawMonoCell(BYTE x, BYTE y)
 
 static void Draw16ColorCell(BYTE x, BYTE y)
 {
-
+    
 }
 
 static void DrawMulticolorCell(BYTE x, BYTE y)
 {
-    
+    register BYTE cell = 0;
+    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 4);
+    const BYTE b = lpeek(byteAddr);
+    const BYTE p0 = b & (0x80 >> ( 2 * ( x % 4)));
+    const BYTE p1 = b & (0x40 >> ( 2 * ( x % 4)));
+    BYTE color = g_state.color[COLOR_BACK]; 
+    if (!p0 && p1)
+        color = g_state.color[COLOR_MC1];
+    else if (p0 && !p1)
+        color = g_state.color[COLOR_FORE];
+    else if (p0 && p1)
+        color = g_state.color[COLOR_MC2];
+
+    revers(1);
+    gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
+    for (cell = 0; cell < g_state.cellsPerPixel; ++cell)
+    {
+        textcolor(color);
+        cputc(p0 | p1 ? ' ' : TRANS_CHARACTER);
+    }
+    revers(0);
+}
+
+static void TogglePixelMono()
+{    
+    long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 8);
+    lpoke(byteAddr, lpeek(byteAddr) ^ (0x80 >> (g_state.cursorX % 8)));
+}
+
+static void TogglePixelMulti()
+{    
+    long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 4);
+    const BYTE b = lpeek(byteAddr);
+    const BYTE bitsel = (2 * (g_state.cursorX % 4));
+    const BYTE p0 = b & (0x80 >> bitsel);
+    const BYTE p1 = b & (0x40 >> bitsel);
+    const BYTE mask = ((0x80 >> bitsel) | (0x40 >> bitsel));
+    if ((g_state.currentColorIdx == COLOR_BACK) || (p0 | p1) != 0)
+    {
+        lpoke(byteAddr, lpeek(byteAddr) & ~mask);
+    }
+    else 
+    {
+        if (g_state.currentColorIdx == COLOR_FORE)
+        {
+            lpoke(byteAddr, lpeek(byteAddr) & ~mask | (0x80 >> bitsel) );
+        }
+        else if (g_state.currentColorIdx == COLOR_MC1)
+        {
+            lpoke(byteAddr, lpeek(byteAddr) & ~mask | (0x40 >> bitsel) );
+        } 
+        else if (g_state.currentColorIdx == COLOR_MC2)
+        {
+            lpoke(byteAddr, lpeek(byteAddr) & ~mask | ( (0x80 >> bitsel) | (0x40 >> bitsel) ));
+        }
+    }
+}
+
+static void TogglePixel16Color()
+{    
+    long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 8);
+    lpoke(byteAddr, lpeek(byteAddr) ^ (0x80 >> (g_state.cursorX % 8)));
 }
 
 void UpdateSpriteParameters(void)
@@ -193,11 +273,12 @@ void UpdateSpriteParameters(void)
     g_state.spriteHeight = 21;
     g_state.cellsPerPixel = 2;
     g_state.spriteSizeBytes = 64;
-    g_state.spriteDataAddr = (long)g_state.spriteSizeBytes * lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber);
+    g_state.spriteDataAddr = (long) 64 * lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber);
 
     if (IS_SPR_16COL(g_state.spriteNumber))
     {
         g_state.drawCellFn = Draw16ColorCell;
+        g_state.togglePixelFn = TogglePixel16Color;
         g_state.spriteSizeBytes = 168;
         g_state.spriteColorMode = SPR_COLOR_MODE_16COLOR;
         g_state.spriteWidth = 16;
@@ -205,12 +286,15 @@ void UpdateSpriteParameters(void)
     else if (IS_SPR_MULTICOLOR(g_state.spriteNumber))
     {
         g_state.drawCellFn = DrawMulticolorCell;
+        g_state.togglePixelFn = TogglePixelMulti;
         g_state.spriteColorMode = SPR_COLOR_MODE_MULTICOLOR;
-        g_state.spriteWidth = 24;
+        g_state.spriteWidth = 12;
+        g_state.cellsPerPixel = 4;
     }
     else
     {
         g_state.drawCellFn = DrawMonoCell;
+        g_state.togglePixelFn = TogglePixelMono;
         g_state.spriteColorMode = SPR_COLOR_MODE_MONOCHROME;
         g_state.spriteWidth = 24;
     }
@@ -234,8 +318,8 @@ static void DrawCanvas()
 
 static void DrawHeader()
 {   
-    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.5                   copyright (c) 2020 hernan di pietro");
-}
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.6                   copyright (c) 2020 hernan di pietro");
+}                                                             
 
 static void DrawToolbox()
 {
@@ -245,8 +329,8 @@ static void DrawToolbox()
     gotoxy(TOOLBOX_COLUMN, 2);
     cputs("sprite ");
     cputdec(g_state.spriteNumber, 0, 0);
-    cputs(g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME ? " mono" : 
-        (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi" : " 16 color"));
+    cputs(g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME ? " mono    " : 
+        (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi   " : " 16 color"));
     gotoxy(TOOLBOX_COLUMN, 3);
     textcolor(3);
     cputhex(g_state.spriteDataAddr, 7);
@@ -274,15 +358,17 @@ static void DrawToolbox()
     cputsxy(TOOLBOX_COLUMN, 11, "spc draw");
     if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
     {
-        cputsxy(TOOLBOX_COLUMN, 15, "j  sel fgcolor");
-        cputsxy(TOOLBOX_COLUMN, 12, "k  sel bkcolor");
-        cputsxy(TOOLBOX_COLUMN, 13, "n  sel color1");
-        cputsxy(TOOLBOX_COLUMN, 14, "m  sel color2");
+        cputsxy(TOOLBOX_COLUMN, 12, "j   sel fgcolor");
+        cputsxy(TOOLBOX_COLUMN, 13, "k   sel bkcolor");
+        cputsxy(TOOLBOX_COLUMN, 14, "n   sel color1 ");
+        cputsxy(TOOLBOX_COLUMN, 15, "m   sel color2 ");
     }
     else
     {
         cputsxy(TOOLBOX_COLUMN, 12, "j   sel fgcolor");
         cputsxy(TOOLBOX_COLUMN, 13, "k   sel bkcolor");
+        cputsxy(TOOLBOX_COLUMN, 14, "               ");
+        cputsxy(TOOLBOX_COLUMN, 15, "               ");
     }
     cputsxy(TOOLBOX_COLUMN, 16, "*   change type");
     cputsxy(TOOLBOX_COLUMN, 17, "s   save");
@@ -299,11 +385,6 @@ static void DrawToolbox()
     }
 }
 
-static void TogglePixel()
-{
-    long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 8);
-    lpoke(byteAddr, lpeek(byteAddr) ^ (0x80 >> (g_state.cursorX % 8)));
-}
 
 static BYTE SaveRawData(const BYTE name[16], char deviceNumber)
 {
@@ -591,7 +672,7 @@ static void MainLoop()
             break;
 
         case ' ':
-            TogglePixel();
+            g_state.togglePixelFn();
             redrawCanvas = TRUE;
             break;
 
