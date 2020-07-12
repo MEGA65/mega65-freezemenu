@@ -46,13 +46,14 @@ extern int errno;
 #define REG_SPRPTR_B0               (PEEK(VIC_BASE + 0x6C))
 #define REG_SPRPTR_B1               (PEEK(VIC_BASE + 0x6D))
 #define REG_SPRPTR_B2               (PEEK(VIC_BASE + 0x6E))
-#define REG_SCREEN_RAM_ADDRESS      0x8000
 #define REG_SCREEN_BASE_B0          (VIC_BASE + 0x60)
 #define REG_SCREEN_BASE_B1          (VIC_BASE + 0x61)
 #define REG_SCREEN_BASE_B2          (VIC_BASE + 0x62)
 #define REG_SCREEN_BASE_B3          (VIC_BASE + 0x63) // Bits 0..3
-#define IS_SPR_MULTICOLOR(n)        ((PEEK(VIC_BASE + 0x1C)) & (1 << (n)))
-#define IS_SPR_16COL(n)             ((PEEK(VIC_BASE + 0x6B)) & (1 << (n)))
+#define REG_SPR_16COL               (VIC_BASE + 0x6B)
+#define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1C)
+#define IS_SPR_MULTICOLOR(n)        ((PEEK(REG_SPR_MULTICOLOR)) & (1 << (n)))
+#define IS_SPR_16COL(n)             ((PEEK(REG_SPR_16COL)) & (1 << (n)))
 #define SPRITE_POINTER_ADDR         (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
 #define TRUE                        1
 #define FALSE                       0
@@ -65,6 +66,11 @@ extern int errno;
 #define DEFAULT_MULTI2_COLOR        4
 #define TRANS_CHARACTER             230
 #define TOOLBOX_COLUMN              65
+#define JOY_DELAY                   10000U
+
+// Screen RAM for our area. We do not use 16-bit character mode
+// so we need 80x25 = 2K area. 
+#define SCREEN_RAM_ADDRESS      0x9000
 
 // Index into color array
 #define COLOR_BACK 0
@@ -168,12 +174,12 @@ static void Initialize()
 
     POKE(53276UL, 2);
 
-    setscreenaddr(0x8000);
-    setscreensize(80,25);
     setextendedattrib(1);
+    setscreensize(80,25);
+    setscreenaddr(0x9000UL);
 
 #ifdef TEST_SPRITES
-    POKE(VIC_BASE + 0x6B, 4);
+    POKE(REG_SPR_16COL, 4);
 
     lcopy((long)test_mc,0x380+64,64);
     lcopy((long)test_16,0x380+64+64,64);
@@ -368,10 +374,22 @@ static void DrawHeader()
 {   
     cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.6                   copyright (c) 2020 hernan di pietro");
 }                                                             
+static void DrawColorSelector()
+{
+    switch(g_state.spriteColorMode) {
+        case SPR_COLOR_MODE_MONOCHROME:
+        case SPR_COLOR_MODE_16COLOR:
 
+        break;
+        case SPR_COLOR_MODE_MULTICOLOR:
+        break;
+    }
+}
 static void DrawToolbox()
 {
     BYTE i;
+
+    DrawColorSelector();
     
     textcolor(1);
     gotoxy(TOOLBOX_COLUMN, 2);
@@ -549,7 +567,6 @@ static void DrawScreen()
 }
 
 unsigned short joy_delay_countdown = 0;
-unsigned short joy_delay = 10000;
 unsigned char fire_lock = 0;
 
 unsigned short mx,my;
@@ -613,23 +630,23 @@ static void MainLoop()
                     switch (PEEK(0xDC00) & 0xf)
                     {
                     case 0x7: // RIGHT
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         fire_lock = 0;
                         key = CH_CURS_RIGHT;
                         break;
                     case 0xB: // LEFT
                         fire_lock = 0;
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         key = CH_CURS_LEFT;
                         break;
                     case 0xE: // UP
                         fire_lock = 0;
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         key = CH_CURS_UP;
                         break;
                     case 0xD: // DOWN
                         fire_lock = 0;
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         key = CH_CURS_DOWN;
                         break;
                     default:
@@ -716,6 +733,29 @@ static void MainLoop()
             if (g_state.spriteNumber-- == 0)
                 g_state.spriteNumber = SPRITE_MAX_COUNT - 1;
 
+            UpdateSpriteParameters();
+            EraseCanvasSpace();
+            redrawCanvas = redrawTools = TRUE;
+            break;
+
+        case '*':
+            switch(g_state.spriteColorMode) {
+                case SPR_COLOR_MODE_16COLOR:
+                    // Switch to Hi-Res
+                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+                    break;
+                case SPR_COLOR_MODE_MULTICOLOR:
+                    // Switch to 16-col
+                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) | (1 << g_state.spriteNumber));
+                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+                    break;
+                case SPR_COLOR_MODE_MONOCHROME:
+                    // Switch to Multicol
+                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
+                    break;
+            }
             UpdateSpriteParameters();
             EraseCanvasSpace();
             redrawCanvas = redrawTools = TRUE;
