@@ -246,7 +246,7 @@ static void Draw16ColorCell(BYTE x, BYTE y)
     {
         textcolor(p & 0xF);
         cputc(p ? ' ' : TRANS_CHARACTER);
-}
+    }
     revers(0);
 }
 
@@ -444,6 +444,8 @@ static void DrawColorSelector()
 static void DrawToolbox()
 {
     BYTE i;
+
+    DrawColorSelector();
     
     
     textcolor(1);
