@@ -23,7 +23,15 @@
 
     v0.5        Uses conio for proper initialization and some of its
                 new features.  Color selection with MEGA/CTRL keys.
+
+    v0.6        FIX: Screen moved to $12000. 
+                Multicolor and 16-color sprite support. 
+                New color selection UI.
+                Change sprite type on-the-fly.with * key.
+                
  */
+
+#define TEST_SPRITES
 
 #include <cc65.h>
 #include "../mega65-libc/cc65/include/conio.h"
@@ -36,30 +44,36 @@
 
 extern int errno;
 
-#define VIC_BASE 0xD000UL
-#define REG_HOTREG (VIC_BASE + 0x5D)
-#define REG_SPRPTR_B0 (PEEK(VIC_BASE + 0x6C))
-#define REG_SPRPTR_B1 (PEEK(VIC_BASE + 0x6D))
-#define REG_SPRPTR_B2 (PEEK(VIC_BASE + 0x6E))
-#define REG_SCREEN_RAM_ADDRESS 0x8000
-#define REG_SCREEN_BASE_B0 (VIC_BASE + 0x60)
-#define REG_SCREEN_BASE_B1 (VIC_BASE + 0x61)
-#define REG_SCREEN_BASE_B2 (VIC_BASE + 0x62)
-#define REG_SCREEN_BASE_B3 (VIC_BASE + 0x63) // Bits 0..3
-#define IS_SPR_MULTICOLOR(n) ((PEEK(VIC_BASE + 0x1C)) & (1 << (n)))
-#define IS_SPR_16COL(n) ((PEEK(VIC_BASE + 0x6B)) & (1 << (n)))
-#define SPRITE_POINTER_ADDR (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
-#define TRUE 1
-#define FALSE 0
-#define SPRITE_MAX_COUNT 8
-#define DEFAULT_BORDER_COLOR 6
-#define DEFAULT_SCREEN_COLOR 6
-#define DEFAULT_BACK_COLOR 11
-#define DEFAULT_FORE_COLOR 1
-#define DEFAULT_MULTI1_COLOR 3
-#define DEFAULT_MULTI2_COLOR 4
-#define TRANS_CHARACTER 230
-#define TOOLBOX_COLUMN  65
+#define VIC_BASE                    0xD000UL
+#define REG_HOTREG                  (VIC_BASE + 0x5D)
+#define REG_SPRPTR_B0               (PEEK(VIC_BASE + 0x6C))
+#define REG_SPRPTR_B1               (PEEK(VIC_BASE + 0x6D))
+#define REG_SPRPTR_B2               (PEEK(VIC_BASE + 0x6E))
+#define REG_SCREEN_BASE_B0          (VIC_BASE + 0x60)
+#define REG_SCREEN_BASE_B1          (VIC_BASE + 0x61)
+#define REG_SCREEN_BASE_B2          (VIC_BASE + 0x62)
+#define REG_SCREEN_BASE_B3          (VIC_BASE + 0x63) // Bits 0..3
+#define REG_SPR_16COL               (VIC_BASE + 0x6B)
+#define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1C)
+#define IS_SPR_MULTICOLOR(n)        ((PEEK(REG_SPR_MULTICOLOR)) & (1 << (n)))
+#define IS_SPR_16COL(n)             ((PEEK(REG_SPR_16COL)) & (1 << (n)))
+#define SPRITE_POINTER_ADDR         (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
+#define TRUE                        1
+#define FALSE                       0
+#define SPRITE_MAX_COUNT            8
+#define DEFAULT_BORDER_COLOR        6
+#define DEFAULT_SCREEN_COLOR        6
+#define DEFAULT_BACK_COLOR          11
+#define DEFAULT_FORE_COLOR          1
+#define DEFAULT_MULTI1_COLOR        3
+#define DEFAULT_MULTI2_COLOR        4
+#define TRANS_CHARACTER             230
+#define TOOLBOX_COLUMN              65
+#define JOY_DELAY                   10000U
+
+// Screen RAM for our area. We do not use 16-bit character mode
+// so we need 80x25 = 2K area. 
+#define SCREEN_RAM_ADDRESS          0x12000UL
 
 // Index into color array
 #define COLOR_BACK 0
@@ -113,6 +127,8 @@ unsigned char sprite_pointer[63]={
   0x00, 0x70, 0x00, 0x00, 0x70, 0x00, 0x00, 0x38, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x00
 };
 
+#ifdef TEST_SPRITES
+
     // Sprite 1 to test Multicolor
 
     unsigned char test_mc [64] ={
@@ -125,18 +141,34 @@ unsigned char sprite_pointer[63]={
     0x00,0x7a,0x00,0x00,0x28,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x83};
 
+    // Sprite 2 to test 16-color
+
+    unsigned char test_16 [64]={
+    0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
+    0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,
+    0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
+    0x18,0x19,0x1A,0x1B,0x1C,0x1D,0x1E,0x1F,
+    0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,
+    0x28,0x29,0x2A,0x2B,0x2C,0x2D,0x2E,0x2F,
+    0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,
+    0x48,0x19,0x1A,0x1B,0x1C,0x1D,0x1E,0x1F};
+#endif 
+
 static void Initialize()
 {
     // Set 40MHz, VIC-IV I/O, 80 column, screen RAM @ $8000
     POKE(0, 65);
 
     conioinit();
+    //togglecase();
 
     // Set sprite 0 to our cursor
     lcopy((long)sprite_pointer,0x380,63);
     POKE(0xD015,1);
     POKE(0x07F8,0x380/64);
     POKE(0x07F9,(0x380+64)/64);
+    POKE(0x07FA,(0x380+128)/64);
+
     POKE(0xD000,100);
     POKE(0xD001,100);
     POKE(0xD027,7);
@@ -145,12 +177,17 @@ static void Initialize()
     POKE(0xD06E,0x00);
 
 
-    POKE(53276UL, 2);
-    lcopy((long)test_mc,0x380+64,64);
-
-    setscreenaddr(0x8000);
-    setscreensize(80,25);
     setextendedattrib(1);
+    setscreensize(80,25);
+    setscreenaddr(SCREEN_RAM_ADDRESS);
+
+#ifdef TEST_SPRITES
+    POKE(53276UL, 2);
+    POKE(REG_SPR_16COL, 4);
+
+    lcopy((long)test_mc,0x380+64,64);
+    lcopy((long)test_16,0x380+64+64,64);
+#endif
 
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
     g_state.color[COLOR_FORE] = DEFAULT_FORE_COLOR;
@@ -199,7 +236,18 @@ static void DrawMonoCell(BYTE x, BYTE y)
 
 static void Draw16ColorCell(BYTE x, BYTE y)
 {
+    register BYTE cell = 0;
+    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 2);
+    const BYTE p = lpeek(byteAddr) & ( 0xF >> (x % 2));
     
+    revers(1);
+    gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
+    for (cell = 0; cell < g_state.cellsPerPixel; ++cell)
+    {
+        textcolor(p & 0xF);
+        cputc(p ? ' ' : TRANS_CHARACTER);
+}
+    revers(0);
 }
 
 static void DrawMulticolorCell(BYTE x, BYTE y)
@@ -279,9 +327,9 @@ void UpdateSpriteParameters(void)
     {
         g_state.drawCellFn = Draw16ColorCell;
         g_state.togglePixelFn = TogglePixel16Color;
-        g_state.spriteSizeBytes = 168;
         g_state.spriteColorMode = SPR_COLOR_MODE_16COLOR;
-        g_state.spriteWidth = 16;
+        g_state.spriteWidth = 6;
+        g_state.cellsPerPixel = 4;
     }
     else if (IS_SPR_MULTICOLOR(g_state.spriteNumber))
     {
@@ -303,6 +351,16 @@ void UpdateSpriteParameters(void)
 
 }
 
+static void EraseCanvasSpace()
+{
+    RECT rc;
+    rc.top = 2;
+    rc.left = 0;
+    rc.right = TOOLBOX_COLUMN-1;
+    rc.bottom = 23;
+    fillrect(&rc, ' ', 1);
+}
+
 static void DrawCanvas()
 {
     // TODO: Fetch all from memory with lcopy to local buffer and draw.
@@ -318,19 +376,82 @@ static void DrawCanvas()
 
 static void DrawHeader()
 {   
-    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.6                   copyright (c) 2020 hernan di pietro");
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.6                    copyright (c) 2020 hernan di pietro");
 }                                                             
 
+static void DrawColorSelector()
+{
+    RECT rc = { TOOLBOX_COLUMN, 5, 80, 7 };
+    fillrect(&rc, ' ', DEFAULT_SCREEN_COLOR);
+
+    switch(g_state.spriteColorMode) {
+        case SPR_COLOR_MODE_MONOCHROME:
+        case SPR_COLOR_MODE_16COLOR:
+
+            revers(1);
+            textcolor(g_state.color[COLOR_BACK]);
+            cputsxy(TOOLBOX_COLUMN, 5, "      ");
+            textcolor(g_state.color[COLOR_FORE]);
+            cputsxy(TOOLBOX_COLUMN + 8, 5, "      ");
+            revers(0);
+            
+            textcolor(g_state.currentColorIdx == COLOR_BACK ? 1 : COLOUR_DARKGREY);
+            cputsxy(TOOLBOX_COLUMN + 2, 6, "bk");
+            
+            textcolor(g_state.currentColorIdx == COLOR_FORE ? 1 : COLOUR_DARKGREY);
+            cputsxy(TOOLBOX_COLUMN + 8 + 2, 6, "fg");
+            
+        break;
+
+        case SPR_COLOR_MODE_MULTICOLOR:
+            revers(1);
+            textcolor(g_state.color[COLOR_BACK]);
+            cputsxy(TOOLBOX_COLUMN, 5, "   ");
+            textcolor(g_state.color[COLOR_FORE]);
+            cputsxy(TOOLBOX_COLUMN + 4, 5, "   ");
+            textcolor(g_state.color[COLOR_MC1]);
+            cputsxy(TOOLBOX_COLUMN + 4 * 2, 5, "   ");
+            textcolor(g_state.color[COLOR_MC2]);
+            cputsxy(TOOLBOX_COLUMN + 4 * 3, 5, "   ");
+            revers(0);
+            
+            textcolor(COLOUR_DARKGREY);
+            cputsxy(TOOLBOX_COLUMN + 1, 6, "bk");
+            cputsxy(TOOLBOX_COLUMN + 5, 6, "fg");
+            cputsxy(TOOLBOX_COLUMN + 8, 6, "mc1");
+            cputsxy(TOOLBOX_COLUMN + 12, 6, "mc2");
+            
+            textcolor(1);
+            switch (g_state.currentColorIdx)
+            {
+                case COLOR_BACK: 
+                    cputsxy(TOOLBOX_COLUMN + 1, 6, "bk");
+                    break;
+                case COLOR_FORE:
+                    cputsxy(TOOLBOX_COLUMN + 5, 6, "fg");
+                    break;
+                case COLOR_MC1:
+                    cputsxy(TOOLBOX_COLUMN + 8, 6, "mc1");
+                    break;
+                case COLOR_MC2:
+                    cputsxy(TOOLBOX_COLUMN + 12, 6, "mc2");
+                    break;
+            }
+
+        break;
+    }
+}
 static void DrawToolbox()
 {
     BYTE i;
+    
     
     textcolor(1);
     gotoxy(TOOLBOX_COLUMN, 2);
     cputs("sprite ");
     cputdec(g_state.spriteNumber, 0, 0);
     cputs(g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME ? " mono    " : 
-        (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi   " : " 16 color"));
+        (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi   " : " 16-col"));
     gotoxy(TOOLBOX_COLUMN, 3);
     textcolor(3);
     cputhex(g_state.spriteDataAddr, 7);
@@ -339,20 +460,8 @@ static void DrawToolbox()
     cputc(',');
     cputdec(g_state.cursorY, 0, 0);  
 
+    DrawColorSelector();
     textcolor(14);
-
-    gotoxy(TOOLBOX_COLUMN, 5);
-    cprintf("{rvson}{blk} {wht} {red} {cyan} {pur} {grn} {blu} {yel} ");
-    gotoxy(TOOLBOX_COLUMN, 6);
-    cprintf("{ora} {brn} {pink} {gray1} {gray2} {lgrn} {lblu} {gray3} {rvsoff}");
-    
-    revers(1);
-    textcolor(g_state.color[g_state.currentColorIdx]);
-    cputcxy(TOOLBOX_COLUMN + (g_state.color[g_state.currentColorIdx] % 8), 5 + (g_state.color[g_state.currentColorIdx] / 8), '*');
-    revers(0);
-    
-    textcolor(COLOUR_GREY3);
-    cputsxy(TOOLBOX_COLUMN + 11, 6, clrIndexName[g_state.currentColorIdx]);
 
     cputsxy(TOOLBOX_COLUMN, 10, ", . sel sprite");
     cputsxy(TOOLBOX_COLUMN, 11, "spc draw");
@@ -388,7 +497,7 @@ static void DrawToolbox()
 
 static BYTE SaveRawData(const BYTE name[16], char deviceNumber)
 {
-    return cbm_save(name, deviceNumber, g_state.spriteDataAddr, g_state.spriteSizeBytes);
+    //return cbm_save(name, deviceNumber, g_state.spriteDataAddr, g_state.spriteSizeBytes);
 }
 
 static BYTE LoadRawData(const BYTE name[16])
@@ -480,7 +589,7 @@ static void InfoDialog()
     textcolor(1);
     revers(1);
     gotoxy(23, 17);
-    cputs("spraddr ");
+    cputs("SPRADDR ");
     cputhex(g_state.spriteDataAddr, 7);
     cputsxy(23, 18, "              ");
 }
@@ -501,7 +610,6 @@ static void DrawScreen()
 }
 
 unsigned short joy_delay_countdown = 0;
-unsigned short joy_delay = 10000;
 unsigned char fire_lock = 0;
 
 unsigned short mx,my;
@@ -565,23 +673,23 @@ static void MainLoop()
                     switch (PEEK(0xDC00) & 0xf)
                     {
                     case 0x7: // RIGHT
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         fire_lock = 0;
                         key = CH_CURS_RIGHT;
                         break;
                     case 0xB: // LEFT
                         fire_lock = 0;
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         key = CH_CURS_LEFT;
                         break;
                     case 0xE: // UP
                         fire_lock = 0;
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         key = CH_CURS_UP;
                         break;
                     case 0xD: // DOWN
                         fire_lock = 0;
-                        joy_delay_countdown = joy_delay;
+                        joy_delay_countdown = JOY_DELAY;
                         key = CH_CURS_DOWN;
                         break;
                     default:
@@ -633,26 +741,33 @@ static void MainLoop()
             DrawCursor();
             break;
 
+        case 104: // h
+            redrawTools = TRUE;
+            g_state.currentColorIdx = COLOR_BACK;
+            DrawCursor();
+            break;
+
         case 106: // j
             redrawTools = TRUE;
             g_state.currentColorIdx = COLOR_FORE;
+            DrawCursor();
+
             break;
 
         case 107: // k
             redrawTools = TRUE;
-            g_state.currentColorIdx = COLOR_BACK;
-            break;
-
-        case 110: // n
-            redrawTools = TRUE;
             if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
                 g_state.currentColorIdx = COLOR_MC1;
+            DrawCursor();
+            
             break;
 
-        case 109: // m
+        case 108: // l
             redrawTools = TRUE;
             if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
                 g_state.currentColorIdx = COLOR_MC2;
+            DrawCursor();
+
             break;
 
         case ',':
@@ -660,6 +775,7 @@ static void MainLoop()
                 g_state.spriteNumber = 0;
 
             UpdateSpriteParameters();
+            EraseCanvasSpace();
             redrawCanvas = redrawTools = TRUE;
             break;
 
@@ -668,6 +784,30 @@ static void MainLoop()
                 g_state.spriteNumber = SPRITE_MAX_COUNT - 1;
 
             UpdateSpriteParameters();
+            EraseCanvasSpace();
+            redrawCanvas = redrawTools = TRUE;
+            break;
+
+        case '*':
+            switch(g_state.spriteColorMode) {
+                case SPR_COLOR_MODE_16COLOR:
+                    // Switch to Hi-Res
+                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+                    break;
+                case SPR_COLOR_MODE_MULTICOLOR:
+                    // Switch to 16-col
+                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) | (1 << g_state.spriteNumber));
+                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+                    break;
+                case SPR_COLOR_MODE_MONOCHROME:
+                    // Switch to Multicol
+                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
+                    break;
+            }
+            UpdateSpriteParameters();
+            EraseCanvasSpace();
             redrawCanvas = redrawTools = TRUE;
             break;
 
@@ -774,8 +914,6 @@ static void MainLoop()
 void do_sprite_editor()
 {
     Initialize();
-    //cprintf("{rvson}{yel}   formatted-print    {d}{red} {d}{cyan} {d}{grn} {wht}{blon}blink{bloff}{rvsoff} {lgrn}{u}{ulon}underline{uloff}");
-    //cgetc();    
     DrawScreen();
     MainLoop();
     DoExit();
