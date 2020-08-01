@@ -219,6 +219,7 @@ void sdcard_writesector(const uint32_t sector_number,uint8_t is_multi)
 	  POKE(sd_ctl,0); // begin reset
 	  usleep(500000);
 	  POKE(sd_ctl,1); // end reset
+	  POKE(sd_ctl,0x57); // Open SD card write gate
 	  if (is_multi) POKE(sd_ctl,4);
 	  else POKE(sd_ctl,3); // retry write
 
@@ -228,6 +229,7 @@ void sdcard_writesector(const uint32_t sector_number,uint8_t is_multi)
       }
     
     // Command write
+    POKE(sd_ctl,0x57); // Open SD card write gate
     if (is_multi) POKE(sd_ctl,4);
     else POKE(sd_ctl,3); 
     
@@ -242,6 +244,7 @@ void sdcard_writesector(const uint32_t sector_number,uint8_t is_multi)
 	  usleep(500000);
 	  POKE(sd_ctl,1); // end reset
 	  // Retry write
+	  POKE(sd_ctl,0x57); // Open SD card write gate
 	  if (is_multi) POKE(sd_ctl,4);
 	  else POKE(sd_ctl,3); 
 
@@ -313,7 +316,8 @@ void sdcard_writenextsector(void)
   while (PEEK(sd_ctl)&3) {
     continue;
   }
-  POKE(0xD680U,5);
+  POKE(sd_ctl,0x57); // Open SD card write gate
+  POKE(sd_ctl,5);
   while (!(PEEK(sd_ctl)&3)) {
     continue;
   }
@@ -327,7 +331,8 @@ void sdcard_writemultidone(void)
   while (PEEK(sd_ctl)&3) {
     continue;
   }
-  POKE(0xD680U,6);
+  POKE(sd_ctl,0x57);
+  POKE(sd_ctl,6);
   while (!(PEEK(sd_ctl)&3)) {
     continue;
   }
