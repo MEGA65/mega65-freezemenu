@@ -260,6 +260,43 @@ void draw_db_bar(unsigned char line, unsigned int val)
 
 uint16_t v,v2;
 
+void set_amplifier(unsigned char leftRight,unsigned short v)
+{
+  /*
+    Map 16-bit unsigned volume level to amplifier level.
+    This is not super simple, as amplifier value $00 = +24dB,
+    which is not a good idea to go that high.  
+    $20 is safe enough on the MEGA65 R3, but $28 is about the
+    limit on the MEGAphone without causing power rail sagging
+    on maximum volume.  $28 should thus not be in the "red"
+    zone of the mixer.  
+
+    $FF is effectively mute on the amplifier.
+
+    So $0000 = $FF and $FFFF = $20
+    So a linear mapping between those should be fine.
+    
+  */
+
+  unsigned char amp_value = 0x20 + (v / 293);
+  
+  // Do we have an amplifier, and if so, where is it?
+  switch(PEEK(0xD629)) {
+  case 0x03: // MEGA65R3
+    // $FFD71DC
+    while (lpeek(0xffd71e1+leftRight)!=amp_value)
+      lpoke(0xffd71e1+leftRight,amp_value);
+    break;
+  case 0x21: // MEGAphone R1
+  case 0x22: // MEGAphone R2
+  case 0x23: // MEGAphone R3
+    // $FFD7030
+    while (lpeek(0xffd7035+leftRight)!=amp_value)
+      lpoke(0xffd7035+leftRight,amp_value);
+    break;
+  }
+} 
+
 void plus_one_db(unsigned char row)
 {
   switch(row) {
@@ -284,6 +321,9 @@ void plus_one_db(unsigned char row)
   v=minus_db_table[db];
   audioxbar_setcoefficient(c+0,v&0xff);
   audioxbar_setcoefficient(c+1,v>>8);
+
+  if (row==0) set_amplifier(0,v);
+  if (row==6) set_amplifier(1,v);
   
 }
 

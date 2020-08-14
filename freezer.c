@@ -734,6 +734,9 @@ int main(int argc,char **argv)
 	}
 
 	// Set speaker volume by placing finger along top edge of screen.
+	// (We now also support setting the amplifier gain from in the audio mixer,
+	// including setting the gain for stereo speakers.  This little hack below
+	// will likely disappear when we add touch support to the audio mixer)
 	if (y>0&&y<7) {
 	  if (PEEK(0xD6B0)&1) {
 	    if (x>5) x-=5; else x=0;
