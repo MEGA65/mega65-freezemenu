@@ -30,6 +30,7 @@
                 Change sprite type on-the-fly.with * key.
                 Clear sprite key.
                 
+                
  */
 
 #define TEST_SPRITES
@@ -49,16 +50,20 @@ extern int errno;
 #define REG_HOTREG                  (VIC_BASE + 0x5D)
 #define REG_SPRPTR_B0               (PEEK(VIC_BASE + 0x6C))
 #define REG_SPRPTR_B1               (PEEK(VIC_BASE + 0x6D))
-#define REG_SPRPTR_B2               (PEEK(VIC_BASE + 0x6E))
-#define REG_SCREEN_BASE_B0          (VIC_BASE + 0x60)
-#define REG_SCREEN_BASE_B1          (VIC_BASE + 0x61)
-#define REG_SCREEN_BASE_B2          (VIC_BASE + 0x62)
-#define REG_SCREEN_BASE_B3          (VIC_BASE + 0x63) // Bits 0..3
+#define REG_SPRPTR_B2               (PEEK(VIC_BASE + 0x6E) & 0x7F)
+#define REG_SPRPTR16                (PEEK(VIC_BASE + 0x6E) & 0x80)
 #define REG_SPR_16COL               (VIC_BASE + 0x6B)
 #define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1C)
+#define REG_SPRX64EN                (VIC_BASE + 0x57)
 #define IS_SPR_MULTICOLOR(n)        ((PEEK(REG_SPR_MULTICOLOR)) & (1 << (n)))
 #define IS_SPR_16COL(n)             ((PEEK(REG_SPR_16COL)) & (1 << (n)))
+#define IS_SPR_XWIDTH(n)            ((PEEK(REG_SPRX64EN)) & (1 << (n)))
 #define SPRITE_POINTER_ADDR         (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
+
+#define SCREEN_ROWS                 25
+#define SCREEN_COLS                 80
+#define CANVAS_HEIGHT               SCREEN_ROWS - 2
+
 #define TRUE                        1
 #define FALSE                       0
 #define SPRITE_MAX_COUNT            8
@@ -111,7 +116,7 @@ typedef struct tagAPPSTATE
     BYTE spriteNumber;
     SPR_COLOR_MODE spriteColorMode;
     BYTE spriteWidth, spriteHeight;
-    BYTE cellsPerPixel;
+    BYTE cellsPerPixel, bytesPerRow, pixelsPerByte;
     BYTE color[4];
     BYTE color_source[4];
     BYTE currentColorIdx;
@@ -192,7 +197,7 @@ static void Initialize()
 
 
     setextendedattrib(1);
-    setscreensize(80,25);
+    setscreensize(SCREEN_COLS, SCREEN_ROWS);
     setscreenaddr(SCREEN_RAM_ADDRESS);
 
 #ifdef TEST_SPRITES
@@ -343,32 +348,40 @@ static void ClearSprite()
 void UpdateSpriteParameters(void)
 {
     g_state.spriteHeight = 21;
-    g_state.cellsPerPixel = 2;
-    g_state.spriteSizeBytes = 64;
-    g_state.spriteDataAddr = (long) 64 * lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber);
+    g_state.spriteSizeBytes = IS_SPR_XWIDTH(g_state.spriteNumber)  ? 168 : 64;
+    g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
+
+    g_state.spriteDataAddr = REG_SPRPTR16 ? 64 * ( 
+        ((long)lpeek(SPRITE_POINTER_ADDR + 1 + g_state.spriteNumber * 2) << 8) +
+        ((long)lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber * 2)))        
+         : (long) (64 * lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber)) | ( ((long) (~lpeek(0xDD00) & 0x3)) << 14);
 
     if (IS_SPR_16COL(g_state.spriteNumber))
     {
         g_state.drawCellFn = Draw16ColorCell;
         g_state.paintCellFn = PaintPixel16Color;
         g_state.spriteColorMode = SPR_COLOR_MODE_16COLOR;
-        g_state.spriteWidth = 6;
-        g_state.cellsPerPixel = 4;
+        g_state.spriteWidth = 16; // Extended width is implied for 16-color sprites.
+        g_state.cellsPerPixel = 3;
+        g_state.pixelsPerByte = 2;
     }
     else if (IS_SPR_MULTICOLOR(g_state.spriteNumber))
     {
         g_state.drawCellFn = DrawMulticolorCell;
         g_state.paintCellFn = PaintPixelMulti;
         g_state.spriteColorMode = SPR_COLOR_MODE_MULTICOLOR;
-        g_state.spriteWidth = 12;
+        g_state.spriteWidth =  IS_SPR_XWIDTH(g_state.spriteNumber) ? 32 : 12;
         g_state.cellsPerPixel = 4;
+        g_state.pixelsPerByte = 4;
     }
     else
     {
         g_state.drawCellFn = DrawMonoCell;
         g_state.paintCellFn = PaintPixelMono;
         g_state.spriteColorMode = SPR_COLOR_MODE_MONOCHROME;
-        g_state.spriteWidth = 24;
+        g_state.spriteWidth = IS_SPR_XWIDTH(g_state.spriteNumber) ? 64 : 24;
+        g_state.cellsPerPixel = 2;
+        g_state.pixelsPerByte = 8;
     }
 
     g_state.canvasLeftX =  (TOOLBOX_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
@@ -400,7 +413,7 @@ static void DrawCanvas()
 
 static void DrawHeader()
 {   
-    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.6                    copyright (c) 2020 hernan di pietro");
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.7                    copyright (c) 2020 hernan di pietro");
 }                                                             
 
 static void DrawColorSelector()
@@ -534,6 +547,18 @@ static void DrawToolbox()
     }
 }
 
+static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
+{
+    gotoy(SCREEN_ROWS - 1);
+    textcolor(COLOUR_PINK);
+    revers(1);
+    cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
+    cputsxy(0, SCREEN_ROWS - 1, question);
+    cinput(outbuffer, maxlen, CINPUT_ACCEPT_ALL);
+    revers(0);
+    textcolor(COLOUR_BLUE);
+    cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
+}
 
 static BYTE SaveRawData(const BYTE name[16], char deviceNumber)
 {
@@ -562,9 +587,9 @@ static BOOL SaveDialog(FILEOPTIONS *saveOpt)
     cputsxy(23, 17, "save filename?");
     cputsxy(23, 18, "              ");
     gotoxy(23, 18);
-    cursor(1);
-    cscanf("%s", saveOpt->name);
-    cursor(0);
+    // cursor(1);
+    // cscanf("%s", saveOpt->name);
+    // cursor(0);
     revers(0);
     cputsxy(23, 17, "              ");
     cputsxy(23, 18, "              ");
@@ -579,9 +604,9 @@ static BOOL LoadDialog(FILEOPTIONS *opt)
     cputsxy(23, 17, "load filename?");
     cputsxy(23, 18, "              ");
     gotoxy(23, 18);
-    cursor(1);
-    cscanf("%s", opt->name);
-    cursor(0);
+    // cursor(1);
+    // cscanf("%s", opt->name);
+    // cursor(0);
     revers(0);
     cputsxy(23, 17, "              ");
     cputsxy(23, 18, "              ");
@@ -590,6 +615,28 @@ static BOOL LoadDialog(FILEOPTIONS *opt)
     return TRUE;
 }
 
+static void ShowHelp()
+{
+    const RECT rc = { 2 , 2 , 78, 22 };
+    flushkeybuf();
+    box(&rc, COLOUR_CYAN, BOX_STYLE_NONE, 1, 1);
+    textcolor(COLOUR_WHITE);
+    cputsxy(3,3, "     draw                          file    ");
+    textcolor(COLOUR_LIGHTBLUE);
+    cputsxy(3,5, "p    pixel                    ctrl-s   save");
+    cputsxy(3,6, "b    square                   ctrl-l   load");
+    cputsxy(3,7, "f    filled square            ");
+    cputsxy(3,8," l    line             ");
+    cputsxy(3,9," c    clear            ");
+    
+    textcolor(COLOUR_WHITE);
+    cputsxy(3,11,"     color                         edit    ");
+    textcolor(COLOUR_LIGHTBLUE);
+    cputsxy(3,13,"use ctrl-1..ctrl-8            alt+s  select");
+    cputsxy(3,14,"and mega-1..mega-8            ctrl+c");
+
+    cgetc();
+}
 static void EditColorDialog()
 {
     textcolor(3);
@@ -620,6 +667,7 @@ static void DoExit()
 
 static void DrawScreen()
 {
+    clrscr();
     DrawHeader();
     DrawCanvas();
     DrawToolbox();
@@ -633,7 +681,7 @@ unsigned short mx,my;
 static void MainLoop()
 {
     FILEOPTIONS fileOpt;
-
+    unsigned char buf[64];
     unsigned char key = 0, keymod = 0;
     BYTE redrawCanvas = FALSE;
     BYTE redrawTools = FALSE;
@@ -837,28 +885,17 @@ static void MainLoop()
             redrawCanvas = TRUE;
             break;
 
-        // case 's': // s
-        //     if (SaveDialog(&fileOpt))
-        //     {
-        //         SaveRawData(fileOpt.name, 8);
-        //         redrawTools = redrawCanvas = TRUE;
-        //     }
-        //     break;
-
-        // case 'Z':
-        //     EditColorDialog();
-        //     break;
-
-        // case 'l': // l
-        //     if (LoadDialog(&fileOpt))
-        //     {
-        //         LoadRawData(fileOpt.name);
-        //         redrawTools = redrawCanvas = TRUE;
-        //     }
-        //     break;
+        case 0xF1: // F1
+            ShowHelp();
+            DrawScreen();
+            break;
 
         case 0xF3: // F3
+
+            Ask("exit sprite editor: are you sure (yes/no)? ", buf, 3);
+            if (buf[0] == 'y' && buf[1] == 'e' && buf[2] == 's')
             return;
+            break;
 
         case '?':
             InfoDialog();
