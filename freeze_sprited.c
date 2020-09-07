@@ -16,8 +16,8 @@
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  
-    Version   0.6
-    Date      2020-07-19
+    Version   0.8
+    Date      2020-08-02
 
     CHANGELOG
 
@@ -29,6 +29,12 @@
                 New color selection UI.
                 Change sprite type on-the-fly.with * key.
                 Clear sprite key.
+                
+    v0.8        80x50 screen mode option, new UI.
+                Redesigned key scheme.
+                Supports 16-bit sprite data pointers (SPRPTR16).
+                Honours VIC-II Bank bits ($DD00) if SPRPTR16 is OFF.
+                16-color sprite uses 64-bit implicit width
                 
                 
  */
@@ -162,15 +168,32 @@ unsigned char sprite_pointer[63]={
 
     // Sprite 2 to test 16-color
 
-    unsigned char test_16 [64]={
-    0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
-    0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,
-    0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
-    0x18,0x19,0x1A,0x1B,0x1C,0x1D,0x1E,0x1F,
-    0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,
-    0x28,0x29,0x2A,0x2B,0x2C,0x2D,0x2E,0x2F,
-    0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,
-    0x48,0x19,0x1A,0x1B,0x1C,0x1D,0x1E,0x1F};
+    unsigned char test_16 [8*21]={
+    
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08 };
+    
 #endif 
 
 static void Initialize()
@@ -179,8 +202,7 @@ static void Initialize()
     POKE(0, 65);
 
     conioinit();
-    //togglecase();
-
+    
     // Set sprite 0 to our cursor
     lcopy((long)sprite_pointer,0x380,63);
     POKE(0xD015,1);
@@ -205,7 +227,7 @@ static void Initialize()
     POKE(REG_SPR_16COL, 4);
 
     lcopy((long)test_mc,0x380+64,64);
-    lcopy((long)test_16,0x380+64+64,64);
+    lcopy((long)test_16,0x380+64+64,168);
 #endif
 
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
@@ -257,8 +279,8 @@ static void DrawMonoCell(BYTE x, BYTE y)
 static void Draw16ColorCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 2);
-    const BYTE p = 0xF & (lpeek(byteAddr) >> (((x + 1) % 2) *4));
+    const long byteAddr = (g_state.spriteDataAddr + (y * 8)) + (x / 2);
+    const BYTE p = 0xF & (lpeek(byteAddr) >> (((x + 1) % 2) * 4));
     
     revers(1);
     gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
@@ -334,7 +356,7 @@ static void PaintPixelMulti()
 
 static void PaintPixel16Color()
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 2);
+    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 8)) + (g_state.cursorX / 2);
     const BYTE bitsel = (((g_state.cursorX + 1) % 2) * 4);
 
     lpoke(byteAddr, lpeek(byteAddr) & (0xF0 >> bitsel) | (g_state.color[g_state.currentColorIdx] << bitsel));
@@ -617,12 +639,13 @@ static BOOL LoadDialog(FILEOPTIONS *opt)
 
 static void ShowHelp()
 {
-    const RECT rc = { 2 , 2 , 78, 22 };
     flushkeybuf();
-    box(&rc, COLOUR_CYAN, BOX_STYLE_NONE, 1, 1);
+    bgcolor(COLOUR_CYAN);
     textcolor(COLOUR_WHITE);
+    clrscr();
+    DrawHeader();
     cputsxy(3,3, "     draw                          file    ");
-    textcolor(COLOUR_LIGHTBLUE);
+    textcolor(COLOUR_BLACK);
     cputsxy(3,5, "p    pixel                    ctrl-s   save");
     cputsxy(3,6, "b    square                   ctrl-l   load");
     cputsxy(3,7, "f    filled square            ");
@@ -631,12 +654,14 @@ static void ShowHelp()
     
     textcolor(COLOUR_WHITE);
     cputsxy(3,11,"     color                         edit    ");
-    textcolor(COLOUR_LIGHTBLUE);
+    textcolor(COLOUR_BLACK);
     cputsxy(3,13,"use ctrl-1..ctrl-8            alt+s  select");
     cputsxy(3,14,"and mega-1..mega-8            ctrl+c");
 
     cgetc();
+    
 }
+
 static void EditColorDialog()
 {
     textcolor(3);
@@ -645,16 +670,6 @@ static void EditColorDialog()
     cputsxy(24, 17, "G ");
     textcolor(6);
     cputsxy(24, 17, "B ");
-}
-
-static void InfoDialog()
-{
-    textcolor(1);
-    revers(1);
-    gotoxy(23, 17);
-    cputs("SPRADDR ");
-    cputhex(g_state.spriteDataAddr, 7);
-    cputsxy(23, 18, "              ");
 }
 
 static void DoExit()
@@ -667,6 +682,8 @@ static void DoExit()
 
 static void DrawScreen()
 {
+    bgcolor(DEFAULT_SCREEN_COLOR);    
+    revers(0);
     clrscr();
     DrawHeader();
     DrawCanvas();
@@ -805,10 +822,10 @@ static void MainLoop()
             DrawCursor();
             break;
 
-        case 99: // c
-            redrawTools = redrawCanvas = TRUE;
-            ClearSprite();
-            break;
+        // case 99: // c
+        //     redrawTools = redrawCanvas = TRUE;
+        //     ClearSprite();
+        //     break;
 
         case 104: // h
             redrawTools = TRUE;
@@ -897,64 +914,15 @@ static void MainLoop()
             return;
             break;
 
-        case '?':
-            InfoDialog();
-            break;
-
-        // Color keys
-        //         1   2   3   4   5   6   7   8
-        // CTRL    $90 $05 $1c $9f $9c $1e &1f $9e 
-        // MEGA    $81 $95 $96 $97 $98 $99 $9a $9b 
-
-        case 0x90:// Ctrl + 1
-            g_state.color[g_state.currentColorIdx] = 0;
-            redrawTools = redrawCanvas = TRUE;
-            break;
-
-        case 0x5: // Ctrl + 2
-            g_state.color[g_state.currentColorIdx] = 1;
-            redrawTools = redrawCanvas = TRUE;
-            break;
-
-        case 0x1c: // Ctrl + 3
-            g_state.color[g_state.currentColorIdx] = 2;
-            redrawTools = redrawCanvas = TRUE;
-            break;
-        
-        case 0x9f:  // Ctrl + 4
-            g_state.color[g_state.currentColorIdx] = 3;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x9c: // Ctrl + 5
-            g_state.color[g_state.currentColorIdx] = 4;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x1e: // Ctrl + 6
-            g_state.color[g_state.currentColorIdx] = 5;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x1f: // Ctrl + 7
-            g_state.color[g_state.currentColorIdx] = 6;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x9e: // Ctrl + 8
-            g_state.color[g_state.currentColorIdx] = 7;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x81: // CBM + 1
-            g_state.color[g_state.currentColorIdx] = 8;
-            redrawTools = redrawCanvas = TRUE;
-      
         default:
-            // Remaining CBM-2..8 keys (consecutive)
-            if (key >= 149 && key <= 156)  // Mega+ 1-8
+            if (key >= '0' && key <= '9')
             {
-                g_state.color[g_state.currentColorIdx] = 9 + (key - 149);
+                g_state.color[g_state.currentColorIdx] = key - 48;
+                redrawTools = redrawCanvas = TRUE;
+            }
+            else if (key >= 'a' && key <= 'f')
+            {
+                g_state.color[g_state.currentColorIdx] = 10 + key - 'a';
                 redrawTools = redrawCanvas = TRUE;
             }
         }
