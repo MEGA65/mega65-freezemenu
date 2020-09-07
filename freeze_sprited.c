@@ -695,6 +695,7 @@ static void ShowHelp()
     PrintKeyGroup(drawKeys,  7, 0, 2 +4+1 );
     PrintKeyGroup(colorKeys, 6, 0, 2 +4+1 +7+1);
     cgetc();
+    
 }
 
 static void DoExit()
