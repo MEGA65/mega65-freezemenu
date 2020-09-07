@@ -16,8 +16,8 @@
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  
-    Version   0.6
-    Date      2020-07-19
+    Version   0.8
+    Date      2020-08-02
 
     CHANGELOG
 
@@ -30,6 +30,13 @@
                 Change sprite type on-the-fly.with * key.
                 Clear sprite key.
                 
+    v0.8        80x50 screen mode option, new UI.
+                Redesigned key scheme.
+                Supports 16-bit sprite data pointers (SPRPTR16).
+                Honours VIC-II Bank bits ($DD00) if SPRPTR16 is OFF.
+                16-color sprite uses 64-bit implicit width.
+                
+
                 
  */
 
@@ -74,7 +81,7 @@ extern int errno;
 #define DEFAULT_MULTI1_COLOR        3
 #define DEFAULT_MULTI2_COLOR        4
 #define TRANS_CHARACTER             230
-#define TOOLBOX_COLUMN              65
+#define SIDEBAR_COLUMN              65
 #define JOY_DELAY                   10000U
 
 #define MIN(a,b)                    ((a)<(b) ? (a):(b))
@@ -83,6 +90,7 @@ extern int errno;
 // Screen RAM for our area. We do not use 16-bit character mode
 // so we need 80x25 = 2K area. 
 #define SCREEN_RAM_ADDRESS          0x12000UL
+#define CHARSET_ADDRESS             0x15000UL
 
 // Index into color array
 #define COLOR_BACK 0
@@ -102,10 +110,11 @@ typedef enum tagSPR_COLOR_MODE
 
 typedef enum tagDRAWING_TOOL
 {
-    DRAWING_TOOL_PIXEL,
+    DRAWING_TOOL_PIXEL = 0,
     DRAWING_TOOL_BOX,
     DRAWING_TOOL_FILLEDBOX,
     DRAWING_TOOL_CIRCLE,
+    DRAWING_TOOL_FILLED_CIRCLE,
     DRAWING_TOOL_LINE
 } DRAWING_TOOL;
 
@@ -123,6 +132,7 @@ typedef struct tagAPPSTATE
     BYTE cursorX, cursorY;
     BYTE canvasLeftX;
     DRAWING_TOOL drawingTool;
+    BYTE toolActive, toolOrgX, toolOrgY;
     void (*drawCellFn)(BYTE,BYTE);
     void (*paintCellFn)(void);
 } APPSTATE;
@@ -162,16 +172,57 @@ unsigned char sprite_pointer[63]={
 
     // Sprite 2 to test 16-color
 
-    unsigned char test_16 [64]={
-    0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,
-    0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,
-    0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,
-    0x18,0x19,0x1A,0x1B,0x1C,0x1D,0x1E,0x1F,
-    0x20,0x21,0x22,0x23,0x24,0x25,0x26,0x27,
-    0x28,0x29,0x2A,0x2B,0x2C,0x2D,0x2E,0x2F,
-    0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37,
-    0x48,0x19,0x1A,0x1B,0x1C,0x1D,0x1E,0x1F};
+    unsigned char test_16 [8*21]={
+    
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
+    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
+
+    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08 };
+    
 #endif 
+
+/* Toolbox Character set, in order of DRAWING_TOOL... enumeration */
+
+static const BYTE chsetToolbox[] = {
+    // Pixel tool
+    255,128,128,129,129,128,128,255, 255,1,1,129,129,1,1,255,
+    
+    // Box tool
+    255,128,143,136,136,143,128,255, 255,1,241,17,17,241,1,255,
+
+    // Circle tool
+    255,129,130,132,132,130,129,255, 255,129,65,33,33,65,129,255,
+
+    // Line tool
+    255,128,184,135,128,128,128,255, 255,1,1,1,225,29,1,255,
+
+    // Filled-box tool
+    255,128,143,143,143,143,128,255, 255,1,241,241,241,241,1,255,
+
+    // Filled-circle tool
+    255,129,131,135,135,131,129,255, 255,129,193,225,225,193,129,255
+};
+
+#define TOOLBOX_CHARSET_BASE_IDX 240
 
 static void Initialize()
 {
@@ -179,8 +230,7 @@ static void Initialize()
     POKE(0, 65);
 
     conioinit();
-    //togglecase();
-
+    
     // Set sprite 0 to our cursor
     lcopy((long)sprite_pointer,0x380,63);
     POKE(0xD015,1);
@@ -195,17 +245,19 @@ static void Initialize()
     POKE(0xD06D,0x07);
     POKE(0xD06E,0x00);
 
-
     setextendedattrib(1);
     setscreensize(SCREEN_COLS, SCREEN_ROWS);
     setscreenaddr(SCREEN_RAM_ADDRESS);
+    lcopy(0x2D800, CHARSET_ADDRESS, 2048);
+    lcopy((long) chsetToolbox, CHARSET_ADDRESS  + TOOLBOX_CHARSET_BASE_IDX * 8, sizeof(chsetToolbox) );
+    setcharsetaddr(CHARSET_ADDRESS);
 
 #ifdef TEST_SPRITES
     POKE(53276UL, 2);
     POKE(REG_SPR_16COL, 4);
 
     lcopy((long)test_mc,0x380+64,64);
-    lcopy((long)test_16,0x380+64+64,64);
+    lcopy((long)test_16,0x380+64+64,168);
 #endif
 
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
@@ -213,10 +265,11 @@ static void Initialize()
     g_state.color[COLOR_MC1] = DEFAULT_MULTI1_COLOR;
     g_state.color[COLOR_MC2] = DEFAULT_MULTI2_COLOR;
     g_state.spriteNumber = 0;
-    g_state.cursorX = 0;
-    g_state.cursorY = 0;
+    g_state.cursorX = g_state.cursorY = 0;
     g_state.currentColorIdx = COLOR_FORE;
     g_state.drawingTool = DRAWING_TOOL_PIXEL;
+    g_state.toolActive = 0;
+    g_state.toolOrgX = g_state.toolOrgY = 0;
     UpdateSpriteParameters();
 
     clrscr();
@@ -257,8 +310,8 @@ static void DrawMonoCell(BYTE x, BYTE y)
 static void Draw16ColorCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 2);
-    const BYTE p = 0xF & (lpeek(byteAddr) >> (((x + 1) % 2) *4));
+    const long byteAddr = (g_state.spriteDataAddr + (y * 8)) + (x / 2);
+    const BYTE p = 0xF & (lpeek(byteAddr) >> (((x + 1) % 2) * 4));
     
     revers(1);
     gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
@@ -334,7 +387,7 @@ static void PaintPixelMulti()
 
 static void PaintPixel16Color()
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 2);
+    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 8)) + (g_state.cursorX / 2);
     const BYTE bitsel = (((g_state.cursorX + 1) % 2) * 4);
 
     lpoke(byteAddr, lpeek(byteAddr) & (0xF0 >> bitsel) | (g_state.color[g_state.currentColorIdx] << bitsel));
@@ -384,7 +437,7 @@ void UpdateSpriteParameters(void)
         g_state.pixelsPerByte = 8;
     }
 
-    g_state.canvasLeftX =  (TOOLBOX_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
+    g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
 
 }
 
@@ -393,7 +446,7 @@ static void EraseCanvasSpace()
     RECT rc;
     rc.top = 2;
     rc.left = 0;
-    rc.right = TOOLBOX_COLUMN-1;
+    rc.right = SIDEBAR_COLUMN-1;
     rc.bottom = 23;
     fillrect(&rc, ' ', 1);
 }
@@ -413,12 +466,12 @@ static void DrawCanvas()
 
 static void DrawHeader()
 {   
-    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.7                    copyright (c) 2020 hernan di pietro");
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.7                    copyright (c) 2020 hernan di pietro{rvsoff}");
 }                                                             
 
 static void DrawColorSelector()
 {
-    RECT rc = { TOOLBOX_COLUMN, 5, 80, 7 };
+    RECT rc = { SIDEBAR_COLUMN, 5, 80, 7 };
     fillrect(&rc, ' ', DEFAULT_SCREEN_COLOR);
 
     switch(g_state.spriteColorMode) {
@@ -426,79 +479,98 @@ static void DrawColorSelector()
 
             revers(1);
             textcolor(g_state.color[COLOR_BACK]);
-            cputsxy(TOOLBOX_COLUMN, 5, "      ");
+            cputsxy(SIDEBAR_COLUMN, 5, "      ");
             textcolor(g_state.color[COLOR_FORE]);
-            cputsxy(TOOLBOX_COLUMN + 8, 5, "      ");
+            cputsxy(SIDEBAR_COLUMN + 8, 5, "      ");
             revers(0);
             
             textcolor(g_state.currentColorIdx == COLOR_BACK ? 1 : COLOUR_DARKGREY);
-            cputsxy(TOOLBOX_COLUMN + 2, 6, "bk");
+            cputsxy(SIDEBAR_COLUMN + 2, 6, "bk");
             
             textcolor(g_state.currentColorIdx == COLOR_FORE ? 1 : COLOUR_DARKGREY);
-            cputsxy(TOOLBOX_COLUMN + 8 + 2, 6, "fg");
+            cputsxy(SIDEBAR_COLUMN + 8 + 2, 6, "fg");
             
         break;
 
         case SPR_COLOR_MODE_16COLOR:
             revers(1);
             textcolor(g_state.color[COLOR_FORE]);
-            cputsxy(TOOLBOX_COLUMN, 5, "               ");
+            cputsxy(SIDEBAR_COLUMN, 5, "               ");
             revers(0);
             
             textcolor(1);
-            cputsxy(TOOLBOX_COLUMN + 2, 6, g_state.color[COLOR_FORE] == 0 ? "background":"foreground");
+            cputsxy(SIDEBAR_COLUMN + 2, 6, g_state.color[COLOR_FORE] == 0 ? "background":"foreground");
         break;
 
         case SPR_COLOR_MODE_MULTICOLOR:
             revers(1);
             textcolor(g_state.color[COLOR_BACK]);
-            cputsxy(TOOLBOX_COLUMN, 5, "   ");
+            cputsxy(SIDEBAR_COLUMN, 5, "   ");
             textcolor(g_state.color[COLOR_FORE]);
-            cputsxy(TOOLBOX_COLUMN + 4, 5, "   ");
+            cputsxy(SIDEBAR_COLUMN + 4, 5, "   ");
             textcolor(g_state.color[COLOR_MC1]);
-            cputsxy(TOOLBOX_COLUMN + 4 * 2, 5, "   ");
+            cputsxy(SIDEBAR_COLUMN + 4 * 2, 5, "   ");
             textcolor(g_state.color[COLOR_MC2]);
-            cputsxy(TOOLBOX_COLUMN + 4 * 3, 5, "   ");
+            cputsxy(SIDEBAR_COLUMN + 4 * 3, 5, "   ");
             revers(0);
             
             textcolor(COLOUR_DARKGREY);
-            cputsxy(TOOLBOX_COLUMN + 1, 6, "bk");
-            cputsxy(TOOLBOX_COLUMN + 5, 6, "fg");
-            cputsxy(TOOLBOX_COLUMN + 8, 6, "mc1");
-            cputsxy(TOOLBOX_COLUMN + 12, 6, "mc2");
+            cputsxy(SIDEBAR_COLUMN + 1, 6, "bk");
+            cputsxy(SIDEBAR_COLUMN + 5, 6, "fg");
+            cputsxy(SIDEBAR_COLUMN + 8, 6, "mc1");
+            cputsxy(SIDEBAR_COLUMN + 12, 6, "mc2");
             
             textcolor(1);
             switch (g_state.currentColorIdx)
             {
                 case COLOR_BACK: 
-                    cputsxy(TOOLBOX_COLUMN + 1, 6, "bk");
+                    cputsxy(SIDEBAR_COLUMN + 1, 6, "bk");
                     break;
                 case COLOR_FORE:
-                    cputsxy(TOOLBOX_COLUMN + 5, 6, "fg");
+                    cputsxy(SIDEBAR_COLUMN + 5, 6, "fg");
                     break;
                 case COLOR_MC1:
-                    cputsxy(TOOLBOX_COLUMN + 8, 6, "mc1");
+                    cputsxy(SIDEBAR_COLUMN + 8, 6, "mc1");
                     break;
                 case COLOR_MC2:
-                    cputsxy(TOOLBOX_COLUMN + 12, 6, "mc2");
+                    cputsxy(SIDEBAR_COLUMN + 12, 6, "mc2");
                     break;
             }
 
         break;
     }
 }
+
 static void DrawToolbox()
+{
+    BYTE i = 0;
+    for (i = 0; i < sizeof(chsetToolbox)/8; ++i)
+    {
+        if (g_state.drawingTool == i / 2 )
+        {
+            textcolor(COLOUR_WHITE);
+        }
+        else 
+        {
+            revers(0);
+            textcolor(COLOUR_MEDIUMGREY);
+        }
+        cputc(TOOLBOX_CHARSET_BASE_IDX + i);
+    }
+}
+
+static void DrawSidebar()
 {
     BYTE i;
 
     DrawColorSelector();
     textcolor(1);
-    gotoxy(TOOLBOX_COLUMN, 2);
+    gotoxy(SIDEBAR_COLUMN, 2);
     cputs("sprite ");
     cputdec(g_state.spriteNumber, 0, 0);
     cputs(g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME ? " mono    " : 
         (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi   " : " 16-col"));
-    gotoxy(TOOLBOX_COLUMN, 3);
+    gotoxy(SIDEBAR_COLUMN, 3);
     textcolor(3);
     cputhex(g_state.spriteDataAddr, 7);
     cputc(' ');
@@ -506,45 +578,49 @@ static void DrawToolbox()
     cputc(',');
     cputdec(g_state.cursorY, 0, 0);  
 
+    gotoxy(SIDEBAR_COLUMN,8);
+    DrawToolbox();
+
     DrawColorSelector();
     textcolor(14);
 
-    cputsxy(TOOLBOX_COLUMN, 10, ", . sel sprite");
-    cputsxy(TOOLBOX_COLUMN, 11, "spc draw");
-    if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
-    {
-        cputsxy(TOOLBOX_COLUMN, 12, "h   sel fgcolor");
-        cputsxy(TOOLBOX_COLUMN, 13, "j   sel bkcolor");
-        cputsxy(TOOLBOX_COLUMN, 14, "k   sel color1 ");
-        cputsxy(TOOLBOX_COLUMN, 15, "l   sel color2 ");
-    }
-    else if (g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME)
-    {
-        cputsxy(TOOLBOX_COLUMN, 12, "j   sel fgcolor");
-        cputsxy(TOOLBOX_COLUMN, 13, "k   sel bkcolor");
-        cputsxy(TOOLBOX_COLUMN, 14, "               ");
-        cputsxy(TOOLBOX_COLUMN, 15, "               ");
-    }
-    else 
-    {
-        cputsxy(TOOLBOX_COLUMN, 12, "               ");
-        cputsxy(TOOLBOX_COLUMN, 13, "               ");
-        cputsxy(TOOLBOX_COLUMN, 14, "               ");
-        cputsxy(TOOLBOX_COLUMN, 15, "               ");
-    }
-    cputsxy(TOOLBOX_COLUMN, 16, "*   change type");
-    cputsxy(TOOLBOX_COLUMN, 17, "s   save");
-    cputsxy(TOOLBOX_COLUMN, 18, "l   load");
-    cputsxy(TOOLBOX_COLUMN, 20, "c   clear");
-    cputsxy(TOOLBOX_COLUMN, 19, "f1  help/info");
-    cputsxy(TOOLBOX_COLUMN, 21, "f3  exit");
 
-    for(i = 10; i <= 21; ++i)
-    {
-        cellcolor(TOOLBOX_COLUMN,   i, COLOUR_GREY3);
-        cellcolor(TOOLBOX_COLUMN+1, i, COLOUR_GREY3);
-        cellcolor(TOOLBOX_COLUMN+2, i, COLOUR_GREY3);
-    }
+    // cputsxy(TOOLBOX_COLUMN, 10, ", . sel sprite");
+    // cputsxy(TOOLBOX_COLUMN, 11, "spc draw");
+    // if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
+    // {
+    //     cputsxy(TOOLBOX_COLUMN, 12, "h   sel fgcolor");
+    //     cputsxy(TOOLBOX_COLUMN, 13, "j   sel bkcolor");
+    //     cputsxy(TOOLBOX_COLUMN, 14, "k   sel color1 ");
+    //     cputsxy(TOOLBOX_COLUMN, 15, "l   sel color2 ");
+    // }
+    // else if (g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME)
+    // {
+    //     cputsxy(TOOLBOX_COLUMN, 12, "j   sel fgcolor");
+    //     cputsxy(TOOLBOX_COLUMN, 13, "k   sel bkcolor");
+    //     cputsxy(TOOLBOX_COLUMN, 14, "               ");
+    //     cputsxy(TOOLBOX_COLUMN, 15, "               ");
+    // }
+    // else 
+    // {
+    //     cputsxy(TOOLBOX_COLUMN, 12, "               ");
+    //     cputsxy(TOOLBOX_COLUMN, 13, "               ");
+    //     cputsxy(TOOLBOX_COLUMN, 14, "               ");
+    //     cputsxy(TOOLBOX_COLUMN, 15, "               ");
+    // }
+    // cputsxy(TOOLBOX_COLUMN, 16, "*   change type");
+    // cputsxy(TOOLBOX_COLUMN, 17, "s   save");
+    // cputsxy(TOOLBOX_COLUMN, 18, "l   load");
+    // cputsxy(TOOLBOX_COLUMN, 20, "c   clear");
+    // cputsxy(TOOLBOX_COLUMN, 19, "f1  help/info");
+    // cputsxy(TOOLBOX_COLUMN, 21, "f3  exit");
+
+    // for(i = 10; i <= 21; ++i)
+    // {
+    //     cellcolor(SIDEBAR_COLUMN,   i, COLOUR_GREY3);
+    //     cellcolor(SIDEBAR_COLUMN+1, i, COLOUR_GREY3);
+    //     cellcolor(SIDEBAR_COLUMN+2, i, COLOUR_GREY3);
+    // }
 }
 
 static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
@@ -570,91 +646,55 @@ static BYTE LoadRawData(const BYTE name[16])
     return 0;
 }
 
-static BOOL SaveDialog(FILEOPTIONS *saveOpt)
+static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 {
-    BYTE opt;
-    textcolor(1);
+    register BYTE i = 0;
+    gotoxy(x,y);
+    textcolor(COLOUR_PINK);
     revers(1);
-    // cputsxy(23, 17, "   Save to    ");
-    // cputsxy(23, 18, "RAW or BASIC? ");
-    // opt = cgetc();
-    // if (opt == 'b')
-    //     saveOpt->mode = SAVE_BASIC_LOADER;
-    // else if (opt == 'r')
-    //     saveOpt->mode = SAVE_RAW_BYTES;
-    // else
-    //     return FALSE;
-    cputsxy(23, 17, "save filename?");
-    cputsxy(23, 18, "              ");
-    gotoxy(23, 18);
-    // cursor(1);
-    // cscanf("%s", saveOpt->name);
-    // cursor(0);
+    cputs(list[0]);
     revers(0);
-    cputsxy(23, 17, "              ");
-    cputsxy(23, 18, "              ");
-    //return strlen(saveOpt->name) > 0 ? TRUE : FALSE;
-    return TRUE;
-}
+    textcolor(COLOUR_WHITE);
 
-static BOOL LoadDialog(FILEOPTIONS *opt)
-{
-    textcolor(1);
-    revers(1);
-    cputsxy(23, 17, "load filename?");
-    cputsxy(23, 18, "              ");
-    gotoxy(23, 18);
-    // cursor(1);
-    // cscanf("%s", opt->name);
-    // cursor(0);
-    revers(0);
-    cputsxy(23, 17, "              ");
-    cputsxy(23, 18, "              ");
-    //return strlen(opt->name) > 0 ? TRUE : FALSE;
-
-    return TRUE;
+    for(i = 1; i < count; ++i) 
+    {
+        gotoxy(x,y+i);
+        cputs(list[i]);
+    }
 }
 
 static void ShowHelp()
 {
-    const RECT rc = { 2 , 2 , 78, 22 };
-    flushkeybuf();
-    box(&rc, COLOUR_CYAN, BOX_STYLE_NONE, 1, 1);
-    textcolor(COLOUR_WHITE);
-    cputsxy(3,3, "     draw                          file    ");
-    textcolor(COLOUR_LIGHTBLUE);
-    cputsxy(3,5, "p    pixel                    ctrl-s   save");
-    cputsxy(3,6, "b    square                   ctrl-l   load");
-    cputsxy(3,7, "f    filled square            ");
-    cputsxy(3,8," l    line             ");
-    cputsxy(3,9," c    clear            ");
+    const char* fileKeys[] = { 
+        "       file        ", 
+        "new          ctrl+n",
+        "load             f5",
+        "save             f7"};
+
+    const char* drawKeys[] = { 
+        "       tools       ",
+        "pixel             p",
+        "box               x",
+        "filled box      s-x",
+        "circle            o",
+        "filled circle   s-o",
+        "line              l"};
+
+    const char* colorKeys[] = {
+        "       color       ",
+        "select         0..9",
+        "               a..f",
+        "prev component    \x1b",
+        "next component    \x1d",
+        "palette      ctrl+p" };
     
-    textcolor(COLOUR_WHITE);
-    cputsxy(3,11,"     color                         edit    ");
-    textcolor(COLOUR_LIGHTBLUE);
-    cputsxy(3,13,"use ctrl-1..ctrl-8            alt+s  select");
-    cputsxy(3,14,"and mega-1..mega-8            ctrl+c");
-
+    flushkeybuf();
+    clrscr();
+    DrawHeader();
+    PrintKeyGroup(fileKeys,  4, 0, 2);
+    PrintKeyGroup(drawKeys,  7, 0, 2 +4+1 );
+    PrintKeyGroup(colorKeys, 6, 0, 2 +4+1 +7+1);
     cgetc();
-}
-static void EditColorDialog()
-{
-    textcolor(3);
-    cputsxy(23, 17, "R ");
-    textcolor(4);
-    cputsxy(24, 17, "G ");
-    textcolor(6);
-    cputsxy(24, 17, "B ");
-}
-
-static void InfoDialog()
-{
-    textcolor(1);
-    revers(1);
-    gotoxy(23, 17);
-    cputs("SPRADDR ");
-    cputhex(g_state.spriteDataAddr, 7);
-    cputsxy(23, 18, "              ");
 }
 
 static void DoExit()
@@ -667,10 +707,12 @@ static void DoExit()
 
 static void DrawScreen()
 {
+    bgcolor(DEFAULT_SCREEN_COLOR);    
+    revers(0);
     clrscr();
     DrawHeader();
     DrawCanvas();
-    DrawToolbox();
+    DrawSidebar();
 }
 
 unsigned short joy_delay_countdown = 0;
@@ -805,11 +847,6 @@ static void MainLoop()
             DrawCursor();
             break;
 
-        case 99: // c
-            redrawTools = redrawCanvas = TRUE;
-            ClearSprite();
-            break;
-
         case 104: // h
             redrawTools = TRUE;
             g_state.currentColorIdx = COLOR_BACK;
@@ -885,76 +922,59 @@ static void MainLoop()
             redrawCanvas = TRUE;
             break;
 
+        
         case 0xF1: // F1
             ShowHelp();
             DrawScreen();
             break;
+        
+        /* --------------------------- FILE GROUP ----------------------------- */
 
         case 0xF3: // F3
-
             Ask("exit sprite editor: are you sure (yes/no)? ", buf, 3);
-            if (buf[0] == 'y' && buf[1] == 'e' && buf[2] == 's')
-            return;
+            if (buf[0] == 'y' && buf[1] == 'e' && buf[2] == 's'){
+             return;
+            }
             break;
 
-        case '?':
-            InfoDialog();
+        case 0xF5: // F5 LOAD
+            Ask("enter file name to load: ", buf, 19);
             break;
 
-        // Color keys
-        //         1   2   3   4   5   6   7   8
-        // CTRL    $90 $05 $1c $9f $9c $1e &1f $9e 
-        // MEGA    $81 $95 $96 $97 $98 $99 $9a $9b 
-
-        case 0x90:// Ctrl + 1
-            g_state.color[g_state.currentColorIdx] = 0;
-            redrawTools = redrawCanvas = TRUE;
+        case 0xF7: // F7 SAVE
+            Ask("enter file name to save: ", buf, 19);
             break;
 
-        case 0x5: // Ctrl + 2
-            g_state.color[g_state.currentColorIdx] = 1;
-            redrawTools = redrawCanvas = TRUE;
-            break;
-
-        case 0x1c: // Ctrl + 3
-            g_state.color[g_state.currentColorIdx] = 2;
-            redrawTools = redrawCanvas = TRUE;
+        case 14: // CTRL-N
+            Ask("clear sprite (yes/no)? ", buf, 3);
+            if (buf[0] == 'y' && buf[1] == 'e' && buf[2] == 's'){
+             redrawTools = redrawCanvas = TRUE;
+             ClearSprite();
+            }
             break;
         
-        case 0x9f:  // Ctrl + 4
-            g_state.color[g_state.currentColorIdx] = 3;
-            redrawTools = redrawCanvas = TRUE;
-        break;
+        // case ASC_HELP:
+        //     break;
 
-        case 0x9c: // Ctrl + 5
-            g_state.color[g_state.currentColorIdx] = 4;
-            redrawTools = redrawCanvas = TRUE;
-        break;
+        /* --------------------------- DRAWING TOOLS GROUP ----------------------- */
 
-        case 0x1e: // Ctrl + 6
-            g_state.color[g_state.currentColorIdx] = 5;
-            redrawTools = redrawCanvas = TRUE;
-        break;
+        case 120: // x = draw box
+            g_state.toolOrgX = g_state.cursorX;
+            g_state.toolOrgY = g_state.cursorY;
+            g_state.drawingTool = DRAWING_TOOL_BOX;
+            break;
 
-        case 0x1f: // Ctrl + 7
-            g_state.color[g_state.currentColorIdx] = 6;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x9e: // Ctrl + 8
-            g_state.color[g_state.currentColorIdx] = 7;
-            redrawTools = redrawCanvas = TRUE;
-        break;
-
-        case 0x81: // CBM + 1
-            g_state.color[g_state.currentColorIdx] = 8;
-            redrawTools = redrawCanvas = TRUE;
-      
         default:
-            // Remaining CBM-2..8 keys (consecutive)
-            if (key >= 149 && key <= 156)  // Mega+ 1-8
+            //gohome(); cputdec(key,0,0);
+            
+            if (key >= '0' && key <= '9')
             {
-                g_state.color[g_state.currentColorIdx] = 9 + (key - 149);
+                g_state.color[g_state.currentColorIdx] = key - 48;
+                redrawTools = redrawCanvas = TRUE;
+            }
+            else if (key >= 97 && key <= 102) //a..f
+            {
+                g_state.color[g_state.currentColorIdx] = 10 + key - 'a';
                 redrawTools = redrawCanvas = TRUE;
             }
         }
@@ -963,7 +983,7 @@ static void MainLoop()
             DrawCanvas();
 
         if (redrawTools)
-            DrawToolbox();
+            DrawSidebar();
 
         redrawCanvas = redrawTools = FALSE;
     }
@@ -971,6 +991,7 @@ static void MainLoop()
 
 void do_sprite_editor()
 {
+    int i = 0;
     Initialize();
     DrawScreen();
     MainLoop();
