@@ -30,11 +30,12 @@
                 Change sprite type on-the-fly.with * key.
                 Clear sprite key.
                 
-    v0.8        80x50 screen mode option, new UI.
+    v0.8        80x50 screen mode option, new UI, redraw optimizations.
                 Redesigned key scheme.
                 Supports 16-bit sprite data pointers (SPRPTR16).
                 Honours VIC-II Bank bits ($DD00) if SPRPTR16 is OFF.
                 16-color sprite uses 64-bit implicit width.
+                Drawing tools: pixel, box, circle ,lines.
                 
 
                 
@@ -70,6 +71,7 @@ extern int errno;
 #define SCREEN_ROWS                 25
 #define SCREEN_COLS                 80
 #define CANVAS_HEIGHT               SCREEN_ROWS - 2
+#define CANVAS_TOP_MARGIN           2
 
 #define TRUE                        1
 #define FALSE                       0
@@ -86,17 +88,30 @@ extern int errno;
 
 #define MIN(a,b)                    ((a)<(b) ? (a):(b))
 #define MAX(a,b)                    ((a)>(b) ? (a):(b))
+#define ABS8(x)                     (((x) ^ ((x) >> 7)) -  ((x) >> 7))
+#define ABS16(x)                    (((x) ^ ((x) >> 15)) -  ((x) >> 15))
+
+
 
 // Screen RAM for our area. We do not use 16-bit character mode
 // so we need 80x25 = 2K area. 
 #define SCREEN_RAM_ADDRESS          0x12000UL
 #define CHARSET_ADDRESS             0x15000UL
+#define SPRITE_UNDO_BUFFER_ADDRESS  0x17000UL
 
 // Index into color array
 #define COLOR_BACK 0
 #define COLOR_FORE 1
 #define COLOR_MC1 2
 #define COLOR_MC2 3
+
+// Redraw side-bar flags
+#define REDRAW_SB_NONE   0
+#define REDRAW_SB_INFO   1
+#define REDRAW_SB_COORD  2
+#define REDRAW_SB_COLOR  4
+#define REDRAW_SB_TOOLS  8
+#define REDRAW_SB_ALL    1 + 2 + 4 + 8
 
 typedef unsigned char BYTE;
 typedef unsigned char BOOL;
@@ -133,8 +148,11 @@ typedef struct tagAPPSTATE
     BYTE canvasLeftX;
     DRAWING_TOOL drawingTool;
     BYTE toolActive, toolOrgX, toolOrgY;
+    RECT redrawRect;
+    BYTE redrawSideBarFlags; // See REDRAW_SB_ constants for flags
     void (*drawCellFn)(BYTE,BYTE);
     void (*paintCellFn)(void);
+    void (*drawShapeFn)(BOOL);
 } APPSTATE;
 
 typedef struct tagFILEOPTIONS
@@ -147,9 +165,13 @@ static APPSTATE g_state;
 
 static const char *clrIndexName[] = {"bg ", "fg ", "mc1", "mc2"};
 
+/* Nonstatic Function prototypes */
 void UpdateSpriteParameters(void);
+void SetDrawTool(DRAWING_TOOL);
+void SetRedrawFullCanvas(void);
+void SetEffectiveToolRect(RECT*);
 
-unsigned char sprite_pointer[63]={
+BYTE  sprite_pointer[63]={
   0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xF8, 0x00, 0x00, 0xFC, 0x00, 0x00, 0xFC, 0x00, 0x00, 0xDC, 
   0x00, 0x00, 0xCE, 0x00, 0x00, 0xCE, 0x00, 0x00, 0x07, 0x00, 0x00, 0x07, 0x00, 0x00, 0x03, 0x80, 
   0x00, 0x03, 0x80, 0x00, 0x01, 0xC0, 0x00, 0x01, 0xC0, 0x00, 0x00, 0xE0, 0x00, 0x00, 0xE0, 0x00, 
@@ -224,6 +246,14 @@ static const BYTE chsetToolbox[] = {
 
 #define TOOLBOX_CHARSET_BASE_IDX 240
 
+static void SetRect(RECT* rc, BYTE left, BYTE top, BYTE right, BYTE bottom)
+{
+    rc->left   = left;
+    rc->right  = right;
+    rc->top    = top;
+    rc->bottom = bottom;
+}
+
 static void Initialize()
 {
     // Set 40MHz, VIC-IV I/O, 80 column, screen RAM @ $8000
@@ -259,7 +289,7 @@ static void Initialize()
     lcopy((long)test_mc,0x380+64,64);
     lcopy((long)test_16,0x380+64+64,168);
 #endif
-
+    g_state.redrawSideBarFlags = REDRAW_SB_ALL;
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
     g_state.color[COLOR_FORE] = DEFAULT_FORE_COLOR;
     g_state.color[COLOR_MC1] = DEFAULT_MULTI1_COLOR;
@@ -267,10 +297,11 @@ static void Initialize()
     g_state.spriteNumber = 0;
     g_state.cursorX = g_state.cursorY = 0;
     g_state.currentColorIdx = COLOR_FORE;
-    g_state.drawingTool = DRAWING_TOOL_PIXEL;
     g_state.toolActive = 0;
     g_state.toolOrgX = g_state.toolOrgY = 0;
+    SetDrawTool(DRAWING_TOOL_PIXEL);
     UpdateSpriteParameters();
+    SetRedrawFullCanvas();
 
     clrscr();
     bordercolor(DEFAULT_BORDER_COLOR);
@@ -289,6 +320,56 @@ static void DrawCursor()
         cputc(219);
     blink(0);
     revers(0);
+}
+
+static void DrawBox(BOOL bPreview)
+{
+    RECT rc;
+    char rcWidth, rcHeight;
+    SetEffectiveToolRect(&rc);
+    rcWidth = g_state.cellsPerPixel * (rc.right - rc.left);
+    rcHeight = rc.bottom - rc.top;
+    cputncxy(0,0,79,' ');
+    gotoxy(0,1);
+    cputdec(rc.left, 0,0);
+    gotoxy(10,1);
+    cputdec(rc.top, 0,0);
+    gotoxy(20,1);
+    cputdec(rc.right, 0,0);
+    gotoxy(30,1);
+    cputdec(rc.bottom, 0,0);
+    gotoxy(40,1);
+    cputdec(rcWidth, 0,0);
+    gotoxy(50,1);
+    cputdec(rcHeight, 0,0);
+
+    if (bPreview)
+    {
+        int i;
+        const BYTE left = g_state.canvasLeftX + g_state.cellsPerPixel * rc.left;
+        revers(1);
+        blink(1);
+        textcolor(g_state.color[g_state.currentColorIdx]);
+        cputncxy(left, CANVAS_TOP_MARGIN + rc.top, rcWidth, 219);
+        
+        for (i = CANVAS_TOP_MARGIN + rc.top + 1; i < CANVAS_TOP_MARGIN + rc.bottom; ++i)
+        {
+            cputncxy(left, i, g_state.cellsPerPixel, 219);
+            cputncxy(left + rcWidth - g_state.cellsPerPixel, i, g_state.cellsPerPixel, 219);
+        }
+        cputncxy(left, CANVAS_TOP_MARGIN + rc.bottom, rcWidth, 219);
+        blink(0);
+        revers(0);
+    }
+}
+
+void SetDrawTool(DRAWING_TOOL dt)
+{
+    g_state.drawingTool = dt;
+    switch(dt)
+    {
+        case DRAWING_TOOL_BOX:   g_state.drawShapeFn = DrawBox;
+    }
 }
 
 static void DrawMonoCell(BYTE x, BYTE y)
@@ -395,6 +476,7 @@ static void PaintPixel16Color()
 
 static void ClearSprite()
 {
+    SetRedrawFullCanvas();
     lfill(g_state.spriteDataAddr, 0, g_state.spriteSizeBytes);
 }
 
@@ -455,26 +537,61 @@ static void DrawCanvas()
 {
     // TODO: Fetch all from memory with lcopy to local buffer and draw.
 
-    register BYTE row = 0;
-    register BYTE col = 0;
-    for (row = 0; row < g_state.spriteHeight; ++row)
-        for (col = 0; col < g_state.spriteWidth; ++col)
+    register BYTE row;
+    register BYTE col;
+    for (row = g_state.redrawRect.top; row < g_state.redrawRect.bottom; ++row)
+        for (col = g_state.redrawRect.left; col < g_state.redrawRect.right; ++col)
             g_state.drawCellFn(col, row);
 
+    if (g_state.toolActive)
+    {
+        g_state.drawShapeFn(TRUE);
+    }
+
     DrawCursor();
+
+    SetRect(&g_state.redrawRect, 0, 0, 0, 0);
+}
+
+static void SetEffectiveToolRect(RECT *rc)
+{
+    SetRect(rc, MIN(g_state.toolOrgX, g_state.cursorX),
+                MIN(g_state.toolOrgY, g_state.cursorY),
+                MAX(g_state.toolOrgX, g_state.cursorX),
+                MAX(g_state.toolOrgY, g_state.cursorY));
+}
+
+static void SetRedrawToolRect()
+{
+    if (g_state.toolActive)
+        SetEffectiveToolRect(&g_state.redrawRect);
+}
+
+void SetRedrawFullCanvas(void)
+{
+    SetRect(&g_state.redrawRect, 0, 0, g_state.spriteWidth, g_state.spriteHeight);
 }
 
 static void DrawHeader()
-{   
-    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.7                    copyright (c) 2020 hernan di pietro{rvsoff}");
-}                                                             
+{
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.8                    copyright (c) 2020 hernan di pietro{rvsoff}");
+}
+
+static void DrawStatusBar()
+{
+
+}
 
 static void DrawColorSelector()
 {
-    RECT rc = { SIDEBAR_COLUMN, 5, 80, 7 };
-    fillrect(&rc, ' ', DEFAULT_SCREEN_COLOR);
+    RECT rc;
+    if (g_state.redrawSideBarFlags & REDRAW_SB_COLOR)
+    {
+        SetRect(&rc, SIDEBAR_COLUMN, 5, 80, 7);
+        fillrect(&rc, ' ', DEFAULT_SCREEN_COLOR);
 
-    switch(g_state.spriteColorMode) {
+        switch (g_state.spriteColorMode)
+        {
         case SPR_COLOR_MODE_MONOCHROME:
 
             revers(1);
@@ -483,24 +600,24 @@ static void DrawColorSelector()
             textcolor(g_state.color[COLOR_FORE]);
             cputsxy(SIDEBAR_COLUMN + 8, 5, "      ");
             revers(0);
-            
+
             textcolor(g_state.currentColorIdx == COLOR_BACK ? 1 : COLOUR_DARKGREY);
             cputsxy(SIDEBAR_COLUMN + 2, 6, "bk");
-            
+
             textcolor(g_state.currentColorIdx == COLOR_FORE ? 1 : COLOUR_DARKGREY);
             cputsxy(SIDEBAR_COLUMN + 8 + 2, 6, "fg");
-            
-        break;
+
+            break;
 
         case SPR_COLOR_MODE_16COLOR:
             revers(1);
             textcolor(g_state.color[COLOR_FORE]);
             cputsxy(SIDEBAR_COLUMN, 5, "               ");
             revers(0);
-            
+
             textcolor(1);
-            cputsxy(SIDEBAR_COLUMN + 2, 6, g_state.color[COLOR_FORE] == 0 ? "background":"foreground");
-        break;
+            cputsxy(SIDEBAR_COLUMN + 2, 6, g_state.color[COLOR_FORE] == 0 ? "background" : "foreground");
+            break;
 
         case SPR_COLOR_MODE_MULTICOLOR:
             revers(1);
@@ -513,76 +630,97 @@ static void DrawColorSelector()
             textcolor(g_state.color[COLOR_MC2]);
             cputsxy(SIDEBAR_COLUMN + 4 * 3, 5, "   ");
             revers(0);
-            
+
             textcolor(COLOUR_DARKGREY);
             cputsxy(SIDEBAR_COLUMN + 1, 6, "bk");
             cputsxy(SIDEBAR_COLUMN + 5, 6, "fg");
             cputsxy(SIDEBAR_COLUMN + 8, 6, "mc1");
             cputsxy(SIDEBAR_COLUMN + 12, 6, "mc2");
-            
+
             textcolor(1);
             switch (g_state.currentColorIdx)
             {
-                case COLOR_BACK: 
-                    cputsxy(SIDEBAR_COLUMN + 1, 6, "bk");
-                    break;
-                case COLOR_FORE:
-                    cputsxy(SIDEBAR_COLUMN + 5, 6, "fg");
-                    break;
-                case COLOR_MC1:
-                    cputsxy(SIDEBAR_COLUMN + 8, 6, "mc1");
-                    break;
-                case COLOR_MC2:
-                    cputsxy(SIDEBAR_COLUMN + 12, 6, "mc2");
-                    break;
+            case COLOR_BACK:
+                cputsxy(SIDEBAR_COLUMN + 1, 6, "bk");
+                break;
+            case COLOR_FORE:
+                cputsxy(SIDEBAR_COLUMN + 5, 6, "fg");
+                break;
+            case COLOR_MC1:
+                cputsxy(SIDEBAR_COLUMN + 8, 6, "mc1");
+                break;
+            case COLOR_MC2:
+                cputsxy(SIDEBAR_COLUMN + 12, 6, "mc2");
+                break;
             }
 
-        break;
+            break;
+        }
     }
 }
 
 static void DrawToolbox()
 {
-    BYTE i = 0;
-    for (i = 0; i < sizeof(chsetToolbox)/8; ++i)
+    register BYTE i = 0;
+
+    if (g_state.redrawSideBarFlags & REDRAW_SB_TOOLS)
     {
-        if (g_state.drawingTool == i / 2 )
+        gotoxy(SIDEBAR_COLUMN,8);
+        for (i = 0; i < sizeof(chsetToolbox) / 8; ++i)
         {
-            textcolor(COLOUR_WHITE);
+            if (g_state.drawingTool == i / 2)
+            {
+                textcolor(COLOUR_WHITE);
+            }
+            else
+            {
+                revers(0);
+                textcolor(COLOUR_MEDIUMGREY);
+            }
+            cputc(TOOLBOX_CHARSET_BASE_IDX + i);
         }
-        else 
-        {
-            revers(0);
-            textcolor(COLOUR_MEDIUMGREY);
-        }
-        cputc(TOOLBOX_CHARSET_BASE_IDX + i);
+    }
+}
+
+static void DrawSideBarSpriteInfo()
+{
+    if (g_state.redrawSideBarFlags & REDRAW_SB_INFO)
+    {
+        textcolor(1);
+        gotoxy(SIDEBAR_COLUMN, 2);
+        cputs("sprite ");
+        cputdec(g_state.spriteNumber, 0, 0);
+        cputs(g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME ? " mono    " :
+             (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi   " : " 16-col"));
+        gotoxy(SIDEBAR_COLUMN, 3);
+        textcolor(3);
+        cputhex(g_state.spriteDataAddr, 7);
+    }
+}
+
+static void DrawCoordinates()
+{
+    if (g_state.redrawSideBarFlags & REDRAW_SB_COORD)
+    {
+        
+        cputncxy(SIDEBAR_COLUMN, SCREEN_ROWS - 1, SCREEN_COLS - SIDEBAR_COLUMN - 1, ' ');
+        gotox(SIDEBAR_COLUMN);
+        textcolor(COLOUR_CYAN);
+        cputc('(');
+        cputdec(g_state.cursorX, 0, 0);
+        cputc(',');
+        cputdec(g_state.cursorY, 0, 0);  
+        cputc(')');
     }
 }
 
 static void DrawSidebar()
 {
-    BYTE i;
-
-    DrawColorSelector();
-    textcolor(1);
-    gotoxy(SIDEBAR_COLUMN, 2);
-    cputs("sprite ");
-    cputdec(g_state.spriteNumber, 0, 0);
-    cputs(g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME ? " mono    " : 
-        (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR ? " multi   " : " 16-col"));
-    gotoxy(SIDEBAR_COLUMN, 3);
-    textcolor(3);
-    cputhex(g_state.spriteDataAddr, 7);
-    cputc(' ');
-    cputdec(g_state.cursorX, 0, 0);
-    cputc(',');
-    cputdec(g_state.cursorY, 0, 0);  
-
-    gotoxy(SIDEBAR_COLUMN,8);
+    DrawSideBarSpriteInfo();
+    DrawCoordinates();
     DrawToolbox();
-
     DrawColorSelector();
-    textcolor(14);
+    //textcolor(14);
 
 
     // cputsxy(TOOLBOX_COLUMN, 10, ", . sel sprite");
@@ -621,6 +759,8 @@ static void DrawSidebar()
     //     cellcolor(SIDEBAR_COLUMN+1, i, COLOUR_GREY3);
     //     cellcolor(SIDEBAR_COLUMN+2, i, COLOUR_GREY3);
     // }
+    
+    g_state.redrawSideBarFlags = REDRAW_SB_NONE;
 }
 
 static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
@@ -726,8 +866,7 @@ static void MainLoop()
     FILEOPTIONS fileOpt;
     unsigned char buf[64];
     unsigned char key = 0, keymod = 0;
-    BYTE redrawCanvas = FALSE;
-    BYTE redrawTools = FALSE;
+    BYTE redrawStatusBar = FALSE;
 
     mouse_set_bounding_box(0 + 24, 0 + 50, 319 + 24 - 8, 199 + 50);
     mouse_warp_to(24, 100);
@@ -741,7 +880,6 @@ static void MainLoop()
             if ((((mx - 55) / 8) != g_state.cursorX) || (((my - 66) / 8) != g_state.cursorY))
             {
                 g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
-                redrawTools = TRUE;
                 g_state.cursorX = (mx - 55) / 8;
                 g_state.cursorY = (my - 66) / 8;
                 DrawCursor();
@@ -821,57 +959,49 @@ static void MainLoop()
             break;
 
         case CH_CURS_DOWN:
+            SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
-            redrawTools = TRUE;
+            g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorY = (g_state.cursorY == g_state.spriteHeight - 1) ? 0 : (g_state.cursorY + 1);
-            DrawCursor();
             break;
 
         case CH_CURS_UP:
+            SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
-            redrawTools = TRUE;
+            g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorY = (g_state.cursorY == 0) ? (g_state.spriteHeight - 1) : (g_state.cursorY - 1);
-            DrawCursor();
             break;
 
         case CH_CURS_LEFT:
+            SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+            g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
-            redrawTools = TRUE;
-            DrawCursor();
             break;
 
         case CH_CURS_RIGHT:
+            SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
-            redrawTools = TRUE;
+            g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
-            DrawCursor();
             break;
 
         case 104: // h
-            redrawTools = TRUE;
             g_state.currentColorIdx = COLOR_BACK;
-            DrawCursor();
             break;
 
         case 106: // j
-            redrawTools = TRUE;
             g_state.currentColorIdx = COLOR_FORE;
-            DrawCursor();
             break;
 
         case 107: // k
-            redrawTools = TRUE;
             if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
                 g_state.currentColorIdx = COLOR_MC1;
-            DrawCursor();
             break;
 
         case 108: // l
-            redrawTools = TRUE;
             if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
                 g_state.currentColorIdx = COLOR_MC2;
-            DrawCursor();
             break;
 
         case ',':
@@ -884,9 +1014,9 @@ static void MainLoop()
 
             UpdateSpriteParameters();
             EraseCanvasSpace();
+            SetRedrawFullCanvas();
             g_state.cursorX = MIN(g_state.spriteWidth-1, g_state.cursorX);
             g_state.cursorY = MIN(g_state.spriteHeight-1, g_state.cursorY);
-            redrawCanvas = redrawTools = TRUE;
             break;
 
         case '*':
@@ -909,24 +1039,37 @@ static void MainLoop()
             }
             UpdateSpriteParameters();
             EraseCanvasSpace();
-            redrawCanvas = redrawTools = TRUE;
+            SetRedrawFullCanvas();
             break;
 
         case ' ':
-            switch(g_state.drawingTool)
+            if (g_state.drawingTool == DRAWING_TOOL_PIXEL)
             {
-                case DRAWING_TOOL_PIXEL:
-                    g_state.paintCellFn();
-                    break;
-                
+                g_state.paintCellFn();
             }
-            redrawCanvas = TRUE;
+            else
+            {
+                if (g_state.toolActive)
+                {
+                    g_state.toolActive = 0;
+                    g_state.drawShapeFn(FALSE);
+                    redrawStatusBar = TRUE;
+                    SetRedrawToolRect();
+                }
+                else
+                {
+                    g_state.toolOrgX = g_state.cursorX;
+                    g_state.toolOrgY = g_state.cursorY;
+                    g_state.toolActive = 1;
+                }
+            }
             break;
 
-        
         case 0xF1: // F1
             ShowHelp();
-            DrawScreen();
+            EraseCanvasSpace();
+            SetRedrawFullCanvas();
+            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
             break;
         
         /* --------------------------- FILE GROUP ----------------------------- */
@@ -949,7 +1092,6 @@ static void MainLoop()
         case 14: // CTRL-N
             Ask("clear sprite (yes/no)? ", buf, 3);
             if (buf[0] == 'y' && buf[1] == 'e' && buf[2] == 's'){
-             redrawTools = redrawCanvas = TRUE;
              ClearSprite();
             }
             break;
@@ -960,9 +1102,8 @@ static void MainLoop()
         /* --------------------------- DRAWING TOOLS GROUP ----------------------- */
 
         case 120: // x = draw box
-            g_state.toolOrgX = g_state.cursorX;
-            g_state.toolOrgY = g_state.cursorY;
-            g_state.drawingTool = DRAWING_TOOL_BOX;
+            SetDrawTool(DRAWING_TOOL_BOX);
+            g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
             break;
 
         default:
@@ -971,28 +1112,24 @@ static void MainLoop()
             if (key >= '0' && key <= '9')
             {
                 g_state.color[g_state.currentColorIdx] = key - 48;
-                redrawTools = redrawCanvas = TRUE;
+                g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
+                SetRedrawFullCanvas();
             }
             else if (key >= 97 && key <= 102) //a..f
             {
                 g_state.color[g_state.currentColorIdx] = 10 + key - 'a';
-                redrawTools = redrawCanvas = TRUE;
+                g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
+                SetRedrawFullCanvas();
             }
         }
-
-        if (redrawCanvas)
-            DrawCanvas();
-
-        if (redrawTools)
-            DrawSidebar();
-
-        redrawCanvas = redrawTools = FALSE;
+           
+        DrawCanvas();
+        DrawSidebar();
     }
 }
 
 void do_sprite_editor()
 {
-    int i = 0;
     Initialize();
     DrawScreen();
     MainLoop();
