@@ -83,6 +83,8 @@ extern int errno;
 #define DEFAULT_MULTI1_COLOR        3
 #define DEFAULT_MULTI2_COLOR        4
 #define TRANS_CHARACTER             230
+#define CURSOR_CHARACTER            219
+#define SHAPE_PREVIEW_CHARACTER     32
 #define SIDEBAR_COLUMN              65
 #define JOY_DELAY                   10000U
 
@@ -128,9 +130,9 @@ typedef enum tagDRAWING_TOOL
     DRAWING_TOOL_PIXEL = 0,
     DRAWING_TOOL_BOX,
     DRAWING_TOOL_FILLEDBOX,
+    DRAWING_TOOL_LINE,
     DRAWING_TOOL_CIRCLE,
     DRAWING_TOOL_FILLED_CIRCLE,
-    DRAWING_TOOL_LINE
 } DRAWING_TOOL;
 
 typedef struct tagAPPSTATE
@@ -151,7 +153,7 @@ typedef struct tagAPPSTATE
     RECT redrawRect;
     BYTE redrawSideBarFlags; // See REDRAW_SB_ constants for flags
     void (*drawCellFn)(BYTE,BYTE);
-    void (*paintCellFn)(void);
+    void (*paintCellFn)(BYTE,BYTE);
     void (*drawShapeFn)(BOOL);
 } APPSTATE;
 
@@ -308,59 +310,94 @@ static void Initialize()
     bgcolor(DEFAULT_SCREEN_COLOR);
 }
 
-static void DrawCursor()
+static void DrawCursor(BYTE x, BYTE y)
 {
-    BYTE i = 0;
     revers(1);
     blink(1);
-    gotoxy(g_state.canvasLeftX + (g_state.cursorX * g_state.cellsPerPixel), 2 + g_state.cursorY);
     textcolor(g_state.color[g_state.currentColorIdx]);
-
-    for (i = 0; i < g_state.cellsPerPixel; ++i)
-        cputc(219);
+    cputncxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), 2 + y, g_state.cellsPerPixel, CURSOR_CHARACTER);
     blink(0);
     revers(0);
 }
 
-static void DrawBox(BOOL bPreview)
+static void DrawShapeChar(BYTE x, BYTE y)
+{   
+    blink(1);revers(1);
+    textcolor(g_state.color[g_state.currentColorIdx]);
+    cputncxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), 2 + y, g_state.cellsPerPixel, SHAPE_PREVIEW_CHARACTER);
+    blink(0);revers(0);
+}
+
+static void DrawLine(BOOL bPreview)
 {
     RECT rc;
-    char rcWidth, rcHeight;
+    void(*pfun)(BYTE,BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
     SetEffectiveToolRect(&rc);
-    rcWidth = g_state.cellsPerPixel * (rc.right - rc.left);
-    rcHeight = rc.bottom - rc.top;
-    cputncxy(0,0,79,' ');
-    gotoxy(0,1);
-    cputdec(rc.left, 0,0);
-    gotoxy(10,1);
-    cputdec(rc.top, 0,0);
-    gotoxy(20,1);
-    cputdec(rc.right, 0,0);
-    gotoxy(30,1);
-    cputdec(rc.bottom, 0,0);
-    gotoxy(40,1);
-    cputdec(rcWidth, 0,0);
-    gotoxy(50,1);
-    cputdec(rcHeight, 0,0);
 
-    if (bPreview)
+    if (g_state.toolOrgY == g_state.cursorY) // Horizontal
     {
-        int i;
-        const BYTE left = g_state.canvasLeftX + g_state.cellsPerPixel * rc.left;
-        revers(1);
-        blink(1);
-        textcolor(g_state.color[g_state.currentColorIdx]);
-        cputncxy(left, CANVAS_TOP_MARGIN + rc.top, rcWidth, 219);
-        
-        for (i = CANVAS_TOP_MARGIN + rc.top + 1; i < CANVAS_TOP_MARGIN + rc.bottom; ++i)
-        {
-            cputncxy(left, i, g_state.cellsPerPixel, 219);
-            cputncxy(left + rcWidth - g_state.cellsPerPixel, i, g_state.cellsPerPixel, 219);
-        }
-        cputncxy(left, CANVAS_TOP_MARGIN + rc.bottom, rcWidth, 219);
-        blink(0);
-        revers(0);
+        register BYTE x = rc.left;
+        //bordercolor(COLOUR_RED);
+        while (x <= rc.right)
+            pfun(x++,g_state.cursorY);
     }
+    else if (g_state.toolOrgX == g_state.cursorX) // Vertical
+    {
+
+    } 
+    else    // Bresenham- algorithm.
+    {
+
+    }
+}
+
+static void DrawBox(BOOL bPreview)
+{
+
+    // RECT rc;
+    // char rcWidth;
+    // SetEffectiveToolRect(&rc);
+    // rcWidth = rc.right - rc.left;
+
+    // if (bPreview)
+    // {
+    //     BYTE i;
+    //     const BYTE left = g_state.canvasLeftX + g_state.cellsPerPixel * rc.left;
+    //     const BYTE right = left + (rcWidth * g_state.cellsPerPixel) - g_state.cellsPerPixel;
+    //     revers(1);
+    //     blink(1);
+    //     textcolor(g_state.color[g_state.currentColorIdx]);
+    //     cputncxy(left, CANVAS_TOP_MARGIN + rc.top, rcWidth * g_state.cellsPerPixel, 219);
+        
+    //     for (i = CANVAS_TOP_MARGIN + rc.top + 1; i < CANVAS_TOP_MARGIN + rc.bottom; ++i)
+    //     {
+    //         cputncxy(left, i, g_state.cellsPerPixel, 219);
+    //         cputncxy(right, i, g_state.cellsPerPixel, 219);
+    //     }
+    //     cputncxy(left, CANVAS_TOP_MARGIN + rc.bottom, rcWidth * g_state.cellsPerPixel, 219);
+    //     blink(0);
+    //     revers(0);
+    // }
+    // else
+    // {
+    //     BYTE x,y;
+    //     for (x = rc.left; x < rc.right - 1; ++x)
+    //     {
+    //         gotoxy(x,rc.top);
+    //         g_state.paintCellFn();
+    //         gotoxy(x, rc.bottom);
+    //         g_state.paintCellFn();
+    //     }
+
+    //     for (y = rc.top + 1; y < rc.bottom; ++y)
+    //     {
+    //         gotoy(y);
+    //         gotox(rc.left);
+    //         g_state.paintCellFn();
+    //         gotox(rc.left + rcWidth - 1);
+    //         g_state.paintCellFn();
+    //     }
+    // }
 }
 
 void SetDrawTool(DRAWING_TOOL dt)
@@ -369,8 +406,11 @@ void SetDrawTool(DRAWING_TOOL dt)
     switch(dt)
     {
         case DRAWING_TOOL_BOX:   g_state.drawShapeFn = DrawBox;
+        case DRAWING_TOOL_LINE:  g_state.drawShapeFn = DrawLine;
     }
 }
+
+
 
 static void DrawMonoCell(BYTE x, BYTE y)
 {
@@ -429,19 +469,19 @@ static void DrawMulticolorCell(BYTE x, BYTE y)
     revers(0);
 }
 
-static void PaintPixelMono()
+static void PaintPixelMono(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 8);
-    const BYTE bitsel = 0x80 >> (g_state.cursorX % 8);
+    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 8);
+    const BYTE bitsel = 0x80 >> (x % 8);
     const BYTE b = lpeek(byteAddr);
     lpoke(byteAddr, g_state.currentColorIdx == COLOR_BACK ? (b & ~bitsel) : (b | bitsel) );
 }
 
-static void PaintPixelMulti()
+static void PaintPixelMulti(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 3)) + (g_state.cursorX / 4);
+    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 4);
     const BYTE b = lpeek(byteAddr);
-    const BYTE bitsel = (2 * (g_state.cursorX % 4));
+    const BYTE bitsel = (2 * (x % 4));
     const BYTE p0 = b & (0x80 >> bitsel);
     const BYTE p1 = b & (0x40 >> bitsel);
     const BYTE mask = ((0x80 >> bitsel) | (0x40 >> bitsel));
@@ -466,11 +506,10 @@ static void PaintPixelMulti()
     }
 }
 
-static void PaintPixel16Color()
+static void PaintPixel16Color(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (g_state.cursorY * 8)) + (g_state.cursorX / 2);
+    const long byteAddr = (g_state.spriteDataAddr + (y * 8)) + (x / 2);
     const BYTE bitsel = (((g_state.cursorX + 1) % 2) * 4);
-
     lpoke(byteAddr, lpeek(byteAddr) & (0xF0 >> bitsel) | (g_state.color[g_state.currentColorIdx] << bitsel));
 }
 
@@ -548,12 +587,12 @@ static void DrawCanvas()
         g_state.drawShapeFn(TRUE);
     }
 
-    DrawCursor();
+    DrawCursor(g_state.cursorX, g_state.cursorY);
 
     SetRect(&g_state.redrawRect, 0, 0, 0, 0);
 }
 
-static void SetEffectiveToolRect(RECT *rc)
+void SetEffectiveToolRect(RECT *rc)
 {
     SetRect(rc, MIN(g_state.toolOrgX, g_state.cursorX),
                 MIN(g_state.toolOrgY, g_state.cursorY),
@@ -882,7 +921,7 @@ static void MainLoop()
                 g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
                 g_state.cursorX = (mx - 55) / 8;
                 g_state.cursorY = (my - 66) / 8;
-                DrawCursor();
+                DrawCursor(g_state.cursorX, g_state.cursorY);
                 fire_lock = 0;
             }
         }
@@ -999,10 +1038,10 @@ static void MainLoop()
                 g_state.currentColorIdx = COLOR_MC1;
             break;
 
-        case 108: // l
-            if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
-                g_state.currentColorIdx = COLOR_MC2;
-            break;
+        // case 108: // l
+        //     if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
+        //         g_state.currentColorIdx = COLOR_MC2;
+        //     break;
 
         case ',':
         case '.':
@@ -1045,7 +1084,7 @@ static void MainLoop()
         case ' ':
             if (g_state.drawingTool == DRAWING_TOOL_PIXEL)
             {
-                g_state.paintCellFn();
+                g_state.paintCellFn(g_state.cursorX, g_state.cursorY);
             }
             else
             {
@@ -1054,7 +1093,7 @@ static void MainLoop()
                     g_state.toolActive = 0;
                     g_state.drawShapeFn(FALSE);
                     redrawStatusBar = TRUE;
-                    SetRedrawToolRect();
+                    SetRedrawFullCanvas();
                 }
                 else
                 {
@@ -1103,6 +1142,11 @@ static void MainLoop()
 
         case 120: // x = draw box
             SetDrawTool(DRAWING_TOOL_BOX);
+            g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            break;
+
+        case 108: // l = line
+            SetDrawTool(DRAWING_TOOL_LINE);
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
             break;
 
