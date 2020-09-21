@@ -872,6 +872,7 @@ int main(int argc,char **argv)
 	// $FFD304F.0-3 = TEXTYPOS MSB
 	// $FFD304F.4-7 = PRESERVE
 	// $FFD306F.0-5 = VIC-II first raster
+	// $FFD3072     = Sprite Y position adjust
 	c=freeze_peek(0xFFD306fL)&0x80;
 	if (c==0x80) {
 	  // Switch to PAL
@@ -883,6 +884,7 @@ int main(int argc,char **argv)
 	  freeze_poke(0xFFD304BL,0x1+(lpeek(0xFFD304BL)&0xf0));
 	  freeze_poke(0xFFD304EL,0x69);
 	  freeze_poke(0xFFD304FL,0x0+(lpeek(0xFFD304FL)&0xf0));
+	  freeze_poke(0xFFD3072L,0);
 	} else {
 	  // Switch to NTSC
 	  freeze_poke(0xFFD306fL,0x87);
@@ -893,6 +895,7 @@ int main(int argc,char **argv)
 	  freeze_poke(0xFFD304BL,0x1+(lpeek(0xFFD304BL)&0xf0));
 	  freeze_poke(0xFFD304EL,0x2A);
 	  freeze_poke(0xFFD304FL,0x0+(lpeek(0xFFD304FL)&0xf0));
+	  freeze_poke(0xFFD3072L,22);
 	}	
 	draw_freeze_menu();
 	break;
