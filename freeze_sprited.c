@@ -337,13 +337,14 @@ static void DrawLine(BOOL bPreview)
     if (g_state.toolOrgY == g_state.cursorY) // Horizontal
     {
         register BYTE x = rc.left;
-        //bordercolor(COLOUR_RED);
         while (x <= rc.right)
             pfun(x++,g_state.cursorY);
     }
     else if (g_state.toolOrgX == g_state.cursorX) // Vertical
     {
-
+        register BYTE y = rc.top;
+        while (y <= rc.bottom)
+            pfun(g_state.cursorX, y++);
     } 
     else    // Bresenham- algorithm.
     {
@@ -353,51 +354,24 @@ static void DrawLine(BOOL bPreview)
 
 static void DrawBox(BOOL bPreview)
 {
+    RECT rc;
+    register BYTE x, y;
+    void(*pfun)(BYTE,BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
+    SetEffectiveToolRect(&rc);
 
-    // RECT rc;
-    // char rcWidth;
-    // SetEffectiveToolRect(&rc);
-    // rcWidth = rc.right - rc.left;
+    x = rc.left;
+    while (x <= rc.right)
+    {
+        pfun(x,g_state.cursorY);
+        pfun(x++,g_state.toolOrgY);
+    }
 
-    // if (bPreview)
-    // {
-    //     BYTE i;
-    //     const BYTE left = g_state.canvasLeftX + g_state.cellsPerPixel * rc.left;
-    //     const BYTE right = left + (rcWidth * g_state.cellsPerPixel) - g_state.cellsPerPixel;
-    //     revers(1);
-    //     blink(1);
-    //     textcolor(g_state.color[g_state.currentColorIdx]);
-    //     cputncxy(left, CANVAS_TOP_MARGIN + rc.top, rcWidth * g_state.cellsPerPixel, 219);
-        
-    //     for (i = CANVAS_TOP_MARGIN + rc.top + 1; i < CANVAS_TOP_MARGIN + rc.bottom; ++i)
-    //     {
-    //         cputncxy(left, i, g_state.cellsPerPixel, 219);
-    //         cputncxy(right, i, g_state.cellsPerPixel, 219);
-    //     }
-    //     cputncxy(left, CANVAS_TOP_MARGIN + rc.bottom, rcWidth * g_state.cellsPerPixel, 219);
-    //     blink(0);
-    //     revers(0);
-    // }
-    // else
-    // {
-    //     BYTE x,y;
-    //     for (x = rc.left; x < rc.right - 1; ++x)
-    //     {
-    //         gotoxy(x,rc.top);
-    //         g_state.paintCellFn();
-    //         gotoxy(x, rc.bottom);
-    //         g_state.paintCellFn();
-    //     }
-
-    //     for (y = rc.top + 1; y < rc.bottom; ++y)
-    //     {
-    //         gotoy(y);
-    //         gotox(rc.left);
-    //         g_state.paintCellFn();
-    //         gotox(rc.left + rcWidth - 1);
-    //         g_state.paintCellFn();
-    //     }
-    // }
+    y = rc.top;
+    while (y <= rc.bottom)
+    {
+        pfun(g_state.cursorX, y);
+        pfun(g_state.toolOrgX, y++);
+    }
 }
 
 void SetDrawTool(DRAWING_TOOL dt)
@@ -405,12 +379,10 @@ void SetDrawTool(DRAWING_TOOL dt)
     g_state.drawingTool = dt;
     switch(dt)
     {
-        case DRAWING_TOOL_BOX:   g_state.drawShapeFn = DrawBox;
-        case DRAWING_TOOL_LINE:  g_state.drawShapeFn = DrawLine;
+        case DRAWING_TOOL_BOX:   g_state.drawShapeFn = DrawBox; break;
+        case DRAWING_TOOL_LINE:  g_state.drawShapeFn = DrawLine; break;
     }
 }
-
-
 
 static void DrawMonoCell(BYTE x, BYTE y)
 {
@@ -522,7 +494,7 @@ static void ClearSprite()
 void UpdateSpriteParameters(void)
 {
     g_state.spriteHeight = 21;
-    g_state.spriteSizeBytes = IS_SPR_XWIDTH(g_state.spriteNumber)  ? 168 : 64;
+    g_state.spriteSizeBytes = IS_SPR_XWIDTH(g_state.spriteNumber) | IS_SPR_16COL(g_state.spriteNumber) ? 168 : 64;
     g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
 
     g_state.spriteDataAddr = REG_SPRPTR16 ? 64 * ( 
@@ -1059,6 +1031,7 @@ static void MainLoop()
             break;
 
         case '*':
+            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
             switch(g_state.spriteColorMode) {
                 case SPR_COLOR_MODE_16COLOR:
                     // Switch to Hi-Res
