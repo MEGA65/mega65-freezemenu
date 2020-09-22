@@ -124,9 +124,9 @@ typedef enum tagSPR_COLOR_MODE
 typedef enum tagDRAWING_TOOL
 {
     DRAWING_TOOL_PIXEL = 0,
+    DRAWING_TOOL_LINE,
     DRAWING_TOOL_BOX,
     DRAWING_TOOL_FILLEDBOX,
-    DRAWING_TOOL_LINE,
     DRAWING_TOOL_CIRCLE,
     DRAWING_TOOL_FILLED_CIRCLE,
 } DRAWING_TOOL;
@@ -235,18 +235,18 @@ static const BYTE chsetToolbox[] = {
 
     // Pixel tool 
     0,0,255,128,128,128,128,129, 0,0,255,1,1,1,1,129,
+
+    // Line tool
+    0,0,255,128,128,176,140,131, 0,0,255,1,1,1,1,1,
     
     // Box tool
     0,0,255,128,128,159,144,144,  0,0,255,1,1,249,9,9,
 
-    // Circle tool
-    0,0,255,128,128,131,132,136, 0,0,255,1,1,193,33,17,
-
-    // Line tool
-    0,0,255,128,128,176,140,131, 0,0,255,1,1,1,1,1,
-
     // Filled-box tool
     0,0,255,128,128,143,143,143, 0,0,255,1,1,241,241,241,
+
+    // Circle tool
+    0,0,255,128,128,131,132,136, 0,0,255,1,1,193,33,17,
 
     // Filled-circle tool
     0,0,255,128,128,129,135,143, 0,0,255,1,1,129,225,241,
@@ -256,17 +256,17 @@ static const BYTE chsetToolbox[] = {
      // Pixel tool 
     129,128,128,128,128,255,63,0, 129,1,1,1,1,255,255,0,
     
-    // Box tool
-    144,144,159,128,128,255,255,0,  9,9,249,1,1,255,255,0,
-
-    // Circle tool
-     136,132,131,128,128,255,255,0, 17,33,193,1,1,255,255,0,
-
     // Line tool
     128,128,128,128,128,255,255,0, 193,49,13,1,1,255,255,0,
 
+    // Box tool
+    144,144,159,128,128,255,255,0,  9,9,249,1,1,255,255,0,
+    
     // Filled-box tool
     143,143,143,128,128,255,255,0, 241,241,241,1,1,255,255,0,
+
+    // Circle tool
+     136,132,131,128,128,255,255,0, 17,33,193,1,1,255,255,0,
 
     // Filled-circle tool
     143,135,129,128,128,255,255,0, 241,225,129,1,1,255,255,0
@@ -381,7 +381,7 @@ static void DrawLine(BOOL bPreview)
 static void DrawBox(BOOL bPreview)
 {
     RECT rc;
-    register BYTE x, y;
+    register BYTE x, y, i;
     void(*pfun)(BYTE,BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
     SetEffectiveToolRect(&rc);
 
@@ -389,6 +389,13 @@ static void DrawBox(BOOL bPreview)
     while (x <= rc.right)
     {
         pfun(x,g_state.cursorY);
+        if (g_state.fillShape) 
+        {
+            for(i = rc.top+1 ; i < rc.bottom ; ++i) 
+            {
+                pfun(x,i);
+            }
+        }
         pfun(x++,g_state.toolOrgY);
     }
 
@@ -406,11 +413,16 @@ void SetDrawTool(DRAWING_TOOL dt)
     switch(dt)
     {
         case DRAWING_TOOL_BOX:   
-        case DRAWING_TOOL_FILLEDBOX:
+            g_state.fillShape = 0;
             g_state.drawShapeFn = DrawBox; 
             break;
-
-        case DRAWING_TOOL_LINE:  g_state.drawShapeFn = DrawLine; break;
+        case DRAWING_TOOL_FILLEDBOX:
+            g_state.fillShape = 1;
+            g_state.drawShapeFn = DrawBox; 
+            break;
+        case DRAWING_TOOL_LINE:  
+            g_state.drawShapeFn = DrawLine; 
+            break;
     }
 }
 
@@ -766,46 +778,6 @@ static void DrawSidebar()
     DrawCoordinates();
     DrawToolbox();
     DrawColorSelector();
-    //textcolor(14);
-
-
-    // cputsxy(TOOLBOX_COLUMN, 10, ", . sel sprite");
-    // cputsxy(TOOLBOX_COLUMN, 11, "spc draw");
-    // if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
-    // {
-    //     cputsxy(TOOLBOX_COLUMN, 12, "h   sel fgcolor");
-    //     cputsxy(TOOLBOX_COLUMN, 13, "j   sel bkcolor");
-    //     cputsxy(TOOLBOX_COLUMN, 14, "k   sel color1 ");
-    //     cputsxy(TOOLBOX_COLUMN, 15, "l   sel color2 ");
-    // }
-    // else if (g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME)
-    // {
-    //     cputsxy(TOOLBOX_COLUMN, 12, "j   sel fgcolor");
-    //     cputsxy(TOOLBOX_COLUMN, 13, "k   sel bkcolor");
-    //     cputsxy(TOOLBOX_COLUMN, 14, "               ");
-    //     cputsxy(TOOLBOX_COLUMN, 15, "               ");
-    // }
-    // else 
-    // {
-    //     cputsxy(TOOLBOX_COLUMN, 12, "               ");
-    //     cputsxy(TOOLBOX_COLUMN, 13, "               ");
-    //     cputsxy(TOOLBOX_COLUMN, 14, "               ");
-    //     cputsxy(TOOLBOX_COLUMN, 15, "               ");
-    // }
-    // cputsxy(TOOLBOX_COLUMN, 16, "*   change type");
-    // cputsxy(TOOLBOX_COLUMN, 17, "s   save");
-    // cputsxy(TOOLBOX_COLUMN, 18, "l   load");
-    // cputsxy(TOOLBOX_COLUMN, 20, "c   clear");
-    // cputsxy(TOOLBOX_COLUMN, 19, "f1  help/info");
-    // cputsxy(TOOLBOX_COLUMN, 21, "f3  exit");
-
-    // for(i = 10; i <= 21; ++i)
-    // {
-    //     cellcolor(SIDEBAR_COLUMN,   i, COLOUR_GREY3);
-    //     cellcolor(SIDEBAR_COLUMN+1, i, COLOUR_GREY3);
-    //     cellcolor(SIDEBAR_COLUMN+2, i, COLOUR_GREY3);
-    // }
-    
     g_state.redrawSideBarFlags = REDRAW_SB_NONE;
 }
 
@@ -1148,6 +1120,11 @@ static void MainLoop()
 
         case 120: // x = draw box
             SetDrawTool(DRAWING_TOOL_BOX);
+            g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            break;
+
+        case 88: 
+            SetDrawTool(DRAWING_TOOL_FILLEDBOX);
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
             break;
 
