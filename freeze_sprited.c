@@ -102,10 +102,6 @@ extern int errno;
 #define SPRITE_UNDO_BUFFER_ADDRESS  0x17000UL
 
 // Index into color array
-#define COLOR_BACK 0
-#define COLOR_FORE 1
-#define COLOR_MC1 2
-#define COLOR_MC2 3
 
 // Redraw side-bar flags
 #define REDRAW_SB_NONE   0
@@ -135,6 +131,13 @@ typedef enum tagDRAWING_TOOL
     DRAWING_TOOL_FILLED_CIRCLE,
 } DRAWING_TOOL;
 
+enum {
+    COLOR_BACK = 0,
+    COLOR_FORE,
+    COLOR_MC1,
+    COLOR_MC2
+};
+
 typedef struct tagAPPSTATE
 {
     unsigned int spriteSizeBytes;
@@ -149,7 +152,7 @@ typedef struct tagAPPSTATE
     BYTE cursorX, cursorY;
     BYTE canvasLeftX;
     DRAWING_TOOL drawingTool;
-    BYTE toolActive, toolOrgX, toolOrgY;
+    BYTE toolActive, toolOrgX, toolOrgY, fillShape;
     RECT redrawRect;
     BYTE redrawSideBarFlags; // See REDRAW_SB_ constants for flags
     void (*drawCellFn)(BYTE,BYTE);
@@ -227,26 +230,49 @@ BYTE  sprite_pointer[63]={
 /* Toolbox Character set, in order of DRAWING_TOOL... enumeration */
 
 static const BYTE chsetToolbox[] = {
-    // Pixel tool
-    255,128,128,129,129,128,128,255, 255,1,1,129,129,1,1,255,
+
+    // ------ UPPER ROW -----
+
+    // Pixel tool 
+    0,0,255,128,128,128,128,129, 0,0,255,1,1,1,1,129,
     
     // Box tool
-    255,128,143,136,136,143,128,255, 255,1,241,17,17,241,1,255,
+    0,0,255,128,128,159,144,144,  0,0,255,1,1,249,9,9,
 
     // Circle tool
-    255,129,130,132,132,130,129,255, 255,129,65,33,33,65,129,255,
+    0,0,255,128,128,131,132,136, 0,0,255,1,1,193,33,17,
 
     // Line tool
-    255,128,184,135,128,128,128,255, 255,1,1,1,225,29,1,255,
+    0,0,255,128,128,176,140,131, 0,0,255,1,1,1,1,1,
 
     // Filled-box tool
-    255,128,143,143,143,143,128,255, 255,1,241,241,241,241,1,255,
+    0,0,255,128,128,143,143,143, 0,0,255,1,1,241,241,241,
 
     // Filled-circle tool
-    255,129,131,135,135,131,129,255, 255,129,193,225,225,193,129,255
+    0,0,255,128,128,129,135,143, 0,0,255,1,1,129,225,241,
+
+    // ------ LOWER ROW -------
+
+     // Pixel tool 
+    129,128,128,128,128,255,63,0, 129,1,1,1,1,255,255,0,
+    
+    // Box tool
+    144,144,159,128,128,255,255,0,  9,9,249,1,1,255,255,0,
+
+    // Circle tool
+     136,132,131,128,128,255,255,0, 17,33,193,1,1,255,255,0,
+
+    // Line tool
+    128,128,128,128,128,255,255,0, 193,49,13,1,1,255,255,0,
+
+    // Filled-box tool
+    143,143,143,128,128,255,255,0, 241,241,241,1,1,255,255,0,
+
+    // Filled-circle tool
+    143,135,129,128,128,255,255,0, 241,225,129,1,1,255,255,0
 };
 
-#define TOOLBOX_CHARSET_BASE_IDX 240
+#define TOOLBOX_CHARSET_BASE_IDX 232
 
 static void SetRect(RECT* rc, BYTE left, BYTE top, BYTE right, BYTE bottom)
 {
@@ -379,7 +405,11 @@ void SetDrawTool(DRAWING_TOOL dt)
     g_state.drawingTool = dt;
     switch(dt)
     {
-        case DRAWING_TOOL_BOX:   g_state.drawShapeFn = DrawBox; break;
+        case DRAWING_TOOL_BOX:   
+        case DRAWING_TOOL_FILLEDBOX:
+            g_state.drawShapeFn = DrawBox; 
+            break;
+
         case DRAWING_TOOL_LINE:  g_state.drawShapeFn = DrawLine; break;
     }
 }
@@ -481,7 +511,7 @@ static void PaintPixelMulti(BYTE x, BYTE y)
 static void PaintPixel16Color(BYTE x, BYTE y)
 {    
     const long byteAddr = (g_state.spriteDataAddr + (y * 8)) + (x / 2);
-    const BYTE bitsel = (((g_state.cursorX + 1) % 2) * 4);
+    const BYTE bitsel = (((x + 1) % 2) * 4);
     lpoke(byteAddr, lpeek(byteAddr) & (0xF0 >> bitsel) | (g_state.color[g_state.currentColorIdx] << bitsel));
 }
 
@@ -673,13 +703,13 @@ static void DrawColorSelector()
 static void DrawToolbox()
 {
     register BYTE i = 0;
+    const BYTE numButtons = sizeof(chsetToolbox)/8/2/2;
 
     if (g_state.redrawSideBarFlags & REDRAW_SB_TOOLS)
     {
-        gotoxy(SIDEBAR_COLUMN,8);
-        for (i = 0; i < sizeof(chsetToolbox) / 8; ++i)
+        for (i = 0; i < numButtons; ++i)
         {
-            if (g_state.drawingTool == i / 2)
+            if (g_state.drawingTool == i)
             {
                 textcolor(COLOUR_WHITE);
             }
@@ -688,7 +718,12 @@ static void DrawToolbox()
                 revers(0);
                 textcolor(COLOUR_MEDIUMGREY);
             }
-            cputc(TOOLBOX_CHARSET_BASE_IDX + i);
+            
+            cputcxy(1+SIDEBAR_COLUMN + i*2 , 8,   TOOLBOX_CHARSET_BASE_IDX + i*2);
+            cputcxy(1+SIDEBAR_COLUMN + i*2 + 1,8, TOOLBOX_CHARSET_BASE_IDX + i*2 + 1);
+
+            cputcxy(1+SIDEBAR_COLUMN + i*2 , 9,   TOOLBOX_CHARSET_BASE_IDX + i*2 + numButtons*2);
+            cputcxy(1+SIDEBAR_COLUMN + i*2 + 1,9, TOOLBOX_CHARSET_BASE_IDX + i*2 + 1 + numButtons*2);
         }
     }
 }
@@ -835,16 +870,30 @@ static void ShowHelp()
         "       color       ",
         "select         0..9",
         "               a..f",
-        "prev component    \x1b",
-        "next component    \x1d",
+        "prev component    -",
+        "next component    +",
+        "select background k",
         "palette      ctrl+p" };
+
+    const char* editKeys[] = {
+        "       edit        ",
+        "prev sprite       <",
+        "next sprite       >", 
+        "change type       *",
+        "toggle x-width    \x1e",
+        "copy sprite  ctrl+c",
+        "horz flip    ctrl+h",
+        "vert flip    ctrl+v",
+        "test              t" };
     
     flushkeybuf();
     clrscr();
     DrawHeader();
     PrintKeyGroup(fileKeys,  4, 0, 2);
+    PrintKeyGroup(editKeys,  9, 21, 2);
     PrintKeyGroup(drawKeys,  7, 0, 2 +4+1 );
     PrintKeyGroup(colorKeys, 6, 0, 2 +4+1 +7+1);
+
     cgetc();
     
 }
@@ -969,6 +1018,8 @@ static void MainLoop()
             // No key, do nothing
             break;
 
+        /* ------------------------- CURSOR MOVEMENT GROUP ----------------------------- */
+
         case CH_CURS_DOWN:
             SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
@@ -996,24 +1047,6 @@ static void MainLoop()
             g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
             break;
-
-        case 104: // h
-            g_state.currentColorIdx = COLOR_BACK;
-            break;
-
-        case 106: // j
-            g_state.currentColorIdx = COLOR_FORE;
-            break;
-
-        case 107: // k
-            if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
-                g_state.currentColorIdx = COLOR_MC1;
-            break;
-
-        // case 108: // l
-        //     if (g_state.spriteColorMode == SPR_COLOR_MODE_MULTICOLOR)
-        //         g_state.currentColorIdx = COLOR_MC2;
-        //     break;
 
         case ',':
         case '.':
@@ -1123,9 +1156,26 @@ static void MainLoop()
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
             break;
 
+         /* ------------------------------- COLOR GROUP -------------------------- */
+
+        case '+':
+            g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
+            g_state.currentColorIdx = (g_state.currentColorIdx + 1) % (
+                (g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME | g_state.spriteColorMode == SPR_COLOR_MODE_16COLOR) ? 2 : 4);
+        break;
+
+        case '-':
+            g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
+            g_state.currentColorIdx = (g_state.currentColorIdx - 1) % (
+                (g_state.spriteColorMode == SPR_COLOR_MODE_MONOCHROME | g_state.spriteColorMode == SPR_COLOR_MODE_16COLOR) ? 2 : 4);
+        break;
+        
+        case 107: // k
+            g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
+            g_state.currentColorIdx = COLOR_BACK;
+            break;
+
         default:
-            //gohome(); cputdec(key,0,0);
-            
             if (key >= '0' && key <= '9')
             {
                 g_state.color[g_state.currentColorIdx] = key - 48;
