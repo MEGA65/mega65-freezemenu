@@ -374,7 +374,29 @@ static void DrawLine(BOOL bPreview)
     } 
     else    // Bresenham- algorithm.
     {
+        const signed char dx = rc.right - rc.left;
+        const signed char dy = -(rc.bottom - rc.top);
+        BYTE x = g_state.toolOrgX, y = g_state.toolOrgY;
+        signed char e = dx + dy;
+        signed char e2 = 0;
+        signed char sx = g_state.cursorX > g_state.toolOrgX ? 1 : -1;
+        signed char sy = g_state.cursorY > g_state.toolOrgY ? 1 : -1;
 
+        while (x != g_state.cursorX && y != g_state.cursorY)
+        {
+            pfun(x,y);
+            e2 = e * 2;
+            if (e2 >= dy)
+            { 
+                e += dy; 
+                x += sx; 
+            }
+            if (e2 <= dx) 
+            { 
+                e += dx; 
+                y += sy; 
+            }
+        }
     }
 }
 
