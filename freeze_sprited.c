@@ -38,7 +38,10 @@
                 Drawing tools: pixel, box, circle ,lines.
                 
 
-                
+    TODO: 
+
+    * Instead of re-drawing full canvas, we should invalidate 
+      only the needed area.
  */
 
 #define TEST_SPRITES
@@ -357,22 +360,22 @@ static void DrawShapeChar(BYTE x, BYTE y)
 static void DrawLine(BOOL bPreview)
 {
     RECT rc;
-    void(*pfun)(BYTE,BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
+    void (*pfun)(BYTE, BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
     SetEffectiveToolRect(&rc);
 
     if (g_state.toolOrgY == g_state.cursorY) // Horizontal
     {
         register BYTE x = rc.left;
         while (x <= rc.right)
-            pfun(x++,g_state.cursorY);
+            pfun(x++, g_state.cursorY);
     }
     else if (g_state.toolOrgX == g_state.cursorX) // Vertical
     {
         register BYTE y = rc.top;
         while (y <= rc.bottom)
             pfun(g_state.cursorX, y++);
-    } 
-    else    // Bresenham- algorithm.
+    }
+    else // Bresenham- algorithm.
     {
         const signed char dx = rc.right - rc.left;
         const signed char dy = -(rc.bottom - rc.top);
@@ -384,20 +387,25 @@ static void DrawLine(BOOL bPreview)
 
         while (x != g_state.cursorX && y != g_state.cursorY)
         {
-            pfun(x,y);
+            pfun(x, y);
             e2 = e * 2;
             if (e2 >= dy)
-            { 
-                e += dy; 
-                x += sx; 
+            {
+                e += dy;
+                x += sx;
             }
-            if (e2 <= dx) 
-            { 
-                e += dx; 
-                y += sy; 
+            if (e2 <= dx)
+            {
+                e += dx;
+                y += sy;
             }
         }
     }
+}
+
+static void DrawCircle(BOOL bPreview)
+{
+    
 }
 
 static void DrawBox(BOOL bPreview)
@@ -451,7 +459,7 @@ void SetDrawTool(DRAWING_TOOL dt)
 static void DrawMonoCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 8);
+    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 8)) + (x / 8);
     const BYTE p = lpeek(byteAddr) & ( 0x80 >> (x % 8));
 
     revers(1);
@@ -483,7 +491,7 @@ static void Draw16ColorCell(BYTE x, BYTE y)
 static void DrawMulticolorCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 4);
+    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 4)) + (x / 4);
     const BYTE b = lpeek(byteAddr);
     const BYTE p0 = b & (0x80 >> ( 2 * ( x % 4)));
     const BYTE p1 = b & (0x40 >> ( 2 * ( x % 4)));
@@ -507,7 +515,7 @@ static void DrawMulticolorCell(BYTE x, BYTE y)
 
 static void PaintPixelMono(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 8);
+    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 8)) + (x / 8);
     const BYTE bitsel = 0x80 >> (x % 8);
     const BYTE b = lpeek(byteAddr);
     lpoke(byteAddr, g_state.currentColorIdx == COLOR_BACK ? (b & ~bitsel) : (b | bitsel) );
@@ -515,7 +523,7 @@ static void PaintPixelMono(BYTE x, BYTE y)
 
 static void PaintPixelMulti(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (y * 3)) + (x / 4);
+    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 4)) + (x / 4);
     const BYTE b = lpeek(byteAddr);
     const BYTE bitsel = (2 * (x % 4));
     const BYTE p0 = b & (0x80 >> bitsel);
@@ -557,8 +565,9 @@ static void ClearSprite()
 
 void UpdateSpriteParameters(void)
 {
+    const BYTE isXWidth = IS_SPR_XWIDTH(g_state.spriteNumber);
     g_state.spriteHeight = 21;
-    g_state.spriteSizeBytes = IS_SPR_XWIDTH(g_state.spriteNumber) | IS_SPR_16COL(g_state.spriteNumber) ? 168 : 64;
+    g_state.spriteSizeBytes = isXWidth | IS_SPR_16COL(g_state.spriteNumber) ? 168 : 64;
     g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
 
     g_state.spriteDataAddr = REG_SPRPTR16 ? 64 * ( 
@@ -580,8 +589,8 @@ void UpdateSpriteParameters(void)
         g_state.drawCellFn = DrawMulticolorCell;
         g_state.paintCellFn = PaintPixelMulti;
         g_state.spriteColorMode = SPR_COLOR_MODE_MULTICOLOR;
-        g_state.spriteWidth =  IS_SPR_XWIDTH(g_state.spriteNumber) ? 32 : 12;
-        g_state.cellsPerPixel = 4;
+        g_state.spriteWidth =  isXWidth ? 32 : 12;
+        g_state.cellsPerPixel = isXWidth ? 2 : 4;
         g_state.pixelsPerByte = 4;
     }
     else
@@ -589,13 +598,12 @@ void UpdateSpriteParameters(void)
         g_state.drawCellFn = DrawMonoCell;
         g_state.paintCellFn = PaintPixelMono;
         g_state.spriteColorMode = SPR_COLOR_MODE_MONOCHROME;
-        g_state.spriteWidth = IS_SPR_XWIDTH(g_state.spriteNumber) ? 64 : 24;
-        g_state.cellsPerPixel = 2;
+        g_state.spriteWidth = isXWidth ? 64 : 24;
+        g_state.cellsPerPixel = isXWidth  ? 1 : 2;
         g_state.pixelsPerByte = 8;
     }
 
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
-
 }
 
 static void EraseCanvasSpace()
@@ -1012,6 +1020,15 @@ static void MainLoop()
             // No key, do nothing
             break;
 
+        /* ------------------------------------ HELP ----------------------------------- */
+
+        case 0xF1: // F1
+            ShowHelp();
+            EraseCanvasSpace();
+            SetRedrawFullCanvas();
+            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
+            break;
+
         /* ------------------------- CURSOR MOVEMENT GROUP ----------------------------- */
 
         case CH_CURS_DOWN:
@@ -1041,6 +1058,8 @@ static void MainLoop()
             g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
             break;
+
+        /* ------------------------- EDIT GROUP ------------------------------------------ */
 
         case ',':
         case '.':
@@ -1081,35 +1100,15 @@ static void MainLoop()
             SetRedrawFullCanvas();
             break;
 
-        case ' ':
-            if (g_state.drawingTool == DRAWING_TOOL_PIXEL)
-            {
-                g_state.paintCellFn(g_state.cursorX, g_state.cursorY);
-            }
-            else
-            {
-                if (g_state.toolActive)
-                {
-                    g_state.toolActive = 0;
-                    g_state.drawShapeFn(FALSE);
-                    redrawStatusBar = TRUE;
-                    SetRedrawFullCanvas();
-                }
-                else
-                {
-                    g_state.toolOrgX = g_state.cursorX;
-                    g_state.toolOrgY = g_state.cursorY;
-                    g_state.toolActive = 1;
-                }
-            }
-            break;
+        case '@' : //94: // Up-arrow
 
-        case 0xF1: // F1
-            ShowHelp();
+            POKE(REG_SPRX64EN, PEEK(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
+            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
+            UpdateSpriteParameters();
             EraseCanvasSpace();
             SetRedrawFullCanvas();
-            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
             break;
+       
         
         /* --------------------------- FILE GROUP ----------------------------- */
 
@@ -1140,19 +1139,63 @@ static void MainLoop()
 
         /* --------------------------- DRAWING TOOLS GROUP ----------------------- */
 
+         case ' ':
+            if (g_state.drawingTool == DRAWING_TOOL_PIXEL)
+            {
+                g_state.paintCellFn(g_state.cursorX, g_state.cursorY);
+            }
+            else
+            {
+                if (g_state.toolActive)
+                {
+                    g_state.toolActive = 0;
+                    g_state.drawShapeFn(FALSE);
+                    redrawStatusBar = TRUE;
+                    SetRedrawFullCanvas();
+                }
+                else
+                {
+                    g_state.toolOrgX = g_state.cursorX;
+                    g_state.toolOrgY = g_state.cursorY;
+                    g_state.toolActive = 1;
+                }
+            }
+            break;
+
+        case 111: // o = circle  tool
+            SetDrawTool(DRAWING_TOOL_CIRCLE);
+            g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            SetRedrawFullCanvas();
+            break;
+
+        case 79: // "O" = filled circle  tool
+            SetDrawTool(DRAWING_TOOL_FILLED_CIRCLE);
+            g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            SetRedrawFullCanvas();
+            break;
+
+        case 112: // p=pixel tool
+            SetDrawTool(DRAWING_TOOL_PIXEL);
+            g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            SetRedrawFullCanvas();
+            break;
+
         case 120: // x = draw box
             SetDrawTool(DRAWING_TOOL_BOX);
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            SetRedrawFullCanvas();
             break;
 
-        case 88: 
+        case 88: // "X" 
             SetDrawTool(DRAWING_TOOL_FILLEDBOX);
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            SetRedrawFullCanvas();
             break;
 
         case 108: // l = line
             SetDrawTool(DRAWING_TOOL_LINE);
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
+            SetRedrawFullCanvas();
             break;
 
          /* ------------------------------- COLOR GROUP -------------------------- */
