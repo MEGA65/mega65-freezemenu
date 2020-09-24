@@ -895,7 +895,7 @@ int main(int argc,char **argv)
 	  freeze_poke(0xFFD304BL,0x1+(lpeek(0xFFD304BL)&0xf0));
 	  freeze_poke(0xFFD304EL,0x2A);
 	  freeze_poke(0xFFD304FL,0x0+(lpeek(0xFFD304FL)&0xf0));
-	  freeze_poke(0xFFD3072L,22);
+	  freeze_poke(0xFFD3072L,24);
 	}	
 	draw_freeze_menu();
 	break;
