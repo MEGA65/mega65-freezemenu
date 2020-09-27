@@ -163,6 +163,14 @@ typedef struct tagAPPSTATE
     void (*drawShapeFn)(BOOL);
 } APPSTATE;
 
+typedef struct tagTESTMODEPARAMS
+{
+    BYTE animEnable;
+    BYTE animSpeed;
+    BYTE animStart, animEnd;    
+    BYTE horizExpand, vertExpand;
+} TESTMODEPARAMS;
+
 typedef struct tagFILEOPTIONS
 {
     BYTE mode;
@@ -170,6 +178,7 @@ typedef struct tagFILEOPTIONS
 } FILEOPTIONS;
 
 static APPSTATE g_state;
+static TESTMODEPARAMS g_testModeParams;
 
 static const char *clrIndexName[] = {"bg ", "fg ", "mc1", "mc2"};
 
@@ -321,15 +330,14 @@ static void Initialize()
     lcopy((long)test_16,0x380+64+64,168);
 #endif
     g_state.redrawSideBarFlags = REDRAW_SB_ALL;
-    g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
-    g_state.color[COLOR_FORE] = DEFAULT_FORE_COLOR;
-    g_state.color[COLOR_MC1] = DEFAULT_MULTI1_COLOR;
-    g_state.color[COLOR_MC2] = DEFAULT_MULTI2_COLOR;
+  
     g_state.spriteNumber = 0;
     g_state.cursorX = g_state.cursorY = 0;
     g_state.currentColorIdx = COLOR_FORE;
     g_state.toolActive = 0;
     g_state.toolOrgX = g_state.toolOrgY = 0;
+    g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
+    
     SetDrawTool(DRAWING_TOOL_PIXEL);
     UpdateSpriteParameters();
     SetRedrawFullCanvas();
@@ -337,6 +345,9 @@ static void Initialize()
     clrscr();
     bordercolor(DEFAULT_BORDER_COLOR);
     bgcolor(DEFAULT_SCREEN_COLOR);
+
+    lfill( (unsigned char) &g_testModeParams, 0, sizeof(TESTMODEPARAMS));
+
 }
 
 static void DrawCursor(BYTE x, BYTE y)
@@ -585,6 +596,7 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth = 16; // Extended width is implied for 16-color sprites.
         g_state.cellsPerPixel = 3;
         g_state.pixelsPerByte = 2;
+        g_state.currentColorIdx = COLOR_FORE;
     }
     else if (IS_SPR_MULTICOLOR(g_state.spriteNumber))
     {
@@ -594,6 +606,9 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth =  isXWidth ? 32 : 12;
         g_state.cellsPerPixel = isXWidth ? 2 : 4;
         g_state.pixelsPerByte = 4;
+        g_state.color[COLOR_FORE] = PEEK(0xD027U + g_state.spriteNumber);
+        g_state.color[COLOR_MC1] = PEEK(0xD025U);
+        g_state.color[COLOR_MC2] = PEEK(0xD026U);
     }
     else
     {
@@ -603,20 +618,18 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth = isXWidth ? 64 : 24;
         g_state.cellsPerPixel = isXWidth  ? 1 : 2;
         g_state.pixelsPerByte = 8;
+        g_state.color[COLOR_FORE] = PEEK(0xD027U + g_state.spriteNumber);
     }
 
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
 }
 
-static void SetPreview()
+static void UpdateColorRegs()
 {
-    const BYTE xh = SIDEBAR_COLUMN * 8;
-    POKE(0xD015, 1 << g_state.spriteNumber);
-    POKE(0xD000 + g_state.spriteNumber, xh);
-    POKE(0xD010 + g_state.spriteNumber, (1 << g_state.spriteNumber));
-    POKE(0xD001 + g_state.spriteNumber, (SCREEN_ROWS * 8) - g_state.spriteHeight);
+    POKE(0xD027U + g_state.spriteNumber, g_state.color[COLOR_FORE]);
+    POKE(0xD025U, g_state.color[COLOR_MC1]);
+    POKE(0xD026U, g_state.color[COLOR_MC2]);
 }
-
 
 static void EraseCanvasSpace()
 {
@@ -902,6 +915,16 @@ static void ShowHelp()
         "horz flip    ctrl+h",
         "vert flip    ctrl+v",
         "test              t" };
+
+    const char* testKeys[] = {
+        "     test mode     ",
+        "play/pause    space",
+        "h-expand          h",
+        "v-expand          v",
+        "set start frame   f",
+        "set end frame     e",
+        "set speed         s",
+        "exit             f3" };
     
     flushkeybuf();
     clrscr();
@@ -909,10 +932,47 @@ static void ShowHelp()
     PrintKeyGroup(fileKeys,  4, 0, 2);
     PrintKeyGroup(editKeys,  9, 21, 2);
     PrintKeyGroup(drawKeys,  7, 0, 2 +4+1 );
-    PrintKeyGroup(colorKeys, 6, 0, 2 +4+1 +7+1);
+    PrintKeyGroup(colorKeys, 7, 0, 2 +4+1 +7+1);
+    PrintKeyGroup(testKeys,  8, 21, 2 + 9 + 2);
 
     cgetc();
     
+}
+
+static void TestMode()
+{
+    BYTE key, exit = 0;
+    flushkeybuf();
+    bgcolor(g_state.color[COLOR_BACK]);
+    clrscr();
+    
+    POKE(0xD015UL, 1 << g_state.spriteNumber);
+    POKE(0xD000UL + (g_state.spriteNumber * 2), 320 / 2);
+    POKE(0xD001UL + (g_state.spriteNumber * 2), 100);
+    POKE(0xD010UL, 0);
+
+    DrawHeader();
+    
+    while (!exit)
+    {
+        if(kbhit())
+        {
+            key = cgetc();
+        }
+
+        switch(key)
+        {
+            case ' ':
+                exit = 1;
+                break;
+        }
+
+        gotoy(SCREEN_ROWS - 1);
+
+    }
+
+    bgcolor(DEFAULT_SCREEN_COLOR);
+    POKE(0xD015UL, 0);
 }
 
 static void DoExit()
@@ -1079,9 +1139,11 @@ static void MainLoop()
         case ',':
         case '.':
 
-            if (key == ',' && g_state.spriteNumber++ == SPRITE_MAX_COUNT - 1)
+            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
+
+            if (key == '.' && g_state.spriteNumber++ == SPRITE_MAX_COUNT - 1)
                 g_state.spriteNumber = 0;
-            else if (key == '.' && g_state.spriteNumber-- == 0)
+            else if (key == ',' && g_state.spriteNumber-- == 0)
                 g_state.spriteNumber = SPRITE_MAX_COUNT - 1;
 
             UpdateSpriteParameters();
@@ -1123,7 +1185,14 @@ static void MainLoop()
             EraseCanvasSpace();
             SetRedrawFullCanvas();
             break;
-       
+
+        case 116: // Test
+
+            TestMode();
+            EraseCanvasSpace();
+            SetRedrawFullCanvas();
+            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
+            break;
         
         /* --------------------------- FILE GROUP ----------------------------- */
 
@@ -1238,12 +1307,14 @@ static void MainLoop()
                 g_state.color[g_state.currentColorIdx] = key - 48;
                 g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
                 SetRedrawFullCanvas();
+                UpdateColorRegs();
             }
             else if (key >= 97 && key <= 102) //a..f
             {
                 g_state.color[g_state.currentColorIdx] = 10 + key - 'a';
                 g_state.redrawSideBarFlags = REDRAW_SB_COLOR;
                 SetRedrawFullCanvas();
+                UpdateColorRegs();
             }
         }
            
