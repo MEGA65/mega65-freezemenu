@@ -385,9 +385,11 @@ static void DrawLine(BOOL bPreview)
         signed char sx = g_state.cursorX > g_state.toolOrgX ? 1 : -1;
         signed char sy = g_state.cursorY > g_state.toolOrgY ? 1 : -1;
 
-        while (x != g_state.cursorX && y != g_state.cursorY)
+        for(;;)
         {
             pfun(x, y);
+            if(x == g_state.cursorX && y == g_state.cursorY)
+                break;
             e2 = e * 2;
             if (e2 >= dy)
             {
@@ -606,6 +608,16 @@ void UpdateSpriteParameters(void)
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
 }
 
+static void SetPreview()
+{
+    const BYTE xh = SIDEBAR_COLUMN * 8;
+    POKE(0xD015, 1 << g_state.spriteNumber);
+    POKE(0xD000 + g_state.spriteNumber, xh);
+    POKE(0xD010 + g_state.spriteNumber, (1 << g_state.spriteNumber));
+    POKE(0xD001 + g_state.spriteNumber, (SCREEN_ROWS * 8) - g_state.spriteHeight);
+}
+
+
 static void EraseCanvasSpace()
 {
     RECT rc;
@@ -761,11 +773,11 @@ static void DrawToolbox()
                 textcolor(COLOUR_MEDIUMGREY);
             }
             
-            cputcxy(1+SIDEBAR_COLUMN + i*2 , 8,   TOOLBOX_CHARSET_BASE_IDX + i*2);
-            cputcxy(1+SIDEBAR_COLUMN + i*2 + 1,8, TOOLBOX_CHARSET_BASE_IDX + i*2 + 1);
+            cputcxy(SIDEBAR_COLUMN + i*2 , SCREEN_ROWS - 4,   TOOLBOX_CHARSET_BASE_IDX + i*2);
+            cputcxy(SIDEBAR_COLUMN + i*2 + 1, SCREEN_ROWS - 4, TOOLBOX_CHARSET_BASE_IDX + i*2 + 1);
 
-            cputcxy(1+SIDEBAR_COLUMN + i*2 , 9,   TOOLBOX_CHARSET_BASE_IDX + i*2 + numButtons*2);
-            cputcxy(1+SIDEBAR_COLUMN + i*2 + 1,9, TOOLBOX_CHARSET_BASE_IDX + i*2 + 1 + numButtons*2);
+            cputcxy(SIDEBAR_COLUMN + i*2 , SCREEN_ROWS - 3,   TOOLBOX_CHARSET_BASE_IDX + i*2 + numButtons*2);
+            cputcxy(SIDEBAR_COLUMN + i*2 + 1, SCREEN_ROWS - 3, TOOLBOX_CHARSET_BASE_IDX + i*2 + 1 + numButtons*2);
         }
     }
 }
@@ -783,6 +795,10 @@ static void DrawSideBarSpriteInfo()
         gotoxy(SIDEBAR_COLUMN, 3);
         textcolor(3);
         cputhex(g_state.spriteDataAddr, 7);
+        gotoxy(SIDEBAR_COLUMN, 8);
+        textcolor(COLOUR_LIGHTBLUE);
+        cputs(IS_SPR_XWIDTH(g_state.spriteNumber) | IS_SPR_16COL(g_state.spriteNumber) ? 
+            "extended width" : "              ");
     }
 }
 
@@ -790,7 +806,6 @@ static void DrawCoordinates()
 {
     if (g_state.redrawSideBarFlags & REDRAW_SB_COORD)
     {
-        
         cputncxy(SIDEBAR_COLUMN, SCREEN_ROWS - 1, SCREEN_COLS - SIDEBAR_COLUMN - 1, ' ');
         gotox(SIDEBAR_COLUMN);
         textcolor(COLOUR_CYAN);
