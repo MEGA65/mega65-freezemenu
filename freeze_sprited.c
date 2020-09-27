@@ -17,7 +17,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  
     Version   0.8
-    Date      2020-08-02
+    Date      2020-09-27
 
     CHANGELOG
 
@@ -34,9 +34,10 @@
                 Redesigned key scheme.
                 Supports 16-bit sprite data pointers (SPRPTR16).
                 Honours VIC-II Bank bits ($DD00) if SPRPTR16 is OFF.
+                Honours VIC color registers.
                 16-color sprite uses 64-bit implicit width.
                 Drawing tools: pixel, box, circle ,lines.
-                
+                Sprite Test Mode.
 
     TODO: 
 
@@ -104,7 +105,6 @@ extern int errno;
 #define CHARSET_ADDRESS             0x15000UL
 #define SPRITE_UNDO_BUFFER_ADDRESS  0x17000UL
 
-// Index into color array
 
 // Redraw side-bar flags
 #define REDRAW_SB_NONE   0
@@ -134,6 +134,7 @@ typedef enum tagDRAWING_TOOL
     DRAWING_TOOL_FILLED_CIRCLE,
 } DRAWING_TOOL;
 
+// Index into color array
 enum {
     COLOR_BACK = 0,
     COLOR_FORE,
@@ -347,7 +348,6 @@ static void Initialize()
     bgcolor(DEFAULT_SCREEN_COLOR);
 
     lfill( (unsigned char) &g_testModeParams, 0, sizeof(TESTMODEPARAMS));
-
 }
 
 static void DrawCursor(BYTE x, BYTE y)
@@ -942,37 +942,56 @@ static void ShowHelp()
 static void TestMode()
 {
     BYTE key, exit = 0;
+    BYTE prevReg_Vxpand = PEEK(0xD017);
+    BYTE prevReg_Hxpand = PEEK(0xD01D);
     flushkeybuf();
     bgcolor(g_state.color[COLOR_BACK]);
     clrscr();
-    
+
     POKE(0xD015UL, 1 << g_state.spriteNumber);
     POKE(0xD000UL + (g_state.spriteNumber * 2), 320 / 2);
     POKE(0xD001UL + (g_state.spriteNumber * 2), 100);
     POKE(0xD010UL, 0);
+    POKE(0xD01D, g_testModeParams.horizExpand);
+    POKE(0xD017, g_testModeParams.vertExpand);
 
     DrawHeader();
-    
+
     while (!exit)
     {
-        if(kbhit())
+        key = 0;
+        if (kbhit())
         {
             key = cgetc();
         }
 
-        switch(key)
+        switch (key)
         {
-            case ' ':
-                exit = 1;
-                break;
+        case 0:
+            break;
+
+        case 0xF3:
+            exit = 1;
+            break;
+
+        case 104: // H-expand
+            g_testModeParams.horizExpand = ~g_testModeParams.horizExpand;
+            POKE(0xD01D, g_testModeParams.horizExpand);
+            break;
+
+        case 118: // V-expand
+            g_testModeParams.vertExpand = ~g_testModeParams.vertExpand;
+            POKE(0xD017, g_testModeParams.vertExpand);
+            break;
         }
 
-        gotoy(SCREEN_ROWS - 1);
-
+        //gotoy(SCREEN_ROWS - 1);
     }
 
     bgcolor(DEFAULT_SCREEN_COLOR);
     POKE(0xD015UL, 0);
+    POKE(0xD017, prevReg_Vxpand);
+    POKE(0xD10D, prevReg_Hxpand);
 }
 
 static void DoExit()
