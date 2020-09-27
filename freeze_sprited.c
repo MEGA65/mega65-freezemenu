@@ -50,6 +50,7 @@
 #include <cc65.h>
 #include "../mega65-libc/cc65/include/conio.h"
 #include "../mega65-libc/cc65/include/mouse.h"
+#include "../mega65-libc/cc65/include/hal.h"
 #include <cbm.h>
 #include <stdio.h>
 #include <errno.h>
@@ -166,6 +167,7 @@ typedef struct tagAPPSTATE
 
 typedef struct tagTESTMODEPARAMS
 {
+    BYTE animCurFrame;
     BYTE animEnable;
     BYTE animSpeed;
     BYTE animStart, animEnd;    
@@ -348,6 +350,7 @@ static void Initialize()
     bgcolor(DEFAULT_SCREEN_COLOR);
 
     lfill( (unsigned char) &g_testModeParams, 0, sizeof(TESTMODEPARAMS));
+    g_testModeParams.animSpeed = 1;
 }
 
 static void DrawCursor(BYTE x, BYTE y)
@@ -941,16 +944,21 @@ static void ShowHelp()
 
 static void TestMode()
 {
-    BYTE key, exit = 0;
+    BYTE key, exit = 0, redrawStatus = 1, i;
     BYTE prevReg_Vxpand = PEEK(0xD017);
     BYTE prevReg_Hxpand = PEEK(0xD01D);
     flushkeybuf();
     bgcolor(g_state.color[COLOR_BACK]);
     clrscr();
 
-    POKE(0xD015UL, 1 << g_state.spriteNumber);
-    POKE(0xD000UL + (g_state.spriteNumber * 2), 320 / 2);
-    POKE(0xD001UL + (g_state.spriteNumber * 2), 100);
+    g_testModeParams.animCurFrame = g_state.spriteNumber;
+
+    for (i = 0; i < 7; ++i)
+    {
+        POKE(0xD000UL + (i * 2), 320 / 2);
+        POKE(0xD001UL + (i * 2), 100);
+    }
+    
     POKE(0xD010UL, 0);
     POKE(0xD01D, g_testModeParams.horizExpand);
     POKE(0xD017, g_testModeParams.vertExpand);
@@ -959,6 +967,14 @@ static void TestMode()
 
     while (!exit)
     {
+        if (g_testModeParams.animEnable)
+        {
+            g_testModeParams.animCurFrame = (g_testModeParams.animCurFrame + 1) % 8;
+            POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
+            redrawStatus = 1;
+            usleep(100000 / g_testModeParams.animSpeed);
+        }
+        
         key = 0;
         if (kbhit())
         {
@@ -977,15 +993,47 @@ static void TestMode()
         case 104: // H-expand
             g_testModeParams.horizExpand = ~g_testModeParams.horizExpand;
             POKE(0xD01D, g_testModeParams.horizExpand);
+            redrawStatus = 1;
             break;
 
         case 118: // V-expand
             g_testModeParams.vertExpand = ~g_testModeParams.vertExpand;
             POKE(0xD017, g_testModeParams.vertExpand);
+            redrawStatus = 1;
+            break;
+
+        case 101: // E
+        case 102: // F
+        case 115: // S
+            key = cgetc();
+            if (key >= '0' && key <= '7')
+            {
+                g_testModeParams.animSpeed = key - 48;
+            }
+            
+            break;
+
+        case ' ': // 
+            g_testModeParams.animEnable = ~g_testModeParams.animEnable;
+            POKE(0xD01D, g_testModeParams.horizExpand);
             break;
         }
 
-        //gotoy(SCREEN_ROWS - 1);
+        if (redrawStatus) 
+        {
+            revers(1);
+            cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
+            cputsxy(0, SCREEN_ROWS - 1, "sprite: ");
+            cputdec(g_testModeParams.animCurFrame, 0, 0);
+            cputs(" start: ");
+            cputdec(g_testModeParams.animStart, 0, 0);
+            cputs(" end: ");
+            cputdec(g_testModeParams.animEnd, 0, 0);
+            cputs(" speed: ");
+            cputdec(g_testModeParams.animSpeed, 0, 0);
+            revers(0);
+            redrawStatus = 0;
+        }
     }
 
     bgcolor(DEFAULT_SCREEN_COLOR);
