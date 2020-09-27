@@ -72,6 +72,11 @@ extern int errno;
 #define IS_SPR_16COL(n)             ((PEEK(REG_SPR_16COL)) & (1 << (n)))
 #define IS_SPR_XWIDTH(n)            ((PEEK(REG_SPRX64EN)) & (1 << (n)))
 #define SPRITE_POINTER_ADDR         (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
+#define SPRITE_SIZE_BYTES(n)        (((IS_SPR_XWIDTH(g_state.spriteNumber)) | IS_SPR_16COL( (n) ))  ? 168 : 64) 
+#define SPRITE_DATA_ADDR(n)         (REG_SPRPTR16 ? 64 * (                                  \
+                                    ((long)lpeek(SPRITE_POINTER_ADDR + 1 + n * 2) << 8) +   \
+                                    ((long)lpeek(SPRITE_POINTER_ADDR + n * 2)))             \
+                                    : (long) (64 * lpeek(SPRITE_POINTER_ADDR + n)) | ( ((long) (~lpeek(0xDD00) & 0x3)) << 14))
 
 #define SCREEN_ROWS                 25
 #define SCREEN_COLS                 80
@@ -583,13 +588,10 @@ void UpdateSpriteParameters(void)
 {
     const BYTE isXWidth = IS_SPR_XWIDTH(g_state.spriteNumber);
     g_state.spriteHeight = 21;
-    g_state.spriteSizeBytes = isXWidth | IS_SPR_16COL(g_state.spriteNumber) ? 168 : 64;
+    g_state.spriteSizeBytes = SPRITE_SIZE_BYTES(g_state.spriteNumber);
     g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
 
-    g_state.spriteDataAddr = REG_SPRPTR16 ? 64 * ( 
-        ((long)lpeek(SPRITE_POINTER_ADDR + 1 + g_state.spriteNumber * 2) << 8) +
-        ((long)lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber * 2)))        
-         : (long) (64 * lpeek(SPRITE_POINTER_ADDR + g_state.spriteNumber)) | ( ((long) (~lpeek(0xDD00) & 0x3)) << 14);
+    g_state.spriteDataAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
 
     if (IS_SPR_16COL(g_state.spriteNumber))
     {
@@ -1040,6 +1042,7 @@ static void TestMode()
     POKE(0xD015UL, 0);
     POKE(0xD017, prevReg_Vxpand);
     POKE(0xD10D, prevReg_Hxpand);
+    cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
 }
 
 static void DoExit()
@@ -1260,8 +1263,27 @@ static void MainLoop()
             SetRedrawFullCanvas();
             g_state.redrawSideBarFlags = REDRAW_SB_ALL;
             break;
-        
-        /* --------------------------- FILE GROUP ----------------------------- */
+
+        case 3: // CTRL-C
+            Ask("copy sprite to? ", buf, 1);
+            if (buf[0] >= '0' && buf[0] <= '7')
+            {
+                BYTE toSprite = buf[0] - 48;
+                if (SPRITE_SIZE_BYTES(toSprite) == g_state.spriteSizeBytes) 
+                {
+                    // Display error if bytes do not match
+                    lcopy(g_state.spriteDataAddr, SPRITE_DATA_ADDR(toSprite), g_state.spriteSizeBytes);
+                }
+                else
+                {
+                    bordercolor(COLOUR_RED);
+                    cgetc();
+                    bordercolor(DEFAULT_BORDER_COLOR);
+                }
+            }
+            break;
+
+            /* --------------------------- FILE GROUP ----------------------------- */
 
         case 0xF3: // F3
             Ask("exit sprite editor: are you sure (yes/no)? ", buf, 3);
