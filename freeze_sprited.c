@@ -35,6 +35,7 @@
                 Supports 16-bit sprite data pointers (SPRPTR16).
                 Honours VIC-II Bank bits ($DD00) if SPRPTR16 is OFF.
                 Honours VIC color registers.
+                Supports extended width sprites (SPRX64EN)
                 16-color sprite uses 64-bit implicit width.
                 Drawing tools: pixel, box, circle ,lines.
                 Sprite Test Mode.
