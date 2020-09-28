@@ -45,7 +45,7 @@
       only the needed area.
  */
 
-#define TEST_SPRITES
+//#define TEST_SPRITES
 
 #include <cc65.h>
 #include "../mega65-libc/cc65/include/conio.h"
@@ -313,9 +313,14 @@ static void Initialize()
     lcopy((long)sprite_pointer,0x380,63);
     POKE(0xD015,1);
     POKE(0x07F8,0x380/64);
-    POKE(0x07F9,(0x380+64)/64);
-    POKE(0x07FA,(0x380+128)/64);
-
+    // POKE(0x07F9,(0x380+64)/64);
+    // POKE(0x07FA,(0x380+64*2)/64);
+    // POKE(0x07FB,(0x380+64*3)/64);
+    // POKE(0x07FC,(0x380+64*4)/64);
+    // POKE(0x07FD,(0x380+64*5)/64);
+    // POKE(0x07FE,(0x380+64*6)/64);
+    // POKE(0x07FF,(0x380+64*7)/64);
+    
     POKE(0xD000,100);
     POKE(0xD001,100);
     POKE(0xD027,7);
@@ -426,7 +431,35 @@ static void DrawLine(BOOL bPreview)
 
 static void DrawCircle(BOOL bPreview)
 {
-    
+    // RECT rc;
+    // void (*pfun)(BYTE, BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
+    // SetEffectiveToolRect(&rc);
+
+    // const signed char dx = rc.right - rc.left;
+    // const signed char dy = -(rc.bottom - rc.top);
+    // BYTE x = g_state.toolOrgX, y = g_state.toolOrgY;
+    // signed char e = dx + dy;
+    // signed char e2 = 0;
+    // signed char sx = g_state.cursorX > g_state.toolOrgX ? 1 : -1;
+    // signed char sy = g_state.cursorY > g_state.toolOrgY ? 1 : -1;
+
+    // for (;;)
+    // {
+    //     pfun(x, y);
+    //     if (x == g_state.cursorX && y == g_state.cursorY)
+    //         break;
+    //     e2 = e * 2;
+    //     if (e2 >= dy)
+    //     {
+    //         e += dy;
+    //         x += sx;
+    //     }
+    //     if (e2 <= dx)
+    //     {
+    //         e += dx;
+    //         y += sy;
+    //     }
+    // }
 }
 
 static void DrawBox(BOOL bPreview)
@@ -962,9 +995,10 @@ static void TestMode()
     }
     
     POKE(0xD010UL, 0);
+    POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
     POKE(0xD01D, g_testModeParams.horizExpand);
     POKE(0xD017, g_testModeParams.vertExpand);
-
+    
     DrawHeader();
 
     while (!exit)
@@ -1351,6 +1385,7 @@ static void MainLoop()
             SetDrawTool(DRAWING_TOOL_PIXEL);
             g_state.redrawSideBarFlags = REDRAW_SB_TOOLS;
             SetRedrawFullCanvas();
+            g_state.toolActive = 0;
             break;
 
         case 120: // x = draw box
