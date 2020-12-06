@@ -671,6 +671,11 @@ int main(int argc,char **argv)
   // Correct horizontal scaling
   POKE(0xD05AU,0x78);
 
+  // Reset character set address
+  POKE(0xD068,0x00);
+  POKE(0xD069,0x10);
+  POKE(0xD06A,0x00);
+  
   // Silence SIDs
   POKE(0xD418U,0);  POKE(0xD438U,0);
 
