@@ -175,8 +175,9 @@ void setup_menu_screen(void)
 {
   POKE(0xD018U,0x15); // upper case
 
+  // We now keep video mode, assuming the user to have correctly set it up
   // NTSC 60Hz mode for monitor compatibility?
-  POKE(0xD06FU,0x80);
+  //  POKE(0xD06FU,0x80);
 
   // Reset border widths
   POKE(0xD05CU,80); POKE(0xD05DU,0xC0);
