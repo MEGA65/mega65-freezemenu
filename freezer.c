@@ -656,9 +656,6 @@ int main(int argc,char **argv)
   // XXX add missing C65 AND M65 peripherals
   // C65 UART, ethernet etc
 
-  // Enable HDMI audio
-  POKE(0xD61A,0x01);
-  
   // Bank out BASIC ROM, leave KERNAL and IO in
   POKE(0x00,0x3F);
   POKE(0x01,0x36);
