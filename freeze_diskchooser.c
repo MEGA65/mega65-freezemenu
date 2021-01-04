@@ -115,6 +115,10 @@ void draw_directory_contents(void)
   unsigned char x,c,i;
   
   lcopy(0x40000L+(selection_number*64),(unsigned long)disk_name_return,32);
+
+  // Don't draw directories (although it would be nice to show their contents)
+  if (disk_name_return[0]=='/') return;
+  
   // Then null terminate it
   for(x=31;x;x--)
     if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
@@ -301,9 +305,8 @@ void scan_directory(unsigned char drive_id)
 	file_count++;
       }
     }
-    //    else if (strlen(dirent->d_name)>4) {
-    //      if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
-    else { {
+    else if (strlen(dirent->d_name)>4) {
+      if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
 	// File is a disk image
 	lfill(0x40000L+(file_count*64),' ',64);
 	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
@@ -356,7 +359,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
     if (!x) {
       idle_time++;
       if (idle_time==100) {
-	// After sitting idle for 1 second, try mounting disk image and displaying directory listing
+	// After sitting idle for 1 second, try mounting disk image and displaying directory listing	
 	draw_directory_contents();
       }
       usleep(10000);
@@ -369,7 +372,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
     switch(x) {
     case 0x03:             // RUN-STOP = make no change
       return NULL;
-    case 0x0d:             // Return = select this disk.
+    case 0x0d: case 0x21:            // Return = select this disk.
       // Copy name out
       lcopy(0x40000L+(selection_number*64),(unsigned long)disk_name_return,32);
       // Then null terminate it
@@ -399,70 +402,76 @@ char *freeze_select_disk_image(unsigned char drive_id)
       if (disk_name_return[0]=='/') {
 	// Its a directory
 	mega65_dos_chdir(&disk_name_return[1]);
+	file_count=0;
+	selection_number=0;
+	display_offset=0;
 	scan_directory(drive_id);
-      } else if (disk_name_return[0]=='-') {
-	// Special case options
-	if (disk_name_return[3]=='O') {
-	  // No disk. Set image enable flag, and disable present flag
-	  if (drive_id==0) 
-	    lpoke(0xffd368bL,(lpeek(0xffd368bL)&0xb8)+0x01);
-	  if (drive_id==1) 
-	    lpoke(0xffd368bL,(lpeek(0xffd368bL)&0x47)+0x08);	  
-	} else
-	  if (disk_name_return[2]=='I') {
-	    // Use internal drive (drive 0 only)
-	    while(!(lpeek(0xffd36a1L) & 1)) {
-	      lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x01);
-	    }
+	draw_disk_image_list();
+      } else {
+	if (disk_name_return[0]=='-') {
+	  // Special case options
+	  if (disk_name_return[3]=='O') {
+	    // No disk. Set image enable flag, and disable present flag
+	    if (drive_id==0) 
+	      lpoke(0xffd368bL,(lpeek(0xffd368bL)&0xb8)+0x01);
+	    if (drive_id==1) 
+	      lpoke(0xffd368bL,(lpeek(0xffd368bL)&0x47)+0x08);	  
 	  } else
-	    if (disk_name_return[2]=='1') {
-	      // Use 1565 external drive (drive 1 only)
-	      while(!(lpeek(0xffd36a1L) & 4)) {
-		lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x04);
+	    if (disk_name_return[2]=='I') {
+	      // Use internal drive (drive 0 only)
+	      while(!(lpeek(0xffd36a1L) & 1)) {
+		lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x01);
 	      }
 	    } else
-	      if (disk_name_return[3]=='E') {
-		// Create and mount new empty D81 file
-	      }
-      }
-      else {
-	if (drive_id==0) 
-	  lpoke(0xffd368bL,(lpeek(0xffd368bL)&0xb8)+0x07);
-	if (drive_id==1) 
-	  lpoke(0xffd368bL,(lpeek(0xffd368bL)&0x47)+0x38);	  
-	if (mega65_dos_attachd81(disk_name_return)) {
-	  // Mounting the image failed
-	  POKE(0xD020U,2);
-
-	  // Mark drive as having nothing in it
-	  if (drive_id==0) {
-	    // Clear flags for drive 0
-	    lpoke(0xffd368bL,lpeek(0xffd368bL)&0xb8);
-	    lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
-	  } else if (drive_id==1) {
-	    // Clear flags for drive 1
-	    lpoke(0xffd368bL,lpeek(0xffd368bL)&0x47);
-	    lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
-	  }     
-	  
-	  // XXX - Get DOS error code, and replace directory listing area with
-	  // appropriate error message
-	  
-	  break;
+	      if (disk_name_return[2]=='1') {
+		// Use 1565 external drive (drive 1 only)
+		while(!(lpeek(0xffd36a1L) & 4)) {
+		  lpoke(0xffd36a1L,lpeek(0xffd36a1L)|0x04);
+		}
+	      } else
+		if (disk_name_return[3]=='E') {
+		  // Create and mount new empty D81 file
+		}
 	}
+	else {
+	  if (drive_id==0) 
+	    lpoke(0xffd368bL,(lpeek(0xffd368bL)&0xb8)+0x07);
+	  if (drive_id==1) 
+	    lpoke(0xffd368bL,(lpeek(0xffd368bL)&0x47)+0x38);	  
+	  if (mega65_dos_attachd81(disk_name_return)) {
+	    // Mounting the image failed
+	    POKE(0xD020U,2);
+	    
+	    // Mark drive as having nothing in it
+	    if (drive_id==0) {
+	      // Clear flags for drive 0
+	      lpoke(0xffd368bL,lpeek(0xffd368bL)&0xb8);
+	      lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
+	    } else if (drive_id==1) {
+	      // Clear flags for drive 1
+	      lpoke(0xffd368bL,lpeek(0xffd368bL)&0x47);
+	      lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
+	    }     
+	    
+	    // XXX - Get DOS error code, and replace directory listing area with
+	    // appropriate error message
+	    
+	    break;
+	  }
+	}
+	POKE(0xD020U,6);
+	
+	// Mount succeeded, now seek to track 0 to make sure DOS
+	// knows where we are, and to make sure the drive head is
+	// sitting properly.
+	while(!(PEEK(0xD082)&0x01)) {
+	  POKE(0xD081,0x10);
+	  usleep(7000);
+	}
+	
+	// Mounted ok, so return this image
+	return disk_name_return;
       }
-      POKE(0xD020U,6);
-
-      // Mount succeeded, now seek to track 0 to make sure DOS
-      // knows where we are, and to make sure the drive head is
-      // sitting properly.
-      while(!(PEEK(0xD082)&0x01)) {
-	POKE(0xD081,0x10);
-	usleep(7000);
-      }
-      
-      // Mounted ok, so return this image
-      return disk_name_return;
       break;
     case 0x11: case 0x9d:  // Cursor down or left
       POKE(0xD020U,6);

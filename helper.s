@@ -164,13 +164,22 @@ _mega65_dos_chdir:
 	NOP			; Wasted instruction slot required following hyper trap instruction
 	;; XXX Check for error (carry would be clear)
 
+	;; Find the file
+	LDA #$34
+	STA $D640
+	NOP
+	BCC @direntNotFound
+
 	;; Try to change directory to it
 	LDA #$0C
 	STA $D640
 	NOP
 
+@direntNotFound:
+	
 	;; return inverted carry flag, so result of 0 = success
 	PHP
+
 	PLA
 	AND #$01
 	EOR #$01
