@@ -104,7 +104,7 @@ char draw_directory_entry(unsigned char screen_row)
     // Erase whatever we drew
     for(i=21;i<40;i++)POKE(SCREEN_ADDRESS+(screen_row*80)+(i*2),' ');    
   } else {
-    lcopy(dir_line_colour,COLOUR_RAM_ADDRESS+(screen_row*80)+(21*2),19*2);
+    lcopy((unsigned long)dir_line_colour,COLOUR_RAM_ADDRESS+(screen_row*80)+(21*2),19*2);
   }
   
   return invalid;
@@ -114,7 +114,7 @@ void draw_directory_contents(void)
 {
   unsigned char x,c,i;
   
-  lcopy(0x40000L+(selection_number*64),disk_name_return,32);
+  lcopy(0x40000L+(selection_number*64),(unsigned long)disk_name_return,32);
   // Then null terminate it
   for(x=31;x;x--)
     if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
@@ -236,7 +236,7 @@ void draw_disk_image_list(void)
   for(i=0;i<23;i++) {
     if ((display_offset+i)<file_count) {
       // Real line
-      lcopy(0x40000U+((display_offset+i)<<6),name,64);
+      lcopy(0x40000U+((display_offset+i)<<6),(unsigned long)name,64);
 
       for(x=0;x<20;x++) {
 	if ((name[x]>='A'&&name[x]<='Z') ||(name[x]>='a'&&name[x]<='z'))
@@ -261,10 +261,65 @@ void draw_disk_image_list(void)
   
 }
 
-char *freeze_select_disk_image(unsigned char drive_id)
+void scan_directory(unsigned char drive_id)
 {
   unsigned char x,dir;
   struct m65_dirent *dirent;
+
+  file_count=0;
+  
+ // Add the pseudo disks
+  lcopy((unsigned long)"- NO DISK -         ",0x40000L+(file_count*64),20);
+  file_count++;
+  if (drive_id==0) {
+    lcopy((unsigned long)"- INTERNAL 3.5\" -   ",0x40000L+(file_count*64),20);
+    file_count++;
+  }
+  if (drive_id==1) {
+    lcopy((unsigned long)"- 1565 DRIVE 1 -    ",0x40000L+(file_count*64),20);
+    file_count++;
+  }
+  // XXX - Uncomment after we implement this feature
+  //  lcopy((unsigned long)"- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
+  //  file_count++;
+
+  
+  dir=opendir();
+  dirent=readdir(dir);
+  while(dirent&&((unsigned short)dirent!=0xffffU)) {
+    
+    x=strlen(dirent->d_name)-4;
+    // check DIR attribute of dirent
+    if (dirent->d_type&0x10) {
+
+      // File is a directory
+      if (x<60) {
+	lfill(0x40000L+(file_count*64),' ',64);
+	lcopy((long)&dirent->d_name[0],0x40000L+1+(file_count*64),x+4);
+	// Put / at the start of directory names to make them obviously different
+	lpoke(0x40000L+(file_count*64),'/');
+	file_count++;
+      }
+    }
+    //    else if (strlen(dirent->d_name)>4) {
+    //      if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
+    else { {
+	// File is a disk image
+	lfill(0x40000L+(file_count*64),' ',64);
+	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
+	file_count++;
+      }
+    }
+    
+    dirent=readdir(dir);
+  }
+
+  closedir(dir);
+}
+
+char *freeze_select_disk_image(unsigned char drive_id)
+{
+  unsigned char x;
   int idle_time=0;
   
   file_count=0;
@@ -281,38 +336,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
   for(x=0;reading_disk_list_message[x];x++)
     POKE(SCREEN_ADDRESS+12*40*2+(9*2)+(x*2),reading_disk_list_message[x]&0x3f);
 
-  // Add the pseudo disks
-  lcopy("- NO DISK -         ",0x40000L+(file_count*64),20);
-  file_count++;
-  if (drive_id==0) {
-    lcopy("- INTERNAL 3.5\" -   ",0x40000L+(file_count*64),20);
-    file_count++;
-  }
-  if (drive_id==1) {
-    lcopy("- 1565 DRIVE 1 -    ",0x40000L+(file_count*64),20);
-    file_count++;
-  }
-  // XXX - Uncomment after we implement this feature
-  //  lcopy("- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
-  //  file_count++;
-  
-  dir=opendir();
-  dirent=readdir(dir);
-  while(dirent&&((unsigned short)dirent!=0xffffU)) {
-    x=strlen(dirent->d_name)-4;
-    if (x>=0) {
-      if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
-	// File is a disk image
-	lfill(0x40000L+(file_count*64),' ',64);
-	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
-	file_count++;
-      }
-    }
-    
-    dirent=readdir(dir);
-  }
-
-  closedir(dir);
+  scan_directory(drive_id);
 
   // If we didn't find any disk images, then just return
   if (!file_count) return NULL;
@@ -347,7 +371,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
       return NULL;
     case 0x0d:             // Return = select this disk.
       // Copy name out
-      lcopy(0x40000L+(selection_number*64),disk_name_return,32);
+      lcopy(0x40000L+(selection_number*64),(unsigned long)disk_name_return,32);
       // Then null terminate it
       for(x=31;x;x--)
 	if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
@@ -357,22 +381,26 @@ char *freeze_select_disk_image(unsigned char drive_id)
 	// Clear flags for drive 0
 	lpoke(0xffd368bL,lpeek(0xffd368bL)&0xb8);
   
-  // there seem to be an issue reliably using lpoke/lpeek here
-  // so for now we repeat to ensure we have what we want
-  while(lpeek(0xffd36a1L) & 1) {
-	   lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
-  }
+	// there seem to be an issue reliably using lpoke/lpeek here
+	// so for now we repeat to ensure we have what we want
+	while(lpeek(0xffd36a1L) & 1) {
+	  lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfe);
+	}
       } else if (drive_id==1) {
 	// Clear flags for drive 1
 	lpoke(0xffd368bL,lpeek(0xffd368bL)&0x47);
-  while(lpeek(0xffd36a1L) & 4) {
-	   lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
-  }
+	while(lpeek(0xffd36a1L) & 4) {
+	  lpoke(0xffd36a1L,lpeek(0xffd36a1L)&0xfb);
+	}
       }
       
       // Try to mount it, with border black while working
       POKE(0xD020U,0);
-      if (disk_name_return[0]=='-') {
+      if (disk_name_return[0]=='/') {
+	// Its a directory
+	mega65_dos_chdir(&disk_name_return[1]);
+	scan_directory(drive_id);
+      } else if (disk_name_return[0]=='-') {
 	// Special case options
 	if (disk_name_return[3]=='O') {
 	  // No disk. Set image enable flag, and disable present flag

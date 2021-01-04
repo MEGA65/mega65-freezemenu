@@ -34,8 +34,8 @@ void clear_sector_buffer(void)
 }
 
 unsigned char *freeze_menu=
-  "        MEGA65 FREEZE MENU V0.1.2       "
-  "  (C) FLINDERS UNI, M.E.G.A. 2018-2019  "
+  "        MEGA65 FREEZE MENU V0.1.3       "
+  "  (C) FLINDERS UNI, M.E.G.A. 2018-2021  "
   " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3*40+4)
   " F3-LOAD     F5-RESET   F7-SAVE TO SLOT "

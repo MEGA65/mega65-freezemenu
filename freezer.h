@@ -5,6 +5,8 @@
 #define WITH_AUDIOMIXER
 // #define WITH_TOUCH
 
+char cdecl mega65_dos_chdirroot(void);
+char cdecl mega65_dos_chdir(unsigned char *dirname);
 char cdecl mega65_dos_attachd81(char *image_name);
 char cdecl mega65_dos_exechelper(char *filename);
 void fetch_freeze_region_list_from_hypervisor(unsigned short);

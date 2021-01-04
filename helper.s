@@ -1,6 +1,7 @@
 
 	.setcpu "65C02"
 	.export _mega65_dos_attachd81
+	.export _mega65_dos_chdir
 	.export _mega65_dos_exechelper
 	.export	_fetch_freeze_region_list_from_hypervisor
 	.export _find_freeze_slot_start_sector
@@ -129,6 +130,55 @@ _mega65_dos_attachd81:
 	LDX #$00
 	
 	RTS
+
+_mega65_dos_chdir:
+	;; char mega65_dos_chdir(char *dir_name);
+
+	;; Get pointer to file name
+	;; sp here is the ca65 sp ZP variable, not the stack pointer of a 4510
+	ldy #1
+	.p02
+	lda (sp),y
+	sta ptr1+1
+	sta $0441
+	dey
+	lda (sp),y
+	.p4510
+	sta ptr1
+	sta $0440
+	
+	;; Copy file name
+	ldy #0
+@NameCopyLoop:
+	lda (ptr1),y
+	sta $0400,y
+	iny
+	cmp #0
+	bne @NameCopyLoop
+	
+	;;  Call dos_setname()
+	ldy #>$0400
+	ldx #<$0400
+	lda #$2E     		; dos_setname Hypervisor trap
+	STA $D640		; Do hypervisor trap
+	NOP			; Wasted instruction slot required following hyper trap instruction
+	;; XXX Check for error (carry would be clear)
+
+	;; Try to change directory to it
+	LDA #$0C
+	STA $D640
+	NOP
+
+	;; return inverted carry flag, so result of 0 = success
+	PHP
+	PLA
+	AND #$01
+	EOR #$01
+	LDX #$00
+	
+	RTS
+	
+
 	
 _unfreeze_slot:	
 
@@ -338,7 +388,7 @@ _readdir:
 
 	;; File type and attributes
 	;; XXX - We should translate these to C style meanings
-	lda $0400+64+1+12+4+4
+	lda $0400+64+1+12+1+4+4
 	sta _readdir_dirent+4+2+4
 
 	;; Return address of dirent structure
