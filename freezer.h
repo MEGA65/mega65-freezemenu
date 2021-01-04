@@ -16,6 +16,7 @@ void unfreeze_slot(unsigned short);
 unsigned char opendir(void);
 struct m65_dirent *readdir(unsigned char);
 void closedir(unsigned char);
+void closeall(void);
 
 void freeze_monitor(void);
 char *freeze_select_disk_image(unsigned char drive_id);

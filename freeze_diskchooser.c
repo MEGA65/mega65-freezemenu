@@ -271,6 +271,8 @@ void scan_directory(unsigned char drive_id)
   struct m65_dirent *dirent;
 
   file_count=0;
+
+  closeall();
   
  // Add the pseudo disks
   lcopy((unsigned long)"- NO DISK -         ",0x40000L+(file_count*64),20);
@@ -291,25 +293,28 @@ void scan_directory(unsigned char drive_id)
   dir=opendir();
   dirent=readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
-    
-    x=strlen(dirent->d_name)-4;
+
+    x=strlen(dirent->d_name);
+
     // check DIR attribute of dirent
     if (dirent->d_type&0x10) {
 
       // File is a directory
       if (x<60) {
 	lfill(0x40000L+(file_count*64),' ',64);
-	lcopy((long)&dirent->d_name[0],0x40000L+1+(file_count*64),x+4);
+	lcopy((long)&dirent->d_name[0],0x40000L+1+(file_count*64),x);
 	// Put / at the start of directory names to make them obviously different
 	lpoke(0x40000L+(file_count*64),'/');
-	file_count++;
+	// Don't list "." directory pointer
+	if (strcmp(".",dirent->d_name)) 
+	  file_count++;
       }
     }
-    else if (strlen(dirent->d_name)>4) {
-      if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
+    else if (x>4) {
+      if ((!strncmp(&dirent->d_name[x-4],".D81",4))||(!strncmp(&dirent->d_name[x-4],".d81",4))) {
 	// File is a disk image
 	lfill(0x40000L+(file_count*64),' ',64);
-	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
+	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x);
 	file_count++;
       }
     }
@@ -338,9 +343,9 @@ char *freeze_select_disk_image(unsigned char drive_id)
 
   for(x=0;reading_disk_list_message[x];x++)
     POKE(SCREEN_ADDRESS+12*40*2+(9*2)+(x*2),reading_disk_list_message[x]&0x3f);
-
+  
   scan_directory(drive_id);
-
+  
   // If we didn't find any disk images, then just return
   if (!file_count) return NULL;
 
@@ -372,6 +377,16 @@ char *freeze_select_disk_image(unsigned char drive_id)
     switch(x) {
     case 0x03:             // RUN-STOP = make no change
       return NULL;
+    case 0x5f: // <- key at top left of key board
+      // Go back up one directory
+      mega65_dos_chdir("..");
+      file_count=0;
+      selection_number=0;
+      display_offset=0;
+      scan_directory(drive_id);
+      draw_disk_image_list();
+      
+      break;
     case 0x0d: case 0x21:            // Return = select this disk.
       // Copy name out
       lcopy(0x40000L+(selection_number*64),(unsigned long)disk_name_return,32);

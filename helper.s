@@ -8,7 +8,7 @@
 	.export _unfreeze_slot
 	.export _read_file_from_sdcard
 	.export _get_freeze_slot_count
-	.export _opendir, _readdir, _closedir	
+	.export _opendir, _readdir, _closedir, _closeall
 	
 	.include "zeropage.inc"
 	
@@ -311,6 +311,14 @@ _read_file_from_sdcard:
 	
 	RTS
 
+_closeall:
+	; close all files to work around hyppo file descriptor leak bug
+        lda #$22
+        sta $d640
+        nop
+
+	rts
+	
 	;; closedir takes file descriptor as argument (appears in A)
 _closedir:
 	TAX
