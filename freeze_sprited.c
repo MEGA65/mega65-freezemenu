@@ -40,6 +40,8 @@
                 Drawing tools: pixel, box, circle ,lines.
                 Sprite Test Mode.
 
+    v0.9        Transfer to/from frozen sprite memory
+
     TODO: 
 
     * Instead of re-drawing full canvas, we should invalidate 
@@ -57,27 +59,28 @@
 #include <errno.h>
 #include <stdlib.h>
 #include "../mega65-libc/cc65/include/memory.h"
+#include "freezer.h"
 
 extern int errno;
 
-#define VIC_BASE                    0xD000UL
-#define REG_HOTREG                  (VIC_BASE + 0x5D)
-#define REG_SPRPTR_B0               (PEEK(VIC_BASE + 0x6C))
-#define REG_SPRPTR_B1               (PEEK(VIC_BASE + 0x6D))
-#define REG_SPRPTR_B2               (PEEK(VIC_BASE + 0x6E) & 0x7F)
-#define REG_SPRPTR16                (PEEK(VIC_BASE + 0x6E) & 0x80)
-#define REG_SPR_16COL               (VIC_BASE + 0x6B)
-#define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1C)
-#define REG_SPRX64EN                (VIC_BASE + 0x57)
-#define IS_SPR_MULTICOLOR(n)        ((PEEK(REG_SPR_MULTICOLOR)) & (1 << (n)))
-#define IS_SPR_16COL(n)             ((PEEK(REG_SPR_16COL)) & (1 << (n)))
-#define IS_SPR_XWIDTH(n)            ((PEEK(REG_SPRX64EN)) & (1 << (n)))
+#define PAGE_SIZE                   256
+#define VIC_BASE                    0xFFD3000UL  // This is where VIC-II is mapped in frozen memory
+#define REG_SPRPTR_B0               (freeze_peek(VIC_BASE + 0x6CUL))
+#define REG_SPRPTR_B1               (freeze_peek(VIC_BASE + 0x6DUL))
+#define REG_SPRPTR_B2               (freeze_peek(VIC_BASE + 0x6EUL) & 0x7F)
+#define REG_SPRPTR16                (freeze_peek(VIC_BASE + 0x6EUL) & 0x80)
+#define REG_SPR_16COL               (VIC_BASE + 0x6BUL)
+#define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1CUL)
+#define REG_SPRX64EN                (VIC_BASE + 0x57UL)
+#define IS_SPR_MULTICOLOR(n)        ((freeze_peek(REG_SPR_MULTICOLOR)) & (1 << (n)))
+#define IS_SPR_16COL(n)             ((freeze_peek(REG_SPR_16COL)) & (1 << (n)))
+#define IS_SPR_XWIDTH(n)            ((freeze_peek(REG_SPRX64EN)) & (1 << (n)))
 #define SPRITE_POINTER_ADDR         (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
-#define SPRITE_SIZE_BYTES(n)        (((IS_SPR_XWIDTH(g_state.spriteNumber)) | IS_SPR_16COL( (n) ))  ? 168 : 64) 
+#define SPRITE_SIZE_BYTES(n)        (( IS_SPR_XWIDTH( (n) ) | IS_SPR_16COL( (n) ))  ? 168 : 64) 
 #define SPRITE_DATA_ADDR(n)         (REG_SPRPTR16 ? 64 * (                                  \
-                                    ((long)lpeek(SPRITE_POINTER_ADDR + 1 + n * 2) << 8) +   \
-                                    ((long)lpeek(SPRITE_POINTER_ADDR + n * 2)))             \
-                                    : (long) (64 * lpeek(SPRITE_POINTER_ADDR + n)) | ( ((long) (~lpeek(0xDD00) & 0x3)) << 14))
+                                    ((long)freeze_peek(SPRITE_POINTER_ADDR + 1 + n * 2) << 8) +   \
+                                    ((long)freeze_peek(SPRITE_POINTER_ADDR + n * 2)))             \
+                                    : (long) (64 * freeze_peek(SPRITE_POINTER_ADDR + n)) | ( ((long) (~freeze_peek(0xFFD3D00UL) & 0x3)) << 14))
 
 #define SCREEN_ROWS                 25
 #define SCREEN_COLS                 80
@@ -105,12 +108,11 @@ extern int errno;
 #define ABS16(x)                    (((x) ^ ((x) >> 15)) -  ((x) >> 15))
 
 
-
 // Screen RAM for our area. We do not use 16-bit character mode
 // so we need 80x25 = 2K area. 
 #define SCREEN_RAM_ADDRESS          0x12000UL
 #define CHARSET_ADDRESS             0x15000UL
-#define SPRITE_UNDO_BUFFER_ADDRESS  0x17000UL
+#define SPRITE_BUFFER               0x15800UL
 
 
 // Redraw side-bar flags
@@ -188,6 +190,7 @@ typedef struct tagFILEOPTIONS
 
 static APPSTATE g_state;
 static TESTMODEPARAMS g_testModeParams;
+static unsigned long g_freezeSlotStartSector;
 
 static const char *clrIndexName[] = {"bg ", "fg ", "mc1", "mc2"};
 
@@ -308,34 +311,59 @@ static void Initialize()
     // Set 40MHz, VIC-IV I/O, 80 column, screen RAM @ $8000
     POKE(0, 65);
 
-    conioinit();
-    
-    // Set sprite 0 to our cursor
-    lcopy((long)sprite_pointer,0x380,63);
-    POKE(0xD015,1);
-    POKE(0x07F8,0x380/64);
-    // POKE(0x07F9,(0x380+64)/64);
-    // POKE(0x07FA,(0x380+64*2)/64);
-    // POKE(0x07FB,(0x380+64*3)/64);
-    // POKE(0x07FC,(0x380+64*4)/64);
-    // POKE(0x07FD,(0x380+64*5)/64);
-    // POKE(0x07FE,(0x380+64*6)/64);
-    // POKE(0x07FF,(0x380+64*7)/64);
-    
-    POKE(0xD000,100);
-    POKE(0xD001,100);
-    POKE(0xD027,7);
-    POKE(0xD06C,0xF8);
-    POKE(0xD06D,0x07);
-    POKE(0xD06E,0x00);
+    // --- Freezer slot setup
 
+    g_freezeSlotStartSector = find_freeze_slot_start_sector(0);
+    request_freeze_region_list();
+
+    // --- Screen setup ----
+
+    conioinit();
+
+    sethotregs(1);
+  
     setextendedattrib(1);
     setscreensize(SCREEN_COLS, SCREEN_ROWS);
     setscreenaddr(SCREEN_RAM_ADDRESS);
+    bordercolor(DEFAULT_BORDER_COLOR);
+    bgcolor(DEFAULT_SCREEN_COLOR);
+
+    // --- Charset setup ----
+
     lcopy(0x2D800, CHARSET_ADDRESS, 2048);
     lcopy((long) chsetToolbox, CHARSET_ADDRESS  + TOOLBOX_CHARSET_BASE_IDX * 8, sizeof(chsetToolbox) );
     setcharsetaddr(CHARSET_ADDRESS);
 
+    // --- Sprite setup ---- 
+    
+    // Set sprite 0 to our cursor.
+    // Set sprite 1 to editing cursor #1
+    // Set sprite 2 to current sprite placeholder.
+
+    POKE(0xD015, 1);  
+
+    // Set local sprite pointer table to 0x7F8
+    POKE(0xD06C,0xF8);
+    POKE(0xD06D,0x07);
+    POKE(0xD06E,0x00);
+
+    // #0: Mouse Pointer sprite 
+    
+    lcopy((long)sprite_pointer,0x380,63);
+    POKE(0x07F8,0x380/64);
+    POKE(0xD000,100);
+    POKE(0xD001,100);
+    POKE(0xD027,7);
+
+    POKE(0x07F9,(0x380+64)/64);
+    POKE(0x07FA,(0x380+64*2)/64);
+    POKE(0x07FB,(0x380+64*3)/64);
+    POKE(0x07FC,(0x380+64*4)/64);
+    POKE(0x07FD,(0x380+64*5)/64);
+    POKE(0x07FE,(0x380+64*6)/64);
+    POKE(0x07FF,(0x380+64*7)/64);
+
+    
 #ifdef TEST_SPRITES
     POKE(53276UL, 2);
     POKE(REG_SPR_16COL, 4);
@@ -351,17 +379,13 @@ static void Initialize()
     g_state.toolActive = 0;
     g_state.toolOrgX = g_state.toolOrgY = 0;
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
-    
-    SetDrawTool(DRAWING_TOOL_PIXEL);
-    UpdateSpriteParameters();
-    SetRedrawFullCanvas();
-
-    clrscr();
-    bordercolor(DEFAULT_BORDER_COLOR);
-    bgcolor(DEFAULT_SCREEN_COLOR);
 
     lfill( (unsigned char) &g_testModeParams, 0, sizeof(TESTMODEPARAMS));
     g_testModeParams.animSpeed = 1;
+
+    SetDrawTool(DRAWING_TOOL_PIXEL);
+    UpdateSpriteParameters();
+    SetRedrawFullCanvas();
 }
 
 static void DrawCursor(BYTE x, BYTE y)
@@ -514,7 +538,7 @@ void SetDrawTool(DRAWING_TOOL dt)
 static void DrawMonoCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 8)) + (x / 8);
+    const long byteAddr = (SPRITE_BUFFER + (y * g_state.spriteWidth / 8)) + (x / 8);
     const BYTE p = lpeek(byteAddr) & ( 0x80 >> (x % 8));
 
     revers(1);
@@ -530,7 +554,7 @@ static void DrawMonoCell(BYTE x, BYTE y)
 static void Draw16ColorCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * 8)) + (x / 2);
+    const long byteAddr = (SPRITE_BUFFER + (y * 8)) + (x / 2);
     const BYTE p = 0xF & (lpeek(byteAddr) >> (((x + 1) % 2) * 4));
     
     revers(1);
@@ -546,7 +570,7 @@ static void Draw16ColorCell(BYTE x, BYTE y)
 static void DrawMulticolorCell(BYTE x, BYTE y)
 {
     register BYTE cell = 0;
-    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 4)) + (x / 4);
+    const long byteAddr = (SPRITE_BUFFER + (y * g_state.spriteWidth / 4)) + (x / 4);
     const BYTE b = lpeek(byteAddr);
     const BYTE p0 = b & (0x80 >> ( 2 * ( x % 4)));
     const BYTE p1 = b & (0x40 >> ( 2 * ( x % 4)));
@@ -570,7 +594,7 @@ static void DrawMulticolorCell(BYTE x, BYTE y)
 
 static void PaintPixelMono(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 8)) + (x / 8);
+    const long byteAddr = (SPRITE_BUFFER + (y * g_state.spriteWidth / 8)) + (x / 8);
     const BYTE bitsel = 0x80 >> (x % 8);
     const BYTE b = lpeek(byteAddr);
     lpoke(byteAddr, g_state.currentColorIdx == COLOR_BACK ? (b & ~bitsel) : (b | bitsel) );
@@ -578,7 +602,7 @@ static void PaintPixelMono(BYTE x, BYTE y)
 
 static void PaintPixelMulti(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (y * g_state.spriteWidth / 4)) + (x / 4);
+    const long byteAddr = (SPRITE_BUFFER + (y * g_state.spriteWidth / 4)) + (x / 4);
     const BYTE b = lpeek(byteAddr);
     const BYTE bitsel = (2 * (x % 4));
     const BYTE p0 = b & (0x80 >> bitsel);
@@ -607,7 +631,7 @@ static void PaintPixelMulti(BYTE x, BYTE y)
 
 static void PaintPixel16Color(BYTE x, BYTE y)
 {    
-    const long byteAddr = (g_state.spriteDataAddr + (y * 8)) + (x / 2);
+    const long byteAddr = (SPRITE_BUFFER + (y * 8)) + (x / 2);
     const BYTE bitsel = (((x + 1) % 2) * 4);
     lpoke(byteAddr, lpeek(byteAddr) & (0xF0 >> bitsel) | (g_state.color[g_state.currentColorIdx] << bitsel));
 }
@@ -615,17 +639,25 @@ static void PaintPixel16Color(BYTE x, BYTE y)
 static void ClearSprite()
 {
     SetRedrawFullCanvas();
-    lfill(g_state.spriteDataAddr, 0, g_state.spriteSizeBytes);
+    lfill(SPRITE_BUFFER, 0, g_state.spriteSizeBytes);
 }
 
 void UpdateSpriteParameters(void)
 {
+    register BYTE i = 0;
+    const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
     const BYTE isXWidth = IS_SPR_XWIDTH(g_state.spriteNumber);
     g_state.spriteHeight = 21;
     g_state.spriteSizeBytes = SPRITE_SIZE_BYTES(g_state.spriteNumber);
     g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
 
-    g_state.spriteDataAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
+    // Crap!. But works.
+    for (i = 0; i < g_state.spriteSizeBytes; ++i) 
+    {
+        lpoke(SPRITE_BUFFER + i, freeze_peek(spriteSourceAddr + i));
+    }
+
+    g_state.spriteDataAddr = spriteSourceAddr;
 
     if (IS_SPR_16COL(g_state.spriteNumber))
     {
@@ -645,9 +677,9 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth =  isXWidth ? 32 : 12;
         g_state.cellsPerPixel = isXWidth ? 2 : 4;
         g_state.pixelsPerByte = 4;
-        g_state.color[COLOR_FORE] = PEEK(0xD027U + g_state.spriteNumber);
-        g_state.color[COLOR_MC1] = PEEK(0xD025U);
-        g_state.color[COLOR_MC2] = PEEK(0xD026U);
+        g_state.color[COLOR_FORE] = freeze_peek(0xFFD3027UL + g_state.spriteNumber);
+        g_state.color[COLOR_MC1] = freeze_peek(0xFFD3025UL);
+        g_state.color[COLOR_MC2] = freeze_peek(0xFFD3026UL);
     }
     else
     {
@@ -657,7 +689,7 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth = isXWidth ? 64 : 24;
         g_state.cellsPerPixel = isXWidth  ? 1 : 2;
         g_state.pixelsPerByte = 8;
-        g_state.color[COLOR_FORE] = PEEK(0xD027U + g_state.spriteNumber);
+        g_state.color[COLOR_FORE] = freeze_peek(0xFFD3027UL + g_state.spriteNumber);
     }
 
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
@@ -665,9 +697,11 @@ void UpdateSpriteParameters(void)
 
 static void UpdateColorRegs()
 {
-    POKE(0xD027U + g_state.spriteNumber, g_state.color[COLOR_FORE]);
-    POKE(0xD025U, g_state.color[COLOR_MC1]);
-    POKE(0xD026U, g_state.color[COLOR_MC2]);
+    freeze_poke(0xD027UL + (unsigned long)g_state.spriteNumber, g_state.color[COLOR_FORE]);
+    freeze_poke(0xD025UL, g_state.color[COLOR_MC1]);
+    freeze_poke(0xD026UL, g_state.color[COLOR_MC2]);
+
+    bordercolor(COLOUR_BLUE);
 }
 
 static void EraseCanvasSpace()
@@ -721,12 +755,7 @@ void SetRedrawFullCanvas(void)
 
 static void DrawHeader()
 {
-    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.8                    copyright (c) 2020 hernan di pietro{rvsoff}");
-}
-
-static void DrawStatusBar()
-{
-
+    cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.9          (c)2021 hernan di pietro-paul gardner-stephen{rvsoff}");
 }
 
 static void DrawColorSelector()
@@ -921,10 +950,12 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 static void ShowHelp()
 {
     const char* fileKeys[] = { 
-        "       file        ", 
+        "  file / txfer     ", 
         "new          ctrl+n",
         "load             f5",
-        "save             f7"};
+        "save             f7",
+        "fetch            f8",
+        "store            f9"};
 
     const char* drawKeys[] = { 
         "       tools       ",
@@ -978,107 +1009,107 @@ static void ShowHelp()
     
 }
 
-static void TestMode()
-{
-    BYTE key, exit = 0, redrawStatus = 1, i;
-    BYTE prevReg_Vxpand = PEEK(0xD017);
-    BYTE prevReg_Hxpand = PEEK(0xD01D);
-    flushkeybuf();
-    bgcolor(g_state.color[COLOR_BACK]);
-    clrscr();
+// static void TestMode()
+// {
+//     BYTE key, exit = 0, redrawStatus = 1, i;
+//     BYTE prevReg_Vxpand = PEEK(0xD017);
+//     BYTE prevReg_Hxpand = PEEK(0xD01D);
+//     flushkeybuf();
+//     bgcolor(g_state.color[COLOR_BACK]);
+//     clrscr();
 
-    g_testModeParams.animCurFrame = g_state.spriteNumber;
+//     g_testModeParams.animCurFrame = g_state.spriteNumber;
 
-    for (i = 0; i < 7; ++i)
-    {
-        POKE(0xD000UL + (i * 2), 320 / 2);
-        POKE(0xD001UL + (i * 2), 100);
-    }
+//     for (i = 0; i < 7; ++i)
+//     {
+//         POKE(0xD000UL + (i * 2), 320 / 2);
+//         POKE(0xD001UL + (i * 2), 100);
+//     }
     
-    POKE(0xD010UL, 0);
-    POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
-    POKE(0xD01D, g_testModeParams.horizExpand);
-    POKE(0xD017, g_testModeParams.vertExpand);
+//     POKE(0xD010UL, 0);
+//     POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
+//     POKE(0xD01D, g_testModeParams.horizExpand);
+//     POKE(0xD017, g_testModeParams.vertExpand);
     
-    DrawHeader();
+//     DrawHeader();
 
-    while (!exit)
-    {
-        if (g_testModeParams.animEnable)
-        {
-            g_testModeParams.animCurFrame = (g_testModeParams.animCurFrame + 1) % 8;
-            POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
-            redrawStatus = 1;
-            usleep(100000 / g_testModeParams.animSpeed);
-        }
+//     while (!exit)
+//     {
+//         if (g_testModeParams.animEnable)
+//         {
+//             g_testModeParams.animCurFrame = (g_testModeParams.animCurFrame + 1) % 8;
+//             POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
+//             redrawStatus = 1;
+//             usleep(100000 / g_testModeParams.animSpeed);
+//         }
         
-        key = 0;
-        if (kbhit())
-        {
-            key = cgetc();
-        }
+//         key = 0;
+//         if (kbhit())
+//         {
+//             key = cgetc();
+//         }
 
-        switch (key)
-        {
-        case 0:
-            break;
+//         switch (key)
+//         {
+//         case 0:
+//             break;
 
-        case 0xF3:
-            exit = 1;
-            break;
+//         case 0xF3:
+//             exit = 1;
+//             break;
 
-        case 104: // H-expand
-            g_testModeParams.horizExpand = ~g_testModeParams.horizExpand;
-            POKE(0xD01D, g_testModeParams.horizExpand);
-            redrawStatus = 1;
-            break;
+//         case 104: // H-expand
+//             g_testModeParams.horizExpand = ~g_testModeParams.horizExpand;
+//             POKE(0xD01D, g_testModeParams.horizExpand);
+//             redrawStatus = 1;
+//             break;
 
-        case 118: // V-expand
-            g_testModeParams.vertExpand = ~g_testModeParams.vertExpand;
-            POKE(0xD017, g_testModeParams.vertExpand);
-            redrawStatus = 1;
-            break;
+//         case 118: // V-expand
+//             g_testModeParams.vertExpand = ~g_testModeParams.vertExpand;
+//             POKE(0xD017, g_testModeParams.vertExpand);
+//             redrawStatus = 1;
+//             break;
 
-        case 101: // E
-        case 102: // F
-        case 115: // S
-            key = cgetc();
-            if (key >= '0' && key <= '7')
-            {
-                g_testModeParams.animSpeed = key - 48;
-            }
+//         case 101: // E
+//         case 102: // F
+//         case 115: // S
+//             key = cgetc();
+//             if (key >= '0' && key <= '7')
+//             {
+//                 g_testModeParams.animSpeed = key - 48;
+//             }
             
-            break;
+//             break;
 
-        case ' ': // 
-            g_testModeParams.animEnable = ~g_testModeParams.animEnable;
-            POKE(0xD01D, g_testModeParams.horizExpand);
-            break;
-        }
+//         case ' ': // 
+//             g_testModeParams.animEnable = ~g_testModeParams.animEnable;
+//             POKE(0xD01D, g_testModeParams.horizExpand);
+//             break;
+//         }
 
-        if (redrawStatus) 
-        {
-            revers(1);
-            cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
-            cputsxy(0, SCREEN_ROWS - 1, "sprite: ");
-            cputdec(g_testModeParams.animCurFrame, 0, 0);
-            cputs(" start: ");
-            cputdec(g_testModeParams.animStart, 0, 0);
-            cputs(" end: ");
-            cputdec(g_testModeParams.animEnd, 0, 0);
-            cputs(" speed: ");
-            cputdec(g_testModeParams.animSpeed, 0, 0);
-            revers(0);
-            redrawStatus = 0;
-        }
-    }
+//         if (redrawStatus) 
+//         {
+//             revers(1);
+//             cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
+//             cputsxy(0, SCREEN_ROWS - 1, "sprite: ");
+//             cputdec(g_testModeParams.animCurFrame, 0, 0);
+//             cputs(" start: ");
+//             cputdec(g_testModeParams.animStart, 0, 0);
+//             cputs(" end: ");
+//             cputdec(g_testModeParams.animEnd, 0, 0);
+//             cputs(" speed: ");
+//             cputdec(g_testModeParams.animSpeed, 0, 0);
+//             revers(0);
+//             redrawStatus = 0;
+//         }
+//     }
 
-    bgcolor(DEFAULT_SCREEN_COLOR);
-    POKE(0xD015UL, 0);
-    POKE(0xD017, prevReg_Vxpand);
-    POKE(0xD10D, prevReg_Hxpand);
-    cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
-}
+//     bgcolor(DEFAULT_SCREEN_COLOR);
+//     POKE(0xD015UL, 0);
+//     POKE(0xD017, prevReg_Vxpand);
+//     POKE(0xD10D, prevReg_Hxpand);
+//     cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
+// }
 
 static void DoExit()
 {
@@ -1263,18 +1294,18 @@ static void MainLoop()
             switch(g_state.spriteColorMode) {
                 case SPR_COLOR_MODE_16COLOR:
                     // Switch to Hi-Res
-                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
-                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+                    freeze_poke(REG_SPR_16COL, freeze_peek(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+                    freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
                     break;
                 case SPR_COLOR_MODE_MULTICOLOR:
                     // Switch to 16-col
-                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) | (1 << g_state.spriteNumber));
-                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+                    freeze_poke(REG_SPR_16COL, freeze_peek(REG_SPR_16COL) | (1 << g_state.spriteNumber));
+                    freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
                     break;
                 case SPR_COLOR_MODE_MONOCHROME:
                     // Switch to Multicol
-                    POKE(REG_SPR_16COL, PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
-                    POKE(REG_SPR_MULTICOLOR, PEEK(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
+                    freeze_poke(REG_SPR_16COL, freeze_peek(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+                    freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
                     break;
             }
             UpdateSpriteParameters();
@@ -1293,7 +1324,7 @@ static void MainLoop()
 
         case 116: // Test
 
-            TestMode();
+            //TestMode();
             EraseCanvasSpace();
             SetRedrawFullCanvas();
             g_state.redrawSideBarFlags = REDRAW_SB_ALL;
