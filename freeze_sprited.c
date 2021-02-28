@@ -40,7 +40,11 @@
                 Drawing tools: pixel, box, circle ,lines.
                 Sprite Test Mode.
 
-    v0.9        Transfer to/from frozen sprite memory
+    v0.9        Transfer to/from frozen sprite memory of registers and data.
+                Display: 50-line mode, wide-screen/4:3 aspect ratio modes.
+                Fixes buffer overrun in Ask() function.
+
+
 
     TODO: 
 
@@ -72,6 +76,9 @@ extern int errno;
 #define REG_SPR_16COL               (VIC_BASE + 0x6BUL)
 #define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1CUL)
 #define REG_SPRX64EN                (VIC_BASE + 0x57UL)
+#define REG_SPRITE_MULTICOL1        (VIC_BASE + 0x25UL)
+#define REG_SPRITE_MULTICOL2        (VIC_BASE + 0x26UL)
+#define REG_SPRITE_COLOR(n)         (VIC_BASE + 0x27UL + (n))
 #define IS_SPR_MULTICOLOR(n)        ((freeze_peek(REG_SPR_MULTICOLOR)) & (1 << (n)))
 #define IS_SPR_16COL(n)             ((freeze_peek(REG_SPR_16COL)) & (1 << (n)))
 #define IS_SPR_XWIDTH(n)            ((freeze_peek(REG_SPRX64EN)) & (1 << (n)))
@@ -93,9 +100,7 @@ extern int errno;
 #define DEFAULT_BORDER_COLOR        6
 #define DEFAULT_SCREEN_COLOR        6
 #define DEFAULT_BACK_COLOR          11
-#define DEFAULT_FORE_COLOR          1
-#define DEFAULT_MULTI1_COLOR        3
-#define DEFAULT_MULTI2_COLOR        4
+
 #define TRANS_CHARACTER             230
 #define CURSOR_CHARACTER            219
 #define SHAPE_PREVIEW_CHARACTER     32
@@ -106,7 +111,6 @@ extern int errno;
 #define MAX(a,b)                    ((a)>(b) ? (a):(b))
 #define ABS8(x)                     (((x) ^ ((x) >> 7)) -  ((x) >> 7))
 #define ABS16(x)                    (((x) ^ ((x) >> 15)) -  ((x) >> 15))
-
 
 // Screen RAM for our area. We do not use 16-bit character mode
 // so we need 80x25 = 2K area. 
@@ -153,6 +157,7 @@ enum {
 
 typedef struct tagAPPSTATE
 {
+    BYTE wideScreenMode;
     unsigned int spriteSizeBytes;
     long spriteDataAddr;
     BYTE spriteNumber;
@@ -337,10 +342,10 @@ static void Initialize()
     // --- Sprite setup ---- 
     
     // Set sprite 0 to our cursor.
-    // Set sprite 1 to editing cursor #1
-    // Set sprite 2 to current sprite placeholder.
+    // Set sprite 1 to current sprite placeholder.
+    // Set sprite 2 to editing cursor #1
 
-    POKE(0xD015, 1);  
+    POKE(0xD015, 3);  
 
     // Set local sprite pointer table to 0x7F8
     POKE(0xD06C,0xF8);
@@ -354,7 +359,10 @@ static void Initialize()
     POKE(0xD000,100);
     POKE(0xD001,100);
     POKE(0xD027,7);
-
+    POKE(0xD028,1);
+    POKE(0xD01C,0); // All mono/hires sprites
+    POKE(0xD06B,0); // 16-color mode OFF
+    
     POKE(0x07F9,(0x380+64)/64);
     POKE(0x07FA,(0x380+64*2)/64);
     POKE(0x07FB,(0x380+64*3)/64);
@@ -379,6 +387,7 @@ static void Initialize()
     g_state.toolActive = 0;
     g_state.toolOrgX = g_state.toolOrgY = 0;
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
+    g_state.wideScreenMode = 0;
 
     lfill( (unsigned char) &g_testModeParams, 0, sizeof(TESTMODEPARAMS));
     g_testModeParams.animSpeed = 1;
@@ -642,22 +651,35 @@ static void ClearSprite()
     lfill(SPRITE_BUFFER, 0, g_state.spriteSizeBytes);
 }
 
+static void FetchSpriteDataFromSlot()
+{
+    register BYTE i;
+    const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
+    for (i = 0; i < g_state.spriteSizeBytes; ++i) 
+    {
+        lpoke(SPRITE_BUFFER + i, freeze_peek(spriteSourceAddr + i));
+    }
+}
+
+static void PutSpriteDataToSlot()
+{
+    register BYTE i;
+    const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
+    for (i = 0; i < g_state.spriteSizeBytes; ++i) 
+    {
+        freeze_poke(spriteSourceAddr + i, lpeek(SPRITE_BUFFER + i));
+    }
+}
+
 void UpdateSpriteParameters(void)
 {
-    register BYTE i = 0;
-    const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
     const BYTE isXWidth = IS_SPR_XWIDTH(g_state.spriteNumber);
     g_state.spriteHeight = 21;
     g_state.spriteSizeBytes = SPRITE_SIZE_BYTES(g_state.spriteNumber);
     g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
 
-    // Crap!. But works.
-    for (i = 0; i < g_state.spriteSizeBytes; ++i) 
-    {
-        lpoke(SPRITE_BUFFER + i, freeze_peek(spriteSourceAddr + i));
-    }
-
-    g_state.spriteDataAddr = spriteSourceAddr;
+    FetchSpriteDataFromSlot();
+    g_state.spriteDataAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
 
     if (IS_SPR_16COL(g_state.spriteNumber))
     {
@@ -677,9 +699,9 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth =  isXWidth ? 32 : 12;
         g_state.cellsPerPixel = isXWidth ? 2 : 4;
         g_state.pixelsPerByte = 4;
-        g_state.color[COLOR_FORE] = freeze_peek(0xFFD3027UL + g_state.spriteNumber);
-        g_state.color[COLOR_MC1] = freeze_peek(0xFFD3025UL);
-        g_state.color[COLOR_MC2] = freeze_peek(0xFFD3026UL);
+        g_state.color[COLOR_FORE] = freeze_peek(REG_SPRITE_COLOR(g_state.spriteNumber));
+        g_state.color[COLOR_MC1] = freeze_peek(REG_SPRITE_MULTICOL1);
+        g_state.color[COLOR_MC2] = freeze_peek(REG_SPRITE_MULTICOL2);
     }
     else
     {
@@ -689,17 +711,20 @@ void UpdateSpriteParameters(void)
         g_state.spriteWidth = isXWidth ? 64 : 24;
         g_state.cellsPerPixel = isXWidth  ? 1 : 2;
         g_state.pixelsPerByte = 8;
-        g_state.color[COLOR_FORE] = freeze_peek(0xFFD3027UL + g_state.spriteNumber);
+        g_state.color[COLOR_FORE] = freeze_peek(REG_SPRITE_COLOR(g_state.spriteNumber));
     }
-
+    g_state.cellsPerPixel >>= g_state.wideScreenMode;
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
+
+    // Restore border affected by previous SD Card I/O
+    bordercolor(DEFAULT_BORDER_COLOR);
 }
 
 static void UpdateColorRegs()
 {
-    freeze_poke(0xD027UL + (unsigned long)g_state.spriteNumber, g_state.color[COLOR_FORE]);
-    freeze_poke(0xD025UL, g_state.color[COLOR_MC1]);
-    freeze_poke(0xD026UL, g_state.color[COLOR_MC2]);
+    freeze_poke(REG_SPRITE_COLOR(g_state.spriteNumber), g_state.color[COLOR_FORE]);
+    freeze_poke(REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
+    freeze_poke(REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
 
     bordercolor(COLOUR_BLUE);
 }
@@ -914,7 +939,7 @@ static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
     revers(1);
     cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
     cputsxy(0, SCREEN_ROWS - 1, question);
-    cinput(outbuffer, maxlen, CINPUT_ACCEPT_ALL);
+    cinput(outbuffer, maxlen + 1, CINPUT_ACCEPT_ALL);
     revers(0);
     textcolor(COLOUR_BLUE);
     cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
@@ -995,15 +1020,22 @@ static void ShowHelp()
         "set end frame     e",
         "set speed         s",
         "exit             f3" };
+
+    const char* displayKeys[] = {
+        "     display       ",
+        "aspect ratio  alt+r",
+        "25/50-line    alt+d",
+        };
     
     flushkeybuf();
     clrscr();
     DrawHeader();
-    PrintKeyGroup(fileKeys,  4, 0, 2);
-    PrintKeyGroup(editKeys,  9, 21, 2);
-    PrintKeyGroup(drawKeys,  7, 0, 2 +4+1 );
-    PrintKeyGroup(colorKeys, 7, 0, 2 +4+1 +7+1);
-    PrintKeyGroup(testKeys,  8, 21, 2 + 9 + 2);
+    PrintKeyGroup(fileKeys,     4, 0, 2);
+    PrintKeyGroup(editKeys,     9, 21, 2);
+    PrintKeyGroup(drawKeys,     7, 0, 2 +4+1 );
+    PrintKeyGroup(colorKeys,    7, 0, 2 +4+1 +7+1);
+    PrintKeyGroup(testKeys,     8, 21, 2 + 9 + 2);
+    PrintKeyGroup(displayKeys,  3, 42, 2);
 
     cgetc();
     
@@ -1127,6 +1159,13 @@ static void DrawScreen()
     DrawHeader();
     DrawCanvas();
     DrawSidebar();
+}
+
+static void UpdateAndFullRedraw()
+{
+    UpdateSpriteParameters();
+    EraseCanvasSpace();
+    SetRedrawFullCanvas();
 }
 
 unsigned short joy_delay_countdown = 0;
@@ -1270,11 +1309,24 @@ static void MainLoop()
             g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
             break;
 
+        /* ------------------------- DISPLAY GROUP --------------------------------------- */
+
+        case 240: //ALT-D
+            setscreensize(80,50);
+            UpdateAndFullRedraw();
+            break;
+
+        case 174: //ALT-R
+            g_state.wideScreenMode = ~g_state.wideScreenMode & 1;
+            UpdateAndFullRedraw();
+            break;
+
         /* ------------------------- EDIT GROUP ------------------------------------------ */
 
         case ',':
         case '.':
 
+            PutSpriteDataToSlot();
             g_state.redrawSideBarFlags = REDRAW_SB_ALL;
 
             if (key == '.' && g_state.spriteNumber++ == SPRITE_MAX_COUNT - 1)
@@ -1282,11 +1334,10 @@ static void MainLoop()
             else if (key == ',' && g_state.spriteNumber-- == 0)
                 g_state.spriteNumber = SPRITE_MAX_COUNT - 1;
 
-            UpdateSpriteParameters();
-            EraseCanvasSpace();
-            SetRedrawFullCanvas();
+            UpdateAndFullRedraw();
             g_state.cursorX = MIN(g_state.spriteWidth-1, g_state.cursorX);
             g_state.cursorY = MIN(g_state.spriteHeight-1, g_state.cursorY);
+
             break;
 
         case '*':
@@ -1308,18 +1359,14 @@ static void MainLoop()
                     freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
                     break;
             }
-            UpdateSpriteParameters();
-            EraseCanvasSpace();
-            SetRedrawFullCanvas();
+            UpdateAndFullRedraw();
             break;
 
         case '@' : //94: // Up-arrow
 
-            POKE(REG_SPRX64EN, PEEK(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
+            freeze_poke(REG_SPRX64EN, freeze_peek(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
             g_state.redrawSideBarFlags = REDRAW_SB_ALL;
-            UpdateSpriteParameters();
-            EraseCanvasSpace();
-            SetRedrawFullCanvas();
+            UpdateAndFullRedraw();
             break;
 
         case 116: // Test
