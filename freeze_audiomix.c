@@ -46,18 +46,18 @@ unsigned char *audio_menu_simple=
   "         LEFT OUTPUT CHANNEL:           "
   "        cccccccccccccccccccccccccccccccc"
   "    MASTERb                             "
-  "  LEFT SIDb                             "
+  "   SID 3+4b                             "
   " LEFT DIGIb                             "
-  " RIGHT SIDb                             "
+  "   SID 1+2b                             "
   "RIGHT DIGIb                             "
   "SFX OPL FMb                             "  
   "                                        "  
   "        RIGHT OUTPUT CHANNEL:           "
   "        cccccccccccccccccccccccccccccccc"
   "    MASTERb                             "
-  "  LEFT SIDb                             "
+  "   SID 3+4b                             "
   " LEFT DIGIb                             "
-  " RIGHT SIDb                             "
+  "   SID 1+2b                             "
   "RIGHT DIGIb                             "
   "SFX OPL FMb                             "  
   " cccccccccccccccccccccccccccccccccccccc "
@@ -91,8 +91,8 @@ uint8_t audioxbar_getcoefficient(uint8_t n)
   return PEEK(0xD6F5U); 
 }
 
-uint8_t c,value,select_row,select_column;
-uint16_t i;
+static uint8_t c,value,select_row,select_column;
+static uint16_t i;
 
 uint8_t nybl_to_hex(uint8_t v)
 {

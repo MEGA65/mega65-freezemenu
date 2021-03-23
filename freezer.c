@@ -19,7 +19,7 @@ signed char swipe_dir=0;
 // (used to avoid delays when navigating through the list of freeze slots
 #define NAVIGATION_KEY_CHECK() { if (((PEEK(0xD610U)&0x7f)==0x11)||((PEEK(0xD610U)&0x7f)==0x1D)) return; }
 
-uint8_t sector_buffer[512];
+static uint8_t sector_buffer[512];
 
 unsigned short slot_number=0;
 
@@ -78,7 +78,7 @@ unsigned char *freeze_menu=
   "\0";
 
 
-unsigned short i;
+static unsigned short i;
 char *deadly_haiku[3]={"Error consumes all","As sand erodes rock and stone","Now also your mind"};
 
 unsigned char c64_palette[64]={
