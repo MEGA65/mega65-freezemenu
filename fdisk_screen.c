@@ -125,7 +125,7 @@ void recolour_last_line(char colour)
 
 
 unsigned char ii,j,carry,temp;
-unsigned int value;
+static unsigned int value;
 void screen_decimal(unsigned int addr,unsigned int v)
 {
   // XXX - We should do this off-screen and copy into place later, to avoid glitching
@@ -247,7 +247,7 @@ void screen_colour_line(unsigned char line,unsigned char colour)
   lfill(0x1f800+(line<<6)+(line<<4),colour,80);
 }
 
-unsigned char i;
+static unsigned char i;
 
 void fatal_error(unsigned char *filename, unsigned int line_number)
 {

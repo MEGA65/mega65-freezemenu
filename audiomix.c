@@ -157,7 +157,7 @@ unsigned char ascii_to_screencode(char c)
   return c;
 }
 
-unsigned short i;
+static unsigned short i;
 char *deadly_haiku[3]={"Error consumes all","As sand erodes rock and stone","Now also your mind"};
 
 void screen_of_death(char *msg)
