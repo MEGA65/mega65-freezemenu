@@ -83,7 +83,7 @@ install:	all
 
 $(CC65):
 	$(warning ======== Making: $@)
-ifdef $(USE_LOCAL_CC65)
+ifdef USE_LOCAL_CC65
 	@echo "Using local installed CC65."
 else
 	git submodule init
@@ -108,15 +108,15 @@ pngprepare:	pngprepare.c
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm -m freezer.map -o FREEZER.M65 $(ASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 $(ASSFILES)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(LIBCASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(LIBCASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
