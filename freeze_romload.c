@@ -14,6 +14,8 @@ short file_count=0;
 short selection_number=0;
 short display_offset=0;
 
+unsigned char buffer[512];
+
 char *reading_disk_list_message="SCANNING DIRECTORY ...";
 
 char *diskchooser_instructions=
@@ -275,13 +277,28 @@ char *freeze_select_rom_or_patch(void)
 	else {
 	  // XXX - Actually do loading of ROM / ROM diff file
 	  if (!strcmp(&rom_name_return[strlen(rom_name_return)-4],".ROM")) {
+	    int s;
+	    unsigned int slot_number=0; // XXX Get this passed from main freezer programme
+
 	    // Load normal ROM file
 
 	    // Begin by loading the file at $40000-$5FFFF
+	    read_file_from_sdcard(rom_name_return,0x40000L);
+
 	    // Then progressively save it into the frozen memory
+	    find_freeze_slot_start_sector(slot_number);
+	    freeze_slot_start_sector = *(uint32_t *)0xD681U;
+	    for(s=0;s<(128*1024/512);s++) {
+	      // Write each sector to frozen memory
+	      POKE(0xD020,PEEK(0xD020)+1);
+	      lcopy(0x40000L+512L*(long)s,(long)buffer,512);
+	      freeze_store_sector(0x20000L+((long)s)*512,buffer);
+	    }
+	    POKE(0xD020,0x00);
 
 	  } else if (!strcmp(&rom_name_return[strlen(rom_name_return)-4],".RDF")) {
 	    // Load ROM diff file
+	    read_file_from_sdcard(rom_name_return,0x40000L);
 	  }
 	  
 	  break;
