@@ -270,11 +270,20 @@ char *freeze_select_rom_or_patch(void)
 	draw_file_list();
       } else {
 	if (rom_name_return[0]=='-') {
+	  // Do nothing
 	}
 	else {
-	  
 	  // XXX - Actually do loading of ROM / ROM diff file
-	    
+	  if (!strcmp(&rom_name_return[strlen(rom_name_return)-4],".ROM")) {
+	    // Load normal ROM file
+
+	    // Begin by loading the file at $40000-$5FFFF
+	    // Then progressively save it into the frozen memory
+
+	  } else if (!strcmp(&rom_name_return[strlen(rom_name_return)-4],".RDF")) {
+	    // Load ROM diff file
+	  }
+	  
 	  break;
 	}
 	POKE(0xD020U,6);
