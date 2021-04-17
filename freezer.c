@@ -398,57 +398,57 @@ void draw_freeze_menu(void)
   // Update messages based on the settings we allow to be easily changed
 
   if (slot_number) {
-    lcopy("LOAD  ",&freeze_menu[LOAD_RESUME_OFFSET],6);
-    lcopy(" FREEZE SLOT:      ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
+    lcopy((unsigned long)"LOAD  ",(unsigned long)&freeze_menu[LOAD_RESUME_OFFSET],6);
+    lcopy((unsigned long)" FREEZE SLOT:      ",(unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET],19);
     // Display slot ID as decimal
-    screen_decimal(&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);  
+    screen_decimal((unsigned long)&freeze_menu[SLOT_NUMBER_OFFSET],slot_number);  
   } else {
-    lcopy("RESUME",&freeze_menu[LOAD_RESUME_OFFSET],6);
+    lcopy((unsigned long)"RESUME",(unsigned long)&freeze_menu[LOAD_RESUME_OFFSET],6);
 
     // Display "- PAUSED STATE -"
-    lcopy(" - PAUSED STATE -   ",&freeze_menu[FREEZE_SLOT_OFFSET],19);
+    lcopy((unsigned long)" - PAUSED STATE -   ",(unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET],19);
   }
 
   // Draw drive numbers for internal drive
-  lfill(&freeze_menu[DRIVE0_NUM_OFFSET],0,2);
-  lfill(&freeze_menu[DRIVE1_NUM_OFFSET],0,2);
-  screen_decimal(&freeze_menu[DRIVE0_NUM_OFFSET],
+  lfill((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET],0,2);
+  lfill((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET],0,2);
+  screen_decimal((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET],
 		 freeze_peek(0x10113L));
-  screen_decimal(&freeze_menu[DRIVE1_NUM_OFFSET],
+  screen_decimal((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET],
 		 freeze_peek(0x10114L));
   
   // CPU MODE
   if (freeze_peek(0xffd367dL)&0x20)
-    lcopy("  4502",&freeze_menu[CPU_MODE_OFFSET],6);
+    lcopy((unsigned long)"  4502",(unsigned long)&freeze_menu[CPU_MODE_OFFSET],6);
   else
-    lcopy("  AUTO",&freeze_menu[CPU_MODE_OFFSET],6);
+    lcopy((unsigned long)"  AUTO",(unsigned long)&freeze_menu[CPU_MODE_OFFSET],6);
 
   // Joystick 1/2 swap
-  lcopy((PEEK(0xd612L)&0x20)?"YES":" NO",
-	&freeze_menu[JOY_SWAP_OFFSET],3);
+  lcopy((unsigned long)((PEEK(0xd612L)&0x20)?"YES":" NO"),
+	(unsigned long)&freeze_menu[JOY_SWAP_OFFSET],3);
 
   // ROM version
-  lcopy((long)detect_rom(),&freeze_menu[ROM_NAME_OFFSET],11);
+  lcopy((long)detect_rom(),(unsigned long)&freeze_menu[ROM_NAME_OFFSET],11);
   
   // Cartridge enable
-  lcopy((freeze_peek(0xffd367dL)&0x01)?"YES":" NO",
-	&freeze_menu[CART_ENABLE_OFFSET],3);
+  lcopy((unsigned long)((freeze_peek(0xffd367dL)&0x01)?"YES":" NO"),
+	(unsigned long)&freeze_menu[CART_ENABLE_OFFSET],3);
   
   // CPU frequency
   switch(detect_cpu_speed()) {
-  case 1:  lcopy("  1",&freeze_menu[CPU_FREQ_OFFSET],3); break;
-  case 2:  lcopy("  2",&freeze_menu[CPU_FREQ_OFFSET],3); break;
-  case 3:  lcopy("3.5",&freeze_menu[CPU_FREQ_OFFSET],3); break;
-  case 40: lcopy(" 40",&freeze_menu[CPU_FREQ_OFFSET],3); break;
-  default: lcopy("???",&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 1:  lcopy((unsigned long)"  1",(unsigned long)&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 2:  lcopy((unsigned long)"  2",(unsigned long)&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 3:  lcopy((unsigned long)"3.5",(unsigned long)&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  case 40: lcopy((unsigned long)" 40",(unsigned long)&freeze_menu[CPU_FREQ_OFFSET],3); break;
+  default: lcopy((unsigned long)"???",(unsigned long)&freeze_menu[CPU_FREQ_OFFSET],3); break;
   }
     
   if (freeze_peek(0xffd306fL)&0x80) {
     // NTSC60
-    lcopy("NTSC60",&freeze_menu[VIDEO_MODE_OFFSET],6);
+    lcopy((unsigned long)"NTSC60",(unsigned long)&freeze_menu[VIDEO_MODE_OFFSET],6);
   } else {
     // PAL50
-    lcopy(" PAL50",&freeze_menu[VIDEO_MODE_OFFSET],6);
+    lcopy((unsigned long)" PAL50",(unsigned long)&freeze_menu[VIDEO_MODE_OFFSET],6);
   }
 
   /* Display info from the process descriptor
@@ -467,16 +467,16 @@ void draw_freeze_menu(void)
      We should just read the sector containing all this, and get it out all at once.
   */  
   lfill((long)&process_descriptor,0,sizeof(process_descriptor));
-  freeze_fetch_page(0xFFFBD00L,(unsigned char *)&process_descriptor);
+  freeze_fetch_sector(0xFFFBD00L,(unsigned char *)&process_descriptor);
 
   // Display process ID as decimal
-  screen_decimal(&freeze_menu[PROCESS_ID_OFFSET],process_descriptor.task_id);
+  screen_decimal((unsigned long)&freeze_menu[PROCESS_ID_OFFSET],process_descriptor.task_id);
 
 
   // Blank out process descriptor fields
-  lfill(&freeze_menu[PROCESS_NAME_OFFSET],'?',16);
-  lfill(&freeze_menu[D81_IMAGE0_NAME_OFFSET],' ',19);
-  lfill(&freeze_menu[D81_IMAGE1_NAME_OFFSET],' ',19);
+  lfill((unsigned long)&freeze_menu[PROCESS_NAME_OFFSET],'?',16);
+  lfill((unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],' ',19);
+  lfill((unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],' ',19);
 
   if ((process_descriptor.process_name[0]>=' ')
       &&(process_descriptor.process_name[0]<=0x7f)) {
@@ -484,7 +484,7 @@ void draw_freeze_menu(void)
     for(i=0;i<16;i++)
       if (!process_descriptor.process_name[i]) break;
     if (i==16)
-      lcopy(process_descriptor.process_name,&freeze_menu[PROCESS_NAME_OFFSET],16);
+      lcopy((unsigned long)process_descriptor.process_name,(unsigned long)&freeze_menu[PROCESS_NAME_OFFSET],16);
     
     
     // Show name of current mounted disk image  
@@ -492,8 +492,8 @@ void draw_freeze_menu(void)
       for(i=0;i<process_descriptor.d81_image0_namelen;i++)
 	if (!process_descriptor.d81_image0_name[i]) break;
       if (i==process_descriptor.d81_image0_namelen)
-	lcopy(process_descriptor.d81_image0_name,
-	      &freeze_menu[D81_IMAGE0_NAME_OFFSET],
+	lcopy((unsigned long)process_descriptor.d81_image0_name,
+	      (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
 	      process_descriptor.d81_image0_namelen<19?process_descriptor.d81_image0_namelen:19
 	      );
     }
@@ -501,8 +501,8 @@ void draw_freeze_menu(void)
       for(i=0;i<process_descriptor.d81_image1_namelen;i++)
 	if (!process_descriptor.d81_image1_name[i]) break;
       if (i==process_descriptor.d81_image1_namelen)
-	lcopy(process_descriptor.d81_image1_name,
-	      &freeze_menu[D81_IMAGE1_NAME_OFFSET],
+	lcopy((unsigned long)process_descriptor.d81_image1_name,
+	      (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
 	      process_descriptor.d81_image1_namelen<19?process_descriptor.d81_image1_namelen:19
 	      );
     }
@@ -998,11 +998,11 @@ int main(int argc,char **argv)
 	    POKE(0xD020U,0x0e);	    
 	    for(j=0;j<128;j++) {
 	      sdcard_readsector(freeze_slot_start_sector+i+j);
-	      lcopy(sector_buffer,0x40000U+(j<<9),512);
+	      lcopy((unsigned long)sector_buffer,0x40000U+(j<<9),512);
 	    }
 	    POKE(0xD020U,0x00);
 	    for(j=0;j<128;j++) {
-	      lcopy(0x40000U+(j<<9),sector_buffer,512);
+	      lcopy(0x40000U+(j<<9),(unsigned long)sector_buffer,512);
 #ifdef USE_MULTIBLOCK_WRITE
 	      if (!j) sdcard_writesector(dest_freeze_slot_start_sector+i+j,1);
 	      else sdcard_writenextsector();
