@@ -16,6 +16,7 @@ LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 FILES=		FREEZER.M65 \
 		AUDIOMIX.M65 \
 		SPRITED.M65 \
+		ROMLOAD.M65 \
 		C65THUMB.M65 \
 		C64THUMB.M65 \
 		GUSTHUMB.M65
@@ -52,6 +53,15 @@ AMASSFILES=	audiomix.s \
 
 SEASSFILES=	sprited.s \
 		freeze_sprited.s \
+		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s
+
+RLASSFILES=	romload.s \
+		freeze_romload.s \
 		frozen_memory.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
@@ -117,6 +127,10 @@ AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(LIBCASSFILES)
+
+ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
+	$(warning ======== Making: $@)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 $(RLASSFILES) $(LIBCASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)

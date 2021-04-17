@@ -827,7 +827,7 @@ int main(int argc,char **argv)
 	break;
 
       case 'A': case 'a': // Audio mixer
-	mega65_dos_exechelper("AUDIOMIX.M65");
+	mega65_dos_exechelper("AUDIOMIX.M65"); 
 	break;
 
       case 'S': case 's': // Sprite Editor
@@ -1022,7 +1022,9 @@ int main(int argc,char **argv)
 	break;
 
       case 'R': case 'r': // Switch ROMs
-	
+	mega65_dos_exechelper("ROMLOAD.M65"); 
+	break;
+	  
       case 'X': case 'x': // Poke finder
       case 'E': case 'e': // Enter POKEs
       case 'k': case 'K': // Sprite killer
