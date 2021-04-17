@@ -17,7 +17,7 @@ short display_offset=0;
 char *reading_disk_list_message="SCANNING DIRECTORY ...";
 
 char *diskchooser_instructions=
-  "  SELECT DISK IMAGE, THEN PRESS RETURN  "
+  " SELECT ROM OR PATCH, THEN PRESS RETURN "
   "  OR PRESS RUN/STOP TO LEAVE UNCHANGED  ";
 
 unsigned char normal_row[40]={
@@ -234,6 +234,8 @@ char *freeze_select_rom_or_patch(void)
       x=joy_to_key_disk[PEEK(0xDC00)&PEEK(0xDC01)&0x1f];
       // Then wait for joystick to release
       while((PEEK(0xDC00)&PEEK(0xDC01)&0x1f)!=0x1f) continue;
+    } else {
+      POKE(0xD610,0);
     }
     
     switch(x) {
@@ -307,7 +309,8 @@ char *freeze_select_rom_or_patch(void)
     if (display_offset>(file_count-22)) display_offset=file_count-22;
     if (display_offset<0) display_offset=0;
 
-    draw_file_list();
+    if (x) draw_file_list();
+    x=0;
     
   }
   
