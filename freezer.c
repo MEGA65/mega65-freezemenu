@@ -910,6 +910,10 @@ int main(int argc,char **argv)
       case '0': // Select mounted disk image
 	{
 	  char *disk_image=freeze_select_disk_image(0);
+
+	  // Restore freeze region offset list to $0400 screen
+	  request_freeze_region_list();
+	  
 	  if ((unsigned short)disk_image==0xFFFF) {
 	    // Have no disk image
 	  } else if (disk_image) {
@@ -929,11 +933,16 @@ int main(int argc,char **argv)
 	    }
 	  }
 	}
+
 	draw_freeze_menu();
 	break;
       case '1': // Select mounted disk image for 2nd drive
 	{
 	  char *disk_image=freeze_select_disk_image(1);
+
+	  // Restore freeze region offset list to $0400 screen
+	  request_freeze_region_list();
+
 	  if ((unsigned short)disk_image==0xFFFF) {
 	    // Have no disk image
 	  } else if (disk_image) {

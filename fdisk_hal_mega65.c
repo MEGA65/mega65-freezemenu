@@ -111,7 +111,7 @@ void sdcard_readsector(const uint32_t sector_number)
     // Wait for SD card to be ready
     timeout=50000U;
     while (PEEK(sd_ctl)&0x3)
-      {
+      {	
 	timeout--;
 	if (!timeout) {
 	  // Time out -- so reset SD card
@@ -134,7 +134,7 @@ void sdcard_readsector(const uint32_t sector_number)
     // Wait for read to complete
     timeout=50000U;
     while (PEEK(sd_ctl)&0x3) {
-      timeout--; if (!timeout) return;
+	timeout--; if (!timeout) return;
 	//      write_line("Waiting for read to complete",0);
       if (PEEK(sd_ctl)&0x40)
 	{
@@ -189,8 +189,17 @@ void sdcard_writesector(const uint32_t sector_number,uint8_t is_multi)
 
   POKE(sd_ctl,2); // read the sector we just wrote
   
+  counter=0;
   while (PEEK(sd_ctl)&3) {
-    continue;
+    POKE(0xD020,PEEK(0xD020)+1);
+    counter++;
+    if (!counter) {
+      // SD card not becoming ready: try reset
+      POKE(sd_ctl,0); // begin reset
+      usleep(500000);
+      POKE(sd_ctl,1); // end reset
+      POKE(sd_ctl,2);
+    }
   }
   
   // Copy the read data to a buffer for verification
