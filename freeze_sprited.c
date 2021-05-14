@@ -43,7 +43,8 @@
     v0.9        Transfer to/from frozen sprite memory of registers and data.
                 Display: 50-line mode, wide-screen/4:3 aspect ratio modes.
                 Fixes buffer overrun in Ask() function.
-
+                Sprite preview
+                Fancy selection cursor
 
 
     TODO: 
@@ -69,6 +70,7 @@ extern int errno;
 
 #define PAGE_SIZE                   256
 #define VIC_BASE                    0xFFD3000UL  // This is where VIC-II is mapped in frozen memory
+#define LOCAL_VIC_BASE              0xD000
 #define REG_SPRPTR_B0               (freeze_peek(VIC_BASE + 0x6CUL))
 #define REG_SPRPTR_B1               (freeze_peek(VIC_BASE + 0x6DUL))
 #define REG_SPRPTR_B2               (freeze_peek(VIC_BASE + 0x6EUL) & 0x7F)
@@ -79,6 +81,14 @@ extern int errno;
 #define REG_SPRITE_MULTICOL1        (VIC_BASE + 0x25UL)
 #define REG_SPRITE_MULTICOL2        (VIC_BASE + 0x26UL)
 #define REG_SPRITE_COLOR(n)         (VIC_BASE + 0x27UL + (n))
+
+#define LOCAL_REG_SPR_16COL               (LOCAL_VIC_BASE + 0x6BUL)
+#define LOCAL_REG_SPR_MULTICOLOR          (LOCAL_VIC_BASE + 0x1CUL)
+#define LOCAL_REG_SPRX64EN                (LOCAL_VIC_BASE + 0x57UL)
+#define LOCAL_REG_SPRITE_MULTICOL1        (LOCAL_VIC_BASE + 0x25UL)
+#define LOCAL_REG_SPRITE_MULTICOL2        (LOCAL_VIC_BASE + 0x26UL)
+#define LOCAL_REG_SPRITE_COLOR(n)         (LOCAL_VIC_BASE + 0x27UL + (n))
+
 #define IS_SPR_MULTICOLOR(n)        ((freeze_peek(REG_SPR_MULTICOLOR)) & (1 << (n)))
 #define IS_SPR_16COL(n)             ((freeze_peek(REG_SPR_16COL)) & (1 << (n)))
 #define IS_SPR_XWIDTH(n)            ((freeze_peek(REG_SPRX64EN)) & (1 << (n)))
@@ -91,7 +101,7 @@ extern int errno;
 
 #define SCREEN_ROWS                 25
 #define SCREEN_COLS                 80
-#define CANVAS_HEIGHT               SCREEN_ROWS - 2
+#define CANVAS_HEIGHT               (SCREEN_ROWS - 2)
 #define CANVAS_TOP_MARGIN           2
 
 #define TRUE                        1
@@ -103,8 +113,16 @@ extern int errno;
 
 #define TRANS_CHARACTER             230
 #define CURSOR_CHARACTER            219
+#define SOLID_BLOCK_CHARACTER       224
 #define SHAPE_PREVIEW_CHARACTER     32
 #define SIDEBAR_COLUMN              65
+#define SIDEBAR_WIDTH               (SCREEN_COLS - SIDEBAR_COLUMN)
+#define SIDEBAR_PREVIEW_AREA_TOP    10
+#define SIDEBAR_PREVIEW_AREA_BOTTOM 20
+#define SIDEBAR_PREVIEW_AREA_HEIGHT (SIDEBAR_PREVIEW_AREA_BOTTOM - SIDEBAR_PREVIEW_AREA_TOP)
+#define SPRITE_OFFSET_X             23
+#define SPRITE_OFFSET_Y             50
+
 #define JOY_DELAY                   10000U
 
 #define MIN(a,b)                    ((a)<(b) ? (a):(b))
@@ -116,8 +134,9 @@ extern int errno;
 // so we need 80x25 = 2K area. 
 #define SCREEN_RAM_ADDRESS          0x12000UL
 #define CHARSET_ADDRESS             0x15000UL
-#define SPRITE_BUFFER               0x15800UL
-
+#define SPRITE_POINTER_TABLE        0x16000UL
+#define SPRITE_BUFFER               0x40000UL
+#define PREVIEW_SPRITE_NUM          2
 
 // Redraw side-bar flags
 #define REDRAW_SB_NONE   0
@@ -178,15 +197,6 @@ typedef struct tagAPPSTATE
     void (*drawShapeFn)(BOOL);
 } APPSTATE;
 
-typedef struct tagTESTMODEPARAMS
-{
-    BYTE animCurFrame;
-    BYTE animEnable;
-    BYTE animSpeed;
-    BYTE animStart, animEnd;    
-    BYTE horizExpand, vertExpand;
-} TESTMODEPARAMS;
-
 typedef struct tagFILEOPTIONS
 {
     BYTE mode;
@@ -194,7 +204,6 @@ typedef struct tagFILEOPTIONS
 } FILEOPTIONS;
 
 static APPSTATE g_state;
-static TESTMODEPARAMS g_testModeParams;
 static unsigned long g_freezeSlotStartSector;
 
 static const char *clrIndexName[] = {"bg ", "fg ", "mc1", "mc2"};
@@ -339,39 +348,51 @@ static void Initialize()
     lcopy((long) chsetToolbox, CHARSET_ADDRESS  + TOOLBOX_CHARSET_BASE_IDX * 8, sizeof(chsetToolbox) );
     setcharsetaddr(CHARSET_ADDRESS);
 
+
     // --- Sprite setup ---- 
     
-    // Set sprite 0 to our cursor.
-    // Set sprite 1 to current sprite placeholder.
-    // Set sprite 2 to editing cursor #1
+    // Set pointer table to SPRITE_POINTER_TABLE
+    // Set sprite 0 to our cursor. Address = $380.
+    // Set sprite 1 to editing cursor #1   Address = $3C0
+    // Set sprite 2 to current sprite placeholder.   Address = SPRITE_BUFFER  
 
-    POKE(0xD015, 3);  
 
-    // Set local sprite pointer table to 0x7F8
-    POKE(0xD06C,0xF8);
-    POKE(0xD06D,0x07);
-    POKE(0xD06E,0x00);
+    // Set local sprite pointer table
 
-    // #0: Mouse Pointer sprite 
+    POKE(0xD06C, (BYTE) SPRITE_POINTER_TABLE);
+    POKE(0xD06D, (BYTE) (SPRITE_POINTER_TABLE >> 8));
+    POKE(0xD06E, (BYTE) (SPRITE_POINTER_TABLE >> 16));
+    POKE(0xD06E, PEEK(0xD06E) | 128); // Enable SPRPTR16
+
+    // #0: Mouse Pointer sprite at 0x380
     
-    lcopy((long)sprite_pointer,0x380,63);
-    POKE(0x07F8,0x380/64);
+    lcopy((long) sprite_pointer, 0x380, 63);
+    lpoke(SPRITE_POINTER_TABLE, 0x0E);
+    lpoke(SPRITE_POINTER_TABLE + 1, 0x00);
+    
+    // Address of edit cursor
+    lpoke(SPRITE_POINTER_TABLE + 2, 0x0F); //64 * 0xF = 0x3C0
+    lpoke(SPRITE_POINTER_TABLE + 3, 0x00);
+
+    // Address of current sprite image preview
+    lpoke(SPRITE_POINTER_TABLE + 4, SPRITE_BUFFER / 64 % 256);
+    lpoke(SPRITE_POINTER_TABLE + 5, SPRITE_BUFFER / 64 / 256);
+
+    // Sprite properties (color, initial pos, etc.)
+
+    POKE(0xD015, 7);            // Enable #0, #1, #2
     POKE(0xD000,100);
     POKE(0xD001,100);
+
+    POKE(0xD002,0);
+    POKE(0xD003,0);
+
     POKE(0xD027,7);
     POKE(0xD028,1);
+    POKE(0xD010, 1 << PREVIEW_SPRITE_NUM);  // 8th bit for Sprite#2
     POKE(0xD01C,0); // All mono/hires sprites
     POKE(0xD06B,0); // 16-color mode OFF
-    
-    POKE(0x07F9,(0x380+64)/64);
-    POKE(0x07FA,(0x380+64*2)/64);
-    POKE(0x07FB,(0x380+64*3)/64);
-    POKE(0x07FC,(0x380+64*4)/64);
-    POKE(0x07FD,(0x380+64*5)/64);
-    POKE(0x07FE,(0x380+64*6)/64);
-    POKE(0x07FF,(0x380+64*7)/64);
 
-    
 #ifdef TEST_SPRITES
     POKE(53276UL, 2);
     POKE(REG_SPR_16COL, 4);
@@ -388,9 +409,6 @@ static void Initialize()
     g_state.toolOrgX = g_state.toolOrgY = 0;
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
     g_state.wideScreenMode = 0;
-
-    lfill( (unsigned char) &g_testModeParams, 0, sizeof(TESTMODEPARAMS));
-    g_testModeParams.animSpeed = 1;
 
     SetDrawTool(DRAWING_TOOL_PIXEL);
     UpdateSpriteParameters();
@@ -690,6 +708,8 @@ void UpdateSpriteParameters(void)
         g_state.cellsPerPixel = 3;
         g_state.pixelsPerByte = 2;
         g_state.currentColorIdx = COLOR_FORE;
+        POKE(LOCAL_REG_SPR_16COL, PEEK(LOCAL_REG_SPR_16COL) | (1 << PREVIEW_SPRITE_NUM));
+        POKE(LOCAL_REG_SPR_MULTICOLOR, PEEK(LOCAL_REG_SPR_MULTICOLOR) & ~(1 << PREVIEW_SPRITE_NUM));
     }
     else if (IS_SPR_MULTICOLOR(g_state.spriteNumber))
     {
@@ -702,6 +722,8 @@ void UpdateSpriteParameters(void)
         g_state.color[COLOR_FORE] = freeze_peek(REG_SPRITE_COLOR(g_state.spriteNumber));
         g_state.color[COLOR_MC1] = freeze_peek(REG_SPRITE_MULTICOL1);
         g_state.color[COLOR_MC2] = freeze_peek(REG_SPRITE_MULTICOL2);
+        POKE(LOCAL_REG_SPR_16COL, PEEK(LOCAL_REG_SPR_16COL) & ~(1 << PREVIEW_SPRITE_NUM));
+        POKE(LOCAL_REG_SPR_MULTICOLOR, PEEK(LOCAL_REG_SPR_MULTICOLOR) | (1 << PREVIEW_SPRITE_NUM));
     }
     else
     {
@@ -712,12 +734,27 @@ void UpdateSpriteParameters(void)
         g_state.cellsPerPixel = isXWidth  ? 1 : 2;
         g_state.pixelsPerByte = 8;
         g_state.color[COLOR_FORE] = freeze_peek(REG_SPRITE_COLOR(g_state.spriteNumber));
+        POKE(LOCAL_REG_SPR_16COL, PEEK(LOCAL_REG_SPR_16COL) & ~(1 << PREVIEW_SPRITE_NUM));
+        POKE(LOCAL_REG_SPR_MULTICOLOR, PEEK(LOCAL_REG_SPR_MULTICOLOR) & ~(1 << PREVIEW_SPRITE_NUM));
     }
+
     g_state.cellsPerPixel >>= g_state.wideScreenMode;
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
 
     // Restore border affected by previous SD Card I/O
     bordercolor(DEFAULT_BORDER_COLOR);
+
+    // Setup Preview Area sprite. (we divide by 2 for H320 sprites, should divide by 1 if H640 mode)
+
+    POKE(LOCAL_REG_SPRITE_COLOR(PREVIEW_SPRITE_NUM),  g_state.color[COLOR_FORE]);
+    POKE(LOCAL_REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
+    POKE(LOCAL_REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
+
+    //POKE(0xD004, (SPRITE_OFFSET_X + (SIDEBAR_COLUMN * 8 / 2) + (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth)))  & 0xFF);
+    POKE(0xD004, (SPRITE_OFFSET_X + 
+        ((SIDEBAR_COLUMN * 8 / 2) + (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth / 2))))  & 0xFF);
+    //POKE(0xD005, SPRITE_OFFSET_Y + (SIDEBAR_PREVIEW_AREA_TOP * 8 / 2) + (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8 / 2) / 2) - (g_state.spriteHeight)));
+    POKE(0xD005, (SPRITE_OFFSET_Y + (SIDEBAR_PREVIEW_AREA_TOP * 8 )));
 }
 
 static void UpdateColorRegs()
@@ -912,7 +949,7 @@ static void DrawCoordinates()
 {
     if (g_state.redrawSideBarFlags & REDRAW_SB_COORD)
     {
-        cputncxy(SIDEBAR_COLUMN, SCREEN_ROWS - 1, SCREEN_COLS - SIDEBAR_COLUMN - 1, ' ');
+        cputncxy(SIDEBAR_COLUMN, SCREEN_ROWS - 1, SIDEBAR_WIDTH, ' ');
         gotox(SIDEBAR_COLUMN);
         textcolor(COLOUR_CYAN);
         cputc('(');
@@ -923,12 +960,21 @@ static void DrawCoordinates()
     }
 }
 
+static void DrawSpritePreviewArea()
+{
+    register BYTE i = 0;
+    textcolor(g_state.color[COLOR_BACK]);
+    for (i = 0; i < SIDEBAR_PREVIEW_AREA_HEIGHT; ++i)
+        cputncxy(SIDEBAR_COLUMN, SIDEBAR_PREVIEW_AREA_TOP + i, SIDEBAR_WIDTH, SOLID_BLOCK_CHARACTER);
+}
+
 static void DrawSidebar()
 {
     DrawSideBarSpriteInfo();
     DrawCoordinates();
     DrawToolbox();
     DrawColorSelector();
+    DrawSpritePreviewArea();
     g_state.redrawSideBarFlags = REDRAW_SB_NONE;
 }
 
@@ -1038,110 +1084,7 @@ static void ShowHelp()
     PrintKeyGroup(displayKeys,  3, 42, 2);
 
     cgetc();
-    
 }
-
-// static void TestMode()
-// {
-//     BYTE key, exit = 0, redrawStatus = 1, i;
-//     BYTE prevReg_Vxpand = PEEK(0xD017);
-//     BYTE prevReg_Hxpand = PEEK(0xD01D);
-//     flushkeybuf();
-//     bgcolor(g_state.color[COLOR_BACK]);
-//     clrscr();
-
-//     g_testModeParams.animCurFrame = g_state.spriteNumber;
-
-//     for (i = 0; i < 7; ++i)
-//     {
-//         POKE(0xD000UL + (i * 2), 320 / 2);
-//         POKE(0xD001UL + (i * 2), 100);
-//     }
-    
-//     POKE(0xD010UL, 0);
-//     POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
-//     POKE(0xD01D, g_testModeParams.horizExpand);
-//     POKE(0xD017, g_testModeParams.vertExpand);
-    
-//     DrawHeader();
-
-//     while (!exit)
-//     {
-//         if (g_testModeParams.animEnable)
-//         {
-//             g_testModeParams.animCurFrame = (g_testModeParams.animCurFrame + 1) % 8;
-//             POKE(0xD015UL, 1 << g_testModeParams.animCurFrame );
-//             redrawStatus = 1;
-//             usleep(100000 / g_testModeParams.animSpeed);
-//         }
-        
-//         key = 0;
-//         if (kbhit())
-//         {
-//             key = cgetc();
-//         }
-
-//         switch (key)
-//         {
-//         case 0:
-//             break;
-
-//         case 0xF3:
-//             exit = 1;
-//             break;
-
-//         case 104: // H-expand
-//             g_testModeParams.horizExpand = ~g_testModeParams.horizExpand;
-//             POKE(0xD01D, g_testModeParams.horizExpand);
-//             redrawStatus = 1;
-//             break;
-
-//         case 118: // V-expand
-//             g_testModeParams.vertExpand = ~g_testModeParams.vertExpand;
-//             POKE(0xD017, g_testModeParams.vertExpand);
-//             redrawStatus = 1;
-//             break;
-
-//         case 101: // E
-//         case 102: // F
-//         case 115: // S
-//             key = cgetc();
-//             if (key >= '0' && key <= '7')
-//             {
-//                 g_testModeParams.animSpeed = key - 48;
-//             }
-            
-//             break;
-
-//         case ' ': // 
-//             g_testModeParams.animEnable = ~g_testModeParams.animEnable;
-//             POKE(0xD01D, g_testModeParams.horizExpand);
-//             break;
-//         }
-
-//         if (redrawStatus) 
-//         {
-//             revers(1);
-//             cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
-//             cputsxy(0, SCREEN_ROWS - 1, "sprite: ");
-//             cputdec(g_testModeParams.animCurFrame, 0, 0);
-//             cputs(" start: ");
-//             cputdec(g_testModeParams.animStart, 0, 0);
-//             cputs(" end: ");
-//             cputdec(g_testModeParams.animEnd, 0, 0);
-//             cputs(" speed: ");
-//             cputdec(g_testModeParams.animSpeed, 0, 0);
-//             revers(0);
-//             redrawStatus = 0;
-//         }
-//     }
-
-//     bgcolor(DEFAULT_SCREEN_COLOR);
-//     POKE(0xD015UL, 0);
-//     POKE(0xD017, prevReg_Vxpand);
-//     POKE(0xD10D, prevReg_Hxpand);
-//     cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
-// }
 
 static void DoExit()
 {
@@ -1367,14 +1310,6 @@ static void MainLoop()
             freeze_poke(REG_SPRX64EN, freeze_peek(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
             g_state.redrawSideBarFlags = REDRAW_SB_ALL;
             UpdateAndFullRedraw();
-            break;
-
-        case 116: // Test
-
-            //TestMode();
-            EraseCanvasSpace();
-            SetRedrawFullCanvas();
-            g_state.redrawSideBarFlags = REDRAW_SB_ALL;
             break;
 
         case 3: // CTRL-C
