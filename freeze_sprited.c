@@ -1,7 +1,7 @@
 /* 
  * SPRED65 - The MEGA65 sprite editor  
  *
- * Copyright (c) 2020 Hernán Di Pietro, Paul Gardner-Stephen.
+ * Copyright (c) 2020-2021 Hernán Di Pietro, Paul Gardner-Stephen.
  * 
  *  This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -16,8 +16,8 @@
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
  
-    Version   0.8
-    Date      2020-09-27
+    Version   0.9
+    Date      2021-05-28
 
     CHANGELOG
 
@@ -45,6 +45,7 @@
                 Fixes buffer overrun in Ask() function.
                 Sprite preview
                 Fancy selection cursor
+                H/V expand toggle
 
 
     TODO: 
@@ -61,7 +62,6 @@
 #include "../mega65-libc/cc65/include/hal.h"
 #include <cbm.h>
 #include <stdio.h>
-#include <errno.h>
 #include <stdlib.h>
 #include "../mega65-libc/cc65/include/memory.h"
 #include "freezer.h"
@@ -740,21 +740,23 @@ void UpdateSpriteParameters(void)
 
     g_state.cellsPerPixel >>= g_state.wideScreenMode;
     g_state.canvasLeftX =  (SIDEBAR_COLUMN / 2) - (g_state.spriteWidth * g_state.cellsPerPixel / 2);
-
+    
     // Restore border affected by previous SD Card I/O
     bordercolor(DEFAULT_BORDER_COLOR);
 
     // Setup Preview Area sprite. (we divide by 2 for H320 sprites, should divide by 1 if H640 mode)
-
+    
     POKE(LOCAL_REG_SPRITE_COLOR(PREVIEW_SPRITE_NUM),  g_state.color[COLOR_FORE]);
     POKE(LOCAL_REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
     POKE(LOCAL_REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
-
-    //POKE(0xD004, (SPRITE_OFFSET_X + (SIDEBAR_COLUMN * 8 / 2) + (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth)))  & 0xFF);
+    
     POKE(0xD004, (SPRITE_OFFSET_X + 
-        ((SIDEBAR_COLUMN * 8 / 2) + (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth / 2))))  & 0xFF);
-    //POKE(0xD005, SPRITE_OFFSET_Y + (SIDEBAR_PREVIEW_AREA_TOP * 8 / 2) + (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8 / 2) / 2) - (g_state.spriteHeight)));
-    POKE(0xD005, (SPRITE_OFFSET_Y + (SIDEBAR_PREVIEW_AREA_TOP * 8 )));
+        ((SIDEBAR_COLUMN * 8 / 2) + 
+        (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth / (IS_SPR_MULTICOLOR(g_state.spriteNumber) ? 1 : 2)))))  & 0xFF);
+
+    POKE(0xD005, (SPRITE_OFFSET_Y + 
+        (SIDEBAR_PREVIEW_AREA_TOP * 8 ) + 
+        (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight / 2))));
 }
 
 static void UpdateColorRegs()
@@ -762,8 +764,11 @@ static void UpdateColorRegs()
     freeze_poke(REG_SPRITE_COLOR(g_state.spriteNumber), g_state.color[COLOR_FORE]);
     freeze_poke(REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
     freeze_poke(REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
-
     bordercolor(COLOUR_BLUE);
+
+    POKE(LOCAL_REG_SPRITE_COLOR(PREVIEW_SPRITE_NUM),  g_state.color[COLOR_FORE]);
+    POKE(LOCAL_REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
+    POKE(LOCAL_REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
 }
 
 static void EraseCanvasSpace()
