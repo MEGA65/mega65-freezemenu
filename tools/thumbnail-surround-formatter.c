@@ -415,7 +415,7 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
-  FILE *outfile=fopen(argv[2],"w");
+  FILE *outfile=fopen(argv[2],"wb");
   if (!outfile) {
     perror("Could not open output file");
     exit(-3);
