@@ -11,7 +11,7 @@ int rom_count = 0;
 int main(int argc, char** argv)
 {
   for (int i = 1; i < argc; i++) {
-    FILE* f = fopen(argv[i], "r");
+    FILE* f = fopen(argv[i], "rb");
     if (!f) {
       fprintf(stderr, "Could not open ROM file '%s'\n", argv[i]);
     }

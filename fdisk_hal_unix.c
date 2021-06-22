@@ -31,7 +31,7 @@ uint32_t sdcard_getsize(void)
 
 void sdcard_open(void)
 {
-  sdcard = fopen("sdcard.img", "r+");
+  sdcard = fopen("sdcard.img", "r+b");
   if (!sdcard) {
     fprintf(stderr, "Could not open sdcard.img.\n");
     perror("fopen");

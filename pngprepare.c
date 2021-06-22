@@ -125,7 +125,7 @@ void process_file(int mode, char* outputfilename)
     fprintf(stderr, "Could not convert file to RGB or RGBA\n");
   }
 
-  outfile = fopen(outputfilename, "w");
+  outfile = fopen(outputfilename, "wb");
   if (outfile == NULL) {
     // could not open output file, so close all and exit
     if (infile != NULL) {
