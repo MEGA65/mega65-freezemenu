@@ -43,11 +43,12 @@
     v0.9        Transfer to/from frozen sprite memory of registers and data.
                 Display: 50-line mode, wide-screen/4:3 aspect ratio modes.
                 Fixes buffer overrun in Ask() function.
-                Sprite preview
-                Fancy selection cursor
+                Sprite preview at side.
+                Fancy editing cursor sprite.
+                Fancy pointer sprite
                 H/V expand toggle
                 Size optimizations
-
+                Palette support.
 
     TODO: 
 
@@ -119,7 +120,6 @@ extern int errno;
 #define DEFAULT_BACK_COLOR          11
 
 #define TRANS_CHARACTER             230
-#define CURSOR_CHARACTER            219
 #define SOLID_BLOCK_CHARACTER       224
 #define SHAPE_PREVIEW_CHARACTER     32
 #define SIDEBAR_COLUMN              65
@@ -144,6 +144,7 @@ extern int errno;
 #define SPRITE_POINTER_TABLE        0x16000UL
 #define SPRITE_BUFFER               0x40000UL
 #define PREVIEW_SPRITE_NUM          2
+#define EDIT_CURSOR_NUM             1
 
 // Redraw side-bar flags
 #define REDRAW_SB_NONE   0
@@ -152,11 +153,6 @@ extern int errno;
 #define REDRAW_SB_COLOR  4
 #define REDRAW_SB_TOOLS  8
 #define REDRAW_SB_ALL    1 + 2 + 4 + 8
-
-// Screen palette mode
-#define SCRPALSEL_TEXT          0  // Default text display palette
-#define SCRPALSEL_SPRITE        1  // Sprite palette/fixed 248-255 entries 
-#define SCRPALSEL_SPRITE_ALL    2  // Sprite palette/full entries
 
 typedef unsigned char BYTE;
 typedef unsigned char BOOL;
@@ -182,7 +178,6 @@ typedef unsigned char BOOL;
 typedef struct tagAPPSTATE
 {
     BYTE wideScreenMode;
-    BYTE screenPalette;
     BYTE spriteNumber;
     BYTE spriteColorMode;
     BYTE spriteWidth, spriteHeight;
@@ -201,6 +196,7 @@ typedef struct tagAPPSTATE
     void (*drawShapeFn)(BOOL);
     unsigned int spriteSizeBytes;
     long spriteDataAddr;
+    BYTE frzPalRed[256],frzPalBlue[256],frzPalGrn[256];
 } APPSTATE;
 
 typedef struct tagFILEOPTIONS
@@ -219,56 +215,7 @@ void SetRedrawFullCanvas(void);
 void SetEffectiveToolRect(RECT*);
 void SetupTextPalette(void);
 
-BYTE  sprite_pointer[63]={
-  0xFF, 0x00, 0x00, 0xFF, 0x00, 0x00, 0xF8, 0x00, 0x00, 0xFC, 0x00, 0x00, 0xFC, 0x00, 0x00, 0xDC, 
-  0x00, 0x00, 0xCE, 0x00, 0x00, 0xCE, 0x00, 0x00, 0x07, 0x00, 0x00, 0x07, 0x00, 0x00, 0x03, 0x80, 
-  0x00, 0x03, 0x80, 0x00, 0x01, 0xC0, 0x00, 0x01, 0xC0, 0x00, 0x00, 0xE0, 0x00, 0x00, 0xE0, 0x00, 
-  0x00, 0x70, 0x00, 0x00, 0x70, 0x00, 0x00, 0x38, 0x00, 0x00, 0x38, 0x00, 0x00, 0x00, 0x00
-};
 
-#ifdef TEST_SPRITES
-
-    // Sprite 1 to test Multicolor
-
-    unsigned char test_mc [64] ={
-    0x00,0x38,0x00,0x00,0xea,0x00,0x03,0x6a,
-    0x80,0x01,0xb6,0x80,0x0f,0x6a,0xa0,0x0d,
-    0xda,0x60,0x3f,0x6a,0xa8,0x3d,0xb6,0xa8,
-    0x37,0x6a,0xa4,0x3d,0xea,0xa8,0x3f,0x7a,
-    0x68,0x3d,0xa6,0xa8,0x0f,0x6a,0xa0,0x0d,
-    0xda,0xa0,0x03,0x6a,0x80,0x01,0xa6,0x80,
-    0x00,0x7a,0x00,0x00,0x28,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x83};
-
-    // Sprite 2 to test 16-color
-
-    unsigned char test_16 [8*21]={
-    
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x90,0xA0,0xB0,0xC0,0xD0,0xE0,0xF0,0x10,
-
-    0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08 };
-    
-#endif 
 
 /* Toolbox Character set, in order of DRAWING_TOOL... enumeration */
 
@@ -316,6 +263,45 @@ static const BYTE chsetToolbox[] = {
 };
 
 #define TOOLBOX_CHARSET_BASE_IDX 232
+
+static const BYTE spritePointer[] = {
+    128, 0, 0, 192, 0, 0, 224, 0, 0, 240, 0, 0, 248, 0, 0, 252,
+    0, 0, 254, 0, 0, 255, 0, 0, 248, 0, 0, 216, 0, 0, 140, 0,
+    0, 12, 0, 0, 6, 0, 0, 6, 0, 0, 3, 0, 0, 3, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+static const BYTE editCursors[] = {
+    // Cursor for single cell
+
+    240, 0, 0, 144, 0, 0, 144, 0, 0, 144, 0, 0, 144, 0, 0, 144,
+    0, 0, 144, 0, 0, 240, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+    // double cell
+
+    255, 0, 0, 129, 0, 0, 129, 0, 0, 129, 0, 0, 129, 0, 0, 129,
+    0, 0, 129, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+    // triple cell
+
+    255, 240, 0, 128, 16, 0, 128, 16, 0, 128, 16, 0, 128, 16, 0, 128,
+    16, 0, 128, 16, 0, 255, 240, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+
+    // four cell
+    255, 255, 0, 128, 1, 0, 128, 1, 0, 128, 1, 0, 128, 1, 0, 128,
+    1, 0, 128, 1, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+static const BYTE editCursorColorMap[16] = { 
+    COLOUR_BLACK, COLOUR_BLUE, COLOUR_BROWN, COLOUR_GREY1, COLOUR_GREY2, COLOUR_GREY3, COLOUR_LIGHTGREEN, COLOUR_WHITE,
+    COLOUR_WHITE, COLOUR_LIGHTGREEN, COLOUR_GREY3, COLOUR_GREY2, COLOUR_GREY1, COLOUR_RED, COLOUR_BROWN, COLOUR_BLUE 
+    };
 
 static void SetRect(RECT* rc, BYTE left, BYTE top, BYTE right, BYTE bottom)
 {
@@ -371,7 +357,7 @@ static void Initialize()
 
     // #0: Mouse Pointer sprite at 0x380
     
-    lcopy((long) sprite_pointer, 0x380, 63);
+    lcopy((long) spritePointer, 0x380, 63);
     lpoke(SPRITE_POINTER_TABLE, 0x0E);
     lpoke(SPRITE_POINTER_TABLE + 1, 0x00);
     
@@ -398,15 +384,7 @@ static void Initialize()
     POKE(0xD01C,0); // All mono/hires sprites
     POKE(0xD06B,0); // 16-color mode OFF
 
-#ifdef TEST_SPRITES
-    POKE(53276UL, 2);
-    POKE(REG_SPR_16COL, 4);
-
-    lcopy((long)test_mc,0x380+64,64);
-    lcopy((long)test_16,0x380+64+64,168);
-#endif
     g_state.redrawSideBarFlags = REDRAW_SB_ALL;
-  
     g_state.spriteNumber = 0;
     g_state.cursorX = g_state.cursorY = 0;
     g_state.currentColorIdx = COLOR_FORE;
@@ -414,28 +392,36 @@ static void Initialize()
     g_state.toolOrgX = g_state.toolOrgY = 0;
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
     g_state.wideScreenMode = 0;
-    g_state.screenPalette = SCRPALSEL_SPRITE; 
 
+    //LoadSlotSpritePalette();
+    //SetupPalettes();
     SetupTextPalette();
     SetDrawTool(DRAWING_TOOL_PIXEL);
     UpdateSpriteParameters();
     SetRedrawFullCanvas();
 }
 
-void SetupTextPalette(void)
+void LoadSlotSpritePalette()
 {
-    // To properly display color in the editor, we match the sprite bank
-    // to the text/bitmap one.  Last 8 colors are fixed for display chores.
-
-    //POKE(0xD070, SPRITE_PALETTE);
-    POKE(0xD070UL, (PEEK(0xD070UL) & ~0x30) | (freeze_peek(REG_SPRPALSEL) & 0x30));
-    setmapedpal(SPRITE_PALETTE);
+    
 }
 
-static void DrawCursor(BYTE x, BYTE y)
+void SetupTextPalette(void)
 {
-    textcolor(g_state.color[g_state.currentColorIdx]);
-    cputncxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), 2 + y, g_state.cellsPerPixel, CURSOR_CHARACTER);
+    // To properly display color in the editor, we set the main palette bank to 0,
+    // the sprite palette bank, and use the alt palette to display text and UI.
+    // We do this because ALTPAL is selected by VIC-III HIGHLIGHT+UNDERLINE
+    // combination and  Foreground colors in alt-palette are used from the 16th index,
+    // so we avoid fiddling with this.
+
+    //POKE(0xD070UL, (PEEK(0xD070UL) & ~48) | ((freeze_peek(REG_SPRPALSEL) & 0xC) << 2));
+    //setmapedpal(SPRITE_PALETTE);
+}
+
+static void MoveCursor(BYTE x, BYTE y)
+{
+    POKE(0xD002, SPRITE_OFFSET_X + (g_state.canvasLeftX * 4) + (x * g_state.cellsPerPixel * 4));
+    POKE(0xD003, SPRITE_OFFSET_Y + (2 * 8) + (y * 8));
 }
 
 static void DrawShapeChar(BYTE x, BYTE y)
@@ -582,7 +568,7 @@ static void DrawMonoCell(BYTE x, BYTE y)
     gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
     for (cell = 0; cell < g_state.cellsPerPixel; ++cell)
     {
-        textcolor(p ? g_state.color[COLOR_FORE] : g_state.color[COLOR_BACK]);
+        textcolor(p ? g_state.color[COLOR_FORE] : g_state.color[COLOR_BACK] );
         cputc(p ? SOLID_BLOCK_CHARACTER : TRANS_CHARACTER);
     }
 }
@@ -592,12 +578,12 @@ static void Draw16ColorCell(BYTE x, BYTE y)
     register BYTE cell = 0;
     const long byteAddr = (SPRITE_BUFFER + (y * 8)) + (x / 2);
     const BYTE p = 0xF & (lpeek(byteAddr) >> (((x + 1) % 2) * 4));
-    const BYTE col = (g_state.spriteNumber * 16) + p;
+    //const BYTE col = (g_state.spriteNumber * 16) + p;
     
     gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
     for (cell = 0; cell < g_state.cellsPerPixel; ++cell)
     {
-        textcolor(col);
+        textcolor(p);
         cputc(p ? SOLID_BLOCK_CHARACTER : TRANS_CHARACTER);
     }
 }
@@ -679,6 +665,8 @@ static void FetchSpriteDataFromSlot()
 {
     register BYTE i;
     const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
+    //freeze_fetch_sector_bytes(spriteSourceAddr, (void*)SPRITE_BUFFER, g_state.spriteSizeBytes);
+
     for (i = 0; i < g_state.spriteSizeBytes; ++i) 
     {
         lpoke(SPRITE_BUFFER + i, freeze_peek(spriteSourceAddr + i));
@@ -693,6 +681,18 @@ static void PutSpriteDataToSlot()
     {
         freeze_poke(spriteSourceAddr + i, lpeek(SPRITE_BUFFER + i));
     }
+}
+
+static void UpdatePalette(void)
+{
+    // register BYTE i = 0;
+    // if (IS_SPR_16COL(g_state.spriteNumber)) {
+        
+    //     setmapedpal( (freeze_peek(REG_SPRPALSEL) >> 2) & 0x3);
+    //     for (i = 0; i < 16; ++i) {
+    //         POKE(0xD100 + i,    
+    //     }     
+    // }
 }
 
 void UpdateSpriteParameters(void)
@@ -763,6 +763,10 @@ void UpdateSpriteParameters(void)
     POKE(0xD005, (SPRITE_OFFSET_Y + 
         (SIDEBAR_PREVIEW_AREA_TOP * 8 ) + 
         (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight / 2))));
+
+    // Setup Edit cursor
+
+    lcopy(editCursors + 63 * (g_state.cellsPerPixel - 1), 0x3C0, 63);
 }
 
 static void UpdateColorRegs()
@@ -789,10 +793,9 @@ static void EraseCanvasSpace()
 
 static void DrawCanvas()
 {
-    // TODO: Fetch all from memory with lcopy to local buffer and draw.
-
     register BYTE row;
     register BYTE col;
+    //altpal(1);
     for (row = g_state.redrawRect.top; row < g_state.redrawRect.bottom; ++row)
         for (col = g_state.redrawRect.left; col < g_state.redrawRect.right; ++col)
             g_state.drawCellFn(col, row);
@@ -800,8 +803,8 @@ static void DrawCanvas()
     {
         g_state.drawShapeFn(TRUE);
     }
-
-    DrawCursor(g_state.cursorX, g_state.cursorY);
+    MoveCursor(g_state.cursorX, g_state.cursorY);
+    //clearattr();
 
     SetRect(&g_state.redrawRect, 0, 0, 0, 0);
 }
@@ -1006,8 +1009,10 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 {
     register BYTE i = 0;
     gotoxy(x,y);
+    revers(1);
     textcolor(COLOUR_PINK);
     cputs(list[0]);
+    revers(0);
     textcolor(COLOUR_WHITE);
 
     for(i = 1; i < count; ++i) 
@@ -1116,6 +1121,7 @@ unsigned short mx,my;
 
 static void MainLoop()
 {
+    static BYTE editColorCounter = 0;
     FILEOPTIONS fileOpt;
     unsigned char buf[64];
     unsigned char key = 0, keymod = 0;
@@ -1127,6 +1133,8 @@ static void MainLoop()
 
     while (1)
     {
+        POKE(0xD028, editCursorColorMap[editColorCounter++ / 16]); // Update editor cursor color
+
         mouse_update_position(&mx, &my);
         if ((my >= 66 && my <= 233) && (mx >= 55 && mx <= 235))
         {
@@ -1135,7 +1143,7 @@ static void MainLoop()
                 g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
                 g_state.cursorX = (mx - 55) / 8;
                 g_state.cursorY = (my - 66) / 8;
-                DrawCursor(g_state.cursorX, g_state.cursorY);
+                MoveCursor(g_state.cursorX, g_state.cursorY);
                 fire_lock = 0;
             }
         }
@@ -1223,31 +1231,35 @@ static void MainLoop()
         /* ------------------------- CURSOR MOVEMENT GROUP ----------------------------- */
 
         case CH_CURS_DOWN:
-            SetRedrawFullCanvas();//SetRedrawToolRect();
+            //SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
             g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorY = (g_state.cursorY == g_state.spriteHeight - 1) ? 0 : (g_state.cursorY + 1);
+            MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         case CH_CURS_UP:
-            SetRedrawFullCanvas();//SetRedrawToolRect();
+            //SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
             g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorY = (g_state.cursorY == 0) ? (g_state.spriteHeight - 1) : (g_state.cursorY - 1);
+            MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         case CH_CURS_LEFT:
-            SetRedrawFullCanvas();//SetRedrawToolRect();
+            //SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
             g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
+            MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         case CH_CURS_RIGHT:
-            SetRedrawFullCanvas();//SetRedrawToolRect();
+            //SetRedrawFullCanvas();//SetRedrawToolRect();
             g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
             g_state.redrawSideBarFlags = REDRAW_SB_COORD;
             g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
+            MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         /* ------------------------- EDIT GROUP ------------------------------------------ */
@@ -1361,10 +1373,11 @@ static void MainLoop()
         case 16: // Ctrl+P
         {
             const unsigned char cBankReg = freeze_peek(REG_SPRPALSEL);
-            const unsigned char cSprPalBank = (cBankReg & 0x30) >> 4;
+            const unsigned char cSprPalBank = (cBankReg & 0xC) >> 2;
             gotoxy(1,1);
             cputdec(cSprPalBank,0,4);
-            freeze_poke(REG_SPRPALSEL, (cBankReg & ~0x30) | (((cSprPalBank + 1) % 4) << 4));
+            freeze_poke(REG_SPRPALSEL, (cBankReg & ~0xC) | (((cSprPalBank + 1) % 4) << 2));
+            bordercolor(DEFAULT_BORDER_COLOR);
             SetupTextPalette();
         }
             break;
