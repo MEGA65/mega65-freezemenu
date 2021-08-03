@@ -62,14 +62,14 @@ extern unsigned long freeze_slot_start_sector;
 struct file_descriptor_t {
 #define FD_DISK_ID_FILE_CLOSED 0xFF
   unsigned char disk_id;
-  unsigned int start_cluster;
-  unsigned int current_cluster;
+  unsigned long start_cluster;
+  unsigned long current_cluster;
   unsigned char sector_in_cluster;
-  unsigned int file_length;
-  unsigned int buffer_position;
-  unsigned int directory_cluster;
+  unsigned long file_length;
+  unsigned long buffer_position;
+  unsigned long directory_cluster;
   unsigned short entry_in_directory;
-  unsigned int buffer_address;
+  unsigned long buffer_address;
   unsigned short bytes_in_buffer;
   unsigned short offset_in_buffer;
 };
