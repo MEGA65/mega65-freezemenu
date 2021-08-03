@@ -20,11 +20,13 @@ void request_freeze_region_list(void)
   lfill(0x0400U, 0x20, 1000);
   fetch_freeze_region_list_from_hypervisor(0x0400);
   lcopy(0x0400U, (unsigned long)&freeze_region_list, 256);
+
   for (i = 0; i < MAX_REGIONS; i++) {
     if (freeze_region_list[i].freeze_prep == 0xFF)
       break;
   }
   freeze_region_count = i;
+
 }
 
 uint32_t find_thumbnail_offset(void)

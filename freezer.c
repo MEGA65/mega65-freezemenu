@@ -398,9 +398,8 @@ void draw_thumbnail(void)
   // access, which really slows things down. This would be bad, since
   // we want users to be able to very quickly and smoothly flip between
   // the freeze slots and see what is there.
-  // So we will instead copy the sectors down to $8800, and then
-  // render the thumbnail at $A000, and then copy it into place with
-  // a single DMA.
+  // But there isn't currently a good solution to this, short of having
+  // a second buffer into which to render it.
   unsigned char x, y, i;
   unsigned short yoffset;
   uint32_t thumbnail_sector = find_thumbnail_offset();
@@ -410,7 +409,7 @@ void draw_thumbnail(void)
     lfill(0x50000L, 0, 10 * 6 * 64);
     return;
   }
-  // Copy thumbnail memory to $08800
+  // Copy thumbnail memory to buffer
   for (i = 0; i < 8; i++) {
     sdcard_readsector(freeze_slot_start_sector + thumbnail_sector + i);
     lcopy((long)sector_buffer, thumbnail_buffer + (i * 0x200), 0x200);
@@ -428,8 +427,7 @@ void draw_thumbnail(void)
     NAVIGATION_KEY_CHECK();
     yoffset += 80;
   }
-  // Copy to final area
-  //  lcopy(0xA000U, 0x50000U, 4096);
+
 }
 
 struct process_descriptor_t process_descriptor;
@@ -586,7 +584,8 @@ void draw_freeze_menu(void)
   }
 
   // Draw the thumbnail surround area
-  if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
+  //  if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
+  if (1) {
     unsigned char snail = 0;
     uint32_t screen_data_start;
     unsigned short* tile_num;
@@ -887,8 +886,7 @@ int main(int argc, char** argv)
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           draw_freeze_menu();
-          if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f))
-            draw_thumbnail();
+	  draw_thumbnail();
           POKE(0xD020U, 6);
           break;
         case 0x91: // Cursor up
@@ -902,8 +900,7 @@ int main(int argc, char** argv)
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           draw_freeze_menu();
-          if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f))
-            draw_thumbnail();
+	  draw_thumbnail();
           POKE(0xD020U, 6);
           break;
 
