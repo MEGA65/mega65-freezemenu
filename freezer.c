@@ -39,7 +39,7 @@ void clear_sector_buffer(void)
 }
 
 unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.3       "
-                             "  (c) Museum of Electronic Games & Art  "
+                             "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3 * 40 + 4)
                              " F3-LOAD     F5-RESET   F7-SAVE TO SLOT "
@@ -200,6 +200,15 @@ void setup_menu_screen(void)
   POKE(0xD058U, 80);
   POKE(0xD059U, 0); // 80 bytes per row
 
+  // Screen at $00B800
+  POKE(0xD060,0);
+  POKE(0xD061,0xB8);
+  POKE(0xD062,0);
+  POKE(0xD063,0);
+  // Colour RAM at offset $0000
+  POKE(0xD064,0);
+  POKE(0xD065,0);  
+  
   // Fill colour RAM with sensible value at the start
   lfill(0xff8000U, 1, 2000);
 }
@@ -707,12 +716,15 @@ int main(int argc, char** argv)
   // No decimal mode!
   __asm__("cld");
 
+  // Put $DD00 DDR back to default
+  POKE(0xDD02,0xFF);
+  
   // Enable extended attributes so we can use reverse
   POKE(0xD031U, PEEK(0xD031U) | 0x20);
 
   // Correct horizontal scaling
   POKE(0xD05AU, 0x78);
-
+  
   // Reset character set address
   POKE(0xD068, 0x00);
   POKE(0xD069, 0x10);
