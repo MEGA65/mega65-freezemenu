@@ -379,6 +379,8 @@ char* detect_rom(void)
   return "UNKNOWN ROM";
 }
 
+unsigned char thumbnail_buffer[4096];
+
 void draw_thumbnail(void)
 {
   // Take the 4K of thumbnail data and render it to the display
@@ -397,7 +399,7 @@ void draw_thumbnail(void)
   // we want users to be able to very quickly and smoothly flip between
   // the freeze slots and see what is there.
   // So we will instead copy the sectors down to $8800, and then
-  // render the thumbnail at $9000, and then copy it into place with
+  // render the thumbnail at $A000, and then copy it into place with
   // a single DMA.
   unsigned char x, y, i;
   unsigned short yoffset;
@@ -411,7 +413,7 @@ void draw_thumbnail(void)
   // Copy thumbnail memory to $08800
   for (i = 0; i < 8; i++) {
     sdcard_readsector(freeze_slot_start_sector + thumbnail_sector + i);
-    lcopy((long)sector_buffer, 0x8800L + (i * 0x200), 0x200);
+    lcopy((long)sector_buffer, thumbnail_buffer + (i * 0x200), 0x200);
     NAVIGATION_KEY_CHECK();
   }
 
@@ -420,14 +422,14 @@ void draw_thumbnail(void)
   for (y = 0; y < 48; y++) {
     for (x = 0; x < 73; x++) {
       // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
-      POKE(0xA000U + (x & 7) + (x >> 3) * (64 * 6L) + ((y & 7) << 3) + (y >> 3) * 64,
-          colour_table[PEEK(0x8800U + 4 + 7 + x + yoffset)]);
+      lpoke(0x50000L + (x & 7) + (x >> 3) * (64 * 6L) + ((y & 7) << 3) + (y >> 3) * 64,
+          colour_table[PEEK(thumbnail_buffer + 4 + 7 + x + yoffset)]);
     }
     NAVIGATION_KEY_CHECK();
     yoffset += 80;
   }
   // Copy to final area
-  lcopy(0xA000U, 0x50000U, 4096);
+  //  lcopy(0xA000U, 0x50000U, 4096);
 }
 
 struct process_descriptor_t process_descriptor;
