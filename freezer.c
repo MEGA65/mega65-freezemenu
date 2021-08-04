@@ -1092,6 +1092,8 @@ int main(int argc, char** argv)
           // Clear memory mapping
           for (c = 0x0a; c <= 0x0f; c++)
             freeze_poke(0xFFD3640U + c, 0);
+	  // Turn off extended graphics mode, if selected
+	  freeze_poke(0xFFD3054U,0x00);
         }
           // fall through
         case 0xf3: // F3 = resume
