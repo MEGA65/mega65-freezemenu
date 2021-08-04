@@ -78,6 +78,8 @@ extern int errno;
 #define REG_SPRPTR_B1               (freeze_peek(VIC_BASE + 0x6DUL))
 #define REG_SPRPTR_B2               (freeze_peek(VIC_BASE + 0x6EUL) & 0x7F)
 #define REG_SPRPTR16                (freeze_peek(VIC_BASE + 0x6EUL) & 0x80)
+#define REG_SPR_VEXPAND             (VIC_BASE + 0x17UL)
+#define REG_SPR_HEXPAND             (VIC_BASE + 0x1DUL)
 #define REG_SPR_16COL               (VIC_BASE + 0x6BUL)
 #define REG_SPR_MULTICOLOR          (VIC_BASE + 0x1CUL)
 #define REG_SPRX64EN                (VIC_BASE + 0x57UL)
@@ -98,6 +100,8 @@ extern int errno;
 #define IS_SPR_MULTICOLOR(n)        ((freeze_peek(REG_SPR_MULTICOLOR)) & (1 << (n)))
 #define IS_SPR_16COL(n)             ((freeze_peek(REG_SPR_16COL)) & (1 << (n)))
 #define IS_SPR_XWIDTH(n)            ((freeze_peek(REG_SPRX64EN)) & (1 << (n)))
+#define IS_SPR_HEXPAND(n)           ((freeze_peek(REG_SPR_HEXPAND)) & (1 << (n)))
+#define IS_SPR_VEXPAND(n)           ((freeze_peek(REG_SPR_VEXPAND)) & (1 << (n)))
 #define SPRITE_POINTER_ADDR         (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
 #define SPRITE_SIZE_BYTES(n)        (( IS_SPR_XWIDTH( (n) ) | IS_SPR_16COL( (n) ))  ? 168 : 64) 
 #define SPRITE_DATA_ADDR(n)         (REG_SPRPTR16 ? 64 * (                                  \
@@ -218,8 +222,6 @@ void SetRedrawFullCanvas(void);
 void SetEffectiveToolRect(RECT*);
 void SetupTextPalette(void);
 void MoveCursor(BYTE x, BYTE y);
-
-
 
 /* Toolbox Character set, in order of DRAWING_TOOL... enumeration */
 
@@ -397,9 +399,6 @@ static void Initialize()
     g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
     g_state.wideScreenMode = 0;
 
-    //LoadSlotSpritePalette();
-    //SetupPalettes();
-    SetupTextPalette();
     SetDrawTool(DRAWING_TOOL_PIXEL);
     UpdateSpriteParameters();
     SetRedrawFullCanvas();
@@ -483,6 +482,9 @@ static void DrawLine(PAINTFUNC pfun)
 
 static void DrawCircle(PAINTFUNC pfun)
 {
+    RECT rc;
+    SetEffectiveToolRect(&rc);
+
     // RECT rc;
     // void (*pfun)(BYTE, BYTE) = bPreview ? DrawShapeChar : g_state.paintCellFn;
     // SetEffectiveToolRect(&rc);
@@ -670,15 +672,19 @@ static void ClearSprite()
     lfill(SPRITE_BUFFER, 0, g_state.spriteSizeBytes);
 }
 
+static void FetchVic2RegsFromSlot()
+{
+    // H/Y expand
+    POKE(0xD017, freeze_peek(VIC_BASE + 0x17));
+    POKE(0xD01D, freeze_peek(VIC_BASE + 0x1D));
+}
+
 static void FetchSpriteDataFromSlot()
 {
     register BYTE i;
-    const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
-    //freeze_fetch_sector_bytes(spriteSourceAddr, (void*)SPRITE_BUFFER, g_state.spriteSizeBytes);
-
     for (i = 0; i < g_state.spriteSizeBytes; ++i) 
     {
-        lpoke(SPRITE_BUFFER + i, freeze_peek(spriteSourceAddr + i));
+        lpoke(SPRITE_BUFFER + i, freeze_peek(g_state.spriteDataAddr + i));
     }
 }
 
@@ -704,15 +710,37 @@ static void UpdatePalette(void)
     // }
 }
 
+#define HFACTOR (IS_SPR_HEXPAND(g_state.spriteNumber) ? 2 : 1)
+#define VFACTOR (IS_SPR_VEXPAND(g_state.spriteNumber) ? 2 : 1)
+
+static void UpdateSpritePreview(void)
+{
+    // Setup Preview Area sprite. (we divide by 2 for H320 sprites, should divide by 1 if H640 mode)
+    
+    POKE(LOCAL_REG_SPRITE_COLOR(PREVIEW_SPRITE_NUM),  g_state.color[COLOR_FORE]);
+    POKE(LOCAL_REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
+    POKE(LOCAL_REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
+    
+    POKE(0xD004, (SPRITE_OFFSET_X + 
+        ((SIDEBAR_COLUMN * 8 / 2) + 
+        (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth / (IS_SPR_MULTICOLOR(g_state.spriteNumber) ? 1 : 2)))))  & 0xFF);
+
+    POKE(0xD005, (SPRITE_OFFSET_Y + 
+        (SIDEBAR_PREVIEW_AREA_TOP * 8 ) + 
+        (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight * HFACTOR / 2))));
+}
+
 void UpdateSpriteParameters(void)
 {
     const BYTE isXWidth = IS_SPR_XWIDTH(g_state.spriteNumber);
+
     g_state.spriteHeight = 21;
     g_state.spriteSizeBytes = SPRITE_SIZE_BYTES(g_state.spriteNumber);
     g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
+    g_state.spriteDataAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
 
     FetchSpriteDataFromSlot();
-    g_state.spriteDataAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
+    FetchVic2RegsFromSlot();
 
     if (IS_SPR_16COL(g_state.spriteNumber))
     {
@@ -759,19 +787,7 @@ void UpdateSpriteParameters(void)
     // Restore border affected by previous SD Card I/O
     bordercolor(DEFAULT_BORDER_COLOR);
 
-    // Setup Preview Area sprite. (we divide by 2 for H320 sprites, should divide by 1 if H640 mode)
-    
-    POKE(LOCAL_REG_SPRITE_COLOR(PREVIEW_SPRITE_NUM),  g_state.color[COLOR_FORE]);
-    POKE(LOCAL_REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
-    POKE(LOCAL_REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
-    
-    POKE(0xD004, (SPRITE_OFFSET_X + 
-        ((SIDEBAR_COLUMN * 8 / 2) + 
-        (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth / (IS_SPR_MULTICOLOR(g_state.spriteNumber) ? 1 : 2)))))  & 0xFF);
-
-    POKE(0xD005, (SPRITE_OFFSET_Y + 
-        (SIDEBAR_PREVIEW_AREA_TOP * 8 ) + 
-        (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight / 2))));
+    UpdateSpritePreview();
 
     // Setup Edit cursor
 
@@ -1072,17 +1088,8 @@ static void ShowHelp()
         "copy sprite  ctrl+c",
         "horz flip    ctrl+h",
         "vert flip    ctrl+v",
-        "test              t" };
-
-    const char* testKeys[] = {
-        "     test mode     ",
-        "play/pause    space",
         "h-expand          h",
-        "v-expand          v",
-        "set start frame   f",
-        "set end frame     e",
-        "set speed         s",
-        "exit             f3" };
+        "v-expand          v"};
 
     const char* displayKeys[] = {
         "     display       ",
@@ -1097,7 +1104,6 @@ static void ShowHelp()
     PrintKeyGroup(editKeys,     9, 21, 2);
     PrintKeyGroup(drawKeys,     7, 0, 2 +4+1 );
     PrintKeyGroup(colorKeys,    7, 0, 2 +4+1 +7+1);
-    PrintKeyGroup(testKeys,     8, 21, 2 + 9 + 2);
     PrintKeyGroup(displayKeys,  3, 42, 2);
 
     cgetc();
@@ -1359,6 +1365,20 @@ static void MainLoop()
                     bordercolor(DEFAULT_BORDER_COLOR);
                 }
             }
+            break;
+
+        case 118: // "V"-expand
+            POKE(0xD017, PEEK(0xD017) ^ (1 << PREVIEW_SPRITE_NUM));
+            freeze_poke(VIC_BASE + 0x17, freeze_peek(VIC_BASE + 0x17) ^ (1 << g_state.spriteNumber));
+            bordercolor(DEFAULT_BORDER_COLOR);
+            UpdateSpritePreview();
+            break;
+
+        case 104: // "H"-expand
+            POKE(0xD01D, PEEK(0xD01D) ^ (1 << PREVIEW_SPRITE_NUM));
+            freeze_poke(VIC_BASE + 0x1D, freeze_peek(VIC_BASE + 0x1D) ^ (1 << g_state.spriteNumber));
+            bordercolor(DEFAULT_BORDER_COLOR);
+            UpdateSpritePreview();
             break;
 
         /* ------------------------------- COLOR GROUP -------------------------- */
