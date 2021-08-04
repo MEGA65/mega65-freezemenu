@@ -450,6 +450,30 @@ void draw_thumbnail(void)
 
 struct process_descriptor_t process_descriptor;
 
+void predraw_freeze_menu(void)
+{
+  // Clear screen, blue background, white text, like Action Replay
+  POKE(0xD020U, 6);
+  POKE(0xD021U, 6);
+
+  lfill(0xFF80000L, 1, 2000);
+  // Make disk image names different colour to avoid confusion
+  for (i = 40; i < 80; i += 2) {
+    lpoke(0xff80000 + 21 * 80 + 1 + i, 0xe);
+    lpoke(0xff80000 + 24 * 80 + 1 + i, 0xe);
+  }
+
+  // Clear 16-bit text mode screen using DMA copy to copy the
+  // manually cleared first couple of chars (we need two, because
+  // of the pipelining in the DMA engine).
+  lpoke(SCREEN_ADDRESS,0x20);
+  lpoke(SCREEN_ADDRESS+1,0x00);
+  lpoke(SCREEN_ADDRESS+2,0x20);
+  lpoke(SCREEN_ADDRESS+3,0x00);
+  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS+4, 2000-4);  
+  
+}  
+
 void draw_freeze_menu(void)
 {
   unsigned char x, y;
@@ -575,18 +599,6 @@ void draw_freeze_menu(void)
 
   while (PEEK(0xD012U) < 0xf8)
     continue;
-
-  // Clear screen, blue background, white text, like Action Replay
-  POKE(0xD020U, 6);
-  POKE(0xD021U, 6);
-
-  lfill(SCREEN_ADDRESS, 0, 2000);
-  lfill(0xFF80000L, 1, 2000);
-  // Make disk image names different colour to avoid confusion
-  for (i = 40; i < 80; i += 2) {
-    lpoke(0xff80000 + 21 * 80 + 1 + i, 0xe);
-    lpoke(0xff80000 + 24 * 80 + 1 + i, 0xe);
-  }
 
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
@@ -770,6 +782,7 @@ int main(int argc, char** argv)
 
   request_freeze_region_list();
 
+  predraw_freeze_menu();
   draw_freeze_menu();
 
   draw_thumbnail();
@@ -926,7 +939,8 @@ int main(int argc, char** argv)
         case 'm': // Monitor
           freeze_monitor();
           setup_menu_screen();
-          draw_freeze_menu();
+	  predraw_freeze_menu();
+	  draw_freeze_menu();
           break;
 
         case 'A':
@@ -1047,6 +1061,7 @@ int main(int argc, char** argv)
           }
         }
 
+	  predraw_freeze_menu();
           draw_freeze_menu();
           break;
         case '1': // Select mounted disk image for 2nd drive
@@ -1076,6 +1091,7 @@ int main(int argc, char** argv)
             }
           }
         }
+	  predraw_freeze_menu();
           draw_freeze_menu();
           break;
 
