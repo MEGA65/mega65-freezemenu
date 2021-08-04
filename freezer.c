@@ -418,9 +418,15 @@ void draw_thumbnail(void)
 
   // Pick colours of all pixels in the thumbnail
   for(j=0;j<4096;j++) thumbnail_buffer[j]=colour_table[thumbnail_buffer[j]];
+  // Fix column 0 of pixels
+  yoffset=0;
+  for(j=0;j<49;j++) {
+    thumbnail_buffer[yoffset]=thumbnail_buffer[yoffset+1];
+    yoffset+=80;
+  }
   
   // Rearrange pixels
-  yoffset = 80+14; // skip dud first line
+  yoffset = 80+13; // skip dud first line
   for (y = 0; y < 48; y++) {
     yoffset_out = ((y & 7) << 3) + (y >> 3) * 64;
     xoffset=0;
