@@ -401,7 +401,7 @@ void draw_thumbnail(void)
   // But there isn't currently a good solution to this, short of having
   // a second buffer into which to render it.
   unsigned char x, y, i;
-  unsigned short yoffset;
+  unsigned short yoffset,yoffset_out,j;
   uint32_t thumbnail_sector = find_thumbnail_offset();
 
   // Can't find thumbnail area?  Then show no thumbnail
@@ -416,13 +416,23 @@ void draw_thumbnail(void)
     NAVIGATION_KEY_CHECK();
   }
 
+  // Pick colours of all pixels in the thumbnail
+  for(j=0;j<4096;j++) thumbnail_buffer[j]=colour_table[thumbnail_buffer[j]];
+  
   // Rearrange pixels
-  yoffset = 0;
+  yoffset = 14;
   for (y = 0; y < 48; y++) {
-    for (x = 0; x < 73; x++) {
+    yoffset_out = ((y & 7) << 3) + (y >> 3) * 64;
+    for (x = 0; x < 73; x+=8) {
       // Also the whole thing is rotated by one byte, so add that on as we plot the pixel
-      lpoke(0x50000L + (x & 7) + (x >> 3) * (64 * 6L) + ((y & 7) << 3) + (y >> 3) * 64,
-          colour_table[PEEK(thumbnail_buffer + 4 + 7 + x + yoffset)]);
+      // PGS Optimise here
+
+      j=8; if (x==72) j=2;
+
+      lcopy ((unsigned long)&thumbnail_buffer[x + yoffset],
+	     0x50000L + x  * (8 * 6L) + yoffset_out,
+	     j);
+          
     }
     NAVIGATION_KEY_CHECK();
     yoffset += 80;
