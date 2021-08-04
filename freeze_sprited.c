@@ -1244,33 +1244,29 @@ static void MainLoop()
         /* ------------------------- CURSOR MOVEMENT GROUP ----------------------------- */
 
         case CH_CURS_DOWN:
-            g_state.cursorY = (g_state.cursorY == g_state.spriteHeight - 1) ? 0 : (g_state.cursorY + 1);
             g_state.drawShapeFn(g_state.drawCellFn);
-            //g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+            g_state.cursorY = (g_state.cursorY == g_state.spriteHeight - 1) ? 0 : (g_state.cursorY + 1);
             g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
             MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         case CH_CURS_UP:
-            g_state.cursorY = (g_state.cursorY == 0) ? (g_state.spriteHeight - 1) : (g_state.cursorY - 1);
             g_state.drawShapeFn(g_state.drawCellFn);
-            //g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+            g_state.cursorY = (g_state.cursorY == 0) ? (g_state.spriteHeight - 1) : (g_state.cursorY - 1);
             g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
             MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         case CH_CURS_LEFT:
-            g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
             g_state.drawShapeFn(g_state.drawCellFn);
-            //g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+            g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
             g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
             MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
 
         case CH_CURS_RIGHT:
-            g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
             g_state.drawShapeFn(g_state.drawCellFn);
-            //g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
+            g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
             g_state.redrawFlags = REDRAW_SB_COORD  | REDRAW_TOOL_PREVIEW;
             MoveCursor(g_state.cursorX, g_state.cursorY);
             break;
