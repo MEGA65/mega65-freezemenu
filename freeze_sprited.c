@@ -364,6 +364,8 @@ static void Initialize()
   // Sprite properties (color, initial pos, etc.)
 
   POKE(0xD015, 7); // Enable #0, #1, #2
+  POKE(0xD01D, 0); // H-expand off for editor sprites.
+  POKE(0xD017, 0); // V-expand off for editor sprites.
   POKE(0xD000, 100);
   POKE(0xD001, 100);
 
@@ -650,13 +652,19 @@ static void FetchVic2RegsFromSlot()
     POKE(0xD01D, PEEK(0xD01D) | sprBit);
   }
   else {
-    POKE(0xD01D, PEEK(0xD01D & ~sprBit));
+    POKE(0xD01D, PEEK(0xD01D) & ~sprBit);
   }
   if (IS_SPR_VEXPAND(g_state.spriteNumber)) {
     POKE(0xD017, PEEK(0xD017) | sprBit);
   }
   else {
-    POKE(0xD017, PEEK(0xD017 & ~sprBit));
+    POKE(0xD017, PEEK(0xD017) & ~sprBit);
+  }
+  if (IS_SPR_XWIDTH(g_state.spriteNumber)) {
+      POKE(0xD057, PEEK(0xD057) | sprBit);
+  }
+  else {
+      POKE(0xD057, PEEK(0xD057) & ~sprBit);
   }
 }
 
@@ -817,12 +825,6 @@ void SetEffectiveToolRect(RECT* rc)
       MAX(g_state.toolOrgX, g_state.cursorX), MAX(g_state.toolOrgY, g_state.cursorY));
 }
 
-static void SetRedrawToolRect()
-{
-  if (g_state.toolActive)
-    SetEffectiveToolRect(&g_state.redrawRect);
-}
-
 void SetRedrawFullCanvas(void)
 {
   SetRect(&g_state.redrawRect, 0, 0, g_state.spriteWidth, g_state.spriteHeight);
@@ -938,8 +940,12 @@ static void DrawSideBarSpriteInfo()
     textcolor(3);
     cputhex(g_state.spriteDataAddr, 7);
     gotoxy(SIDEBAR_COLUMN, 8);
-    textcolor(COLOUR_LIGHTBLUE);
-    cputs(IS_SPR_XWIDTH(g_state.spriteNumber) | IS_SPR_16COL(g_state.spriteNumber) ? "extended width" : "              ");
+    textcolor(IS_SPR_XWIDTH(g_state.spriteNumber) | IS_SPR_16COL(g_state.spriteNumber) ? COLOUR_LIGHTBLUE : COLOUR_DARKGREY);
+    cputs("xwide");
+    textcolor(IS_SPR_HEXPAND(g_state.spriteNumber) ? COLOUR_LIGHTBLUE : COLOUR_DARKGREY);
+    cputs(" hexp");
+    textcolor(IS_SPR_VEXPAND(g_state.spriteNumber) ? COLOUR_LIGHTBLUE : COLOUR_DARKGREY);
+    cputs(" vexp");    
   }
 }
 
@@ -1305,6 +1311,7 @@ static void MainLoop()
       freeze_poke(VIC_BASE + 0x17, freeze_peek(VIC_BASE + 0x17) ^ (1 << g_state.spriteNumber));
       bordercolor(DEFAULT_BORDER_COLOR);
       UpdateSpritePreview();
+      g_state.redrawFlags = REDRAW_SB_INFO;
       break;
 
     case 104: // "H"-expand
@@ -1312,6 +1319,7 @@ static void MainLoop()
       freeze_poke(VIC_BASE + 0x1D, freeze_peek(VIC_BASE + 0x1D) ^ (1 << g_state.spriteNumber));
       bordercolor(DEFAULT_BORDER_COLOR);
       UpdateSpritePreview();
+      g_state.redrawFlags = REDRAW_SB_INFO;
       break;
 
       /* ------------------------------- COLOR GROUP -------------------------- */
