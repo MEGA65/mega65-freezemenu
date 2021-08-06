@@ -643,8 +643,20 @@ static void ClearSprite()
 static void FetchVic2RegsFromSlot()
 {
   // H/Y expand
-  POKE(0xD017, freeze_peek(VIC_BASE + 0x17));
-  POKE(0xD01D, freeze_peek(VIC_BASE + 0x1D));
+
+  const BYTE sprBit = 1 << PREVIEW_SPRITE_NUM;
+  if (IS_SPR_HEXPAND(g_state.spriteNumber)) {
+    POKE(0xD01D, PEEK(0xD01D) | sprBit);
+  }
+  else {
+    POKE(0xD01D, PEEK(0xD01D & ~sprBit));
+  }
+   if (IS_SPR_VEXPAND(g_state.spriteNumber)) {
+    POKE(0xD017, PEEK(0xD017) | sprBit);
+  }
+  else {
+    POKE(0xD017, PEEK(0xD017 & ~sprBit));
+  }
 }
 
 static void FetchSpriteDataFromSlot()
@@ -658,9 +670,8 @@ static void FetchSpriteDataFromSlot()
 static void PutSpriteDataToSlot()
 {
   register BYTE i;
-  const unsigned long spriteSourceAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
   for (i = 0; i < g_state.spriteSizeBytes; ++i) {
-    freeze_poke(spriteSourceAddr + i, lpeek(SPRITE_BUFFER + i));
+    freeze_poke(g_state.spriteDataAddr + i, lpeek(SPRITE_BUFFER + i));
   }
 }
 
@@ -687,14 +698,14 @@ static void UpdateSpritePreview(void)
   POKE(LOCAL_REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
   POKE(LOCAL_REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
 
-  POKE(0xD004,
-      (SPRITE_OFFSET_X
-          + ((SIDEBAR_COLUMN * 8 / 2)
-              + (((SIDEBAR_WIDTH * 8 / 2) / 2) - (g_state.spriteWidth / (IS_SPR_MULTICOLOR(g_state.spriteNumber) ? 1 : 2)))))
-          & 0xFF);
+  POKE(0xD004, (SPRITE_OFFSET_X
+                   + ((SIDEBAR_COLUMN * 8 / 2)
+                       + (((SIDEBAR_WIDTH * 8 / 2) / 2)
+                           - (g_state.spriteWidth * HFACTOR / (IS_SPR_MULTICOLOR(g_state.spriteNumber) ? 1 : 2)))))
+                   & 0xFF);
 
   POKE(0xD005, (SPRITE_OFFSET_Y + (SIDEBAR_PREVIEW_AREA_TOP * 8)
-                   + (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight * HFACTOR / 2))));
+                   + (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight * VFACTOR / 2))));
 }
 
 void UpdateSpriteParameters(void)
