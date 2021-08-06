@@ -140,6 +140,7 @@ extern int errno;
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define ABS8(x) (((x) ^ ((x) >> 7)) - ((x) >> 7))
 #define ABS16(x) (((x) ^ ((x) >> 15)) - ((x) >> 15))
+#define ARRAY_SIZE(x) (sizeof(##x) / sizeof(##x[0]))
 
 // Screen RAM for our area. We do not use 16-bit character mode
 // so we need 80x25 = 2K area.
@@ -651,7 +652,7 @@ static void FetchVic2RegsFromSlot()
   else {
     POKE(0xD01D, PEEK(0xD01D & ~sprBit));
   }
-   if (IS_SPR_VEXPAND(g_state.spriteNumber)) {
+  if (IS_SPR_VEXPAND(g_state.spriteNumber)) {
     POKE(0xD017, PEEK(0xD017) | sprBit);
   }
   else {
@@ -1015,8 +1016,8 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 
 static void ShowHelp()
 {
-  const char* fileKeys[] = { "  file / txfer     ", "new          ctrl+n", "load             f5", "save             f7",
-    "fetch            f8", "store            f9" };
+  const char* fileKeys[] = { "  file / txfer     ", "new          ctrl+n", "load             f5", "save raw       f7,r",
+    "save basic     f7,b", "fetch slot       f8", "store slot       f9" };
 
   const char* drawKeys[] = { "       tools       ", "pixel             p", "box               x", "filled box      s-x",
     "circle            o", "filled circle   s-o", "line              l" };
@@ -1024,9 +1025,18 @@ static void ShowHelp()
   const char* colorKeys[] = { "       color       ", "select         0..9", "               a..f", "prev component    -",
     "next component    +", "select background k", "sel pal bank ctrl+p" };
 
-  const char* editKeys[] = { "       edit        ", "prev sprite       <", "next sprite       >", "change type       *",
-    "toggle x-width    \x1e", "copy sprite  ctrl+c", "horz flip    ctrl+h", "vert flip    ctrl+v", "h-expand          h",
-    "v-expand          v" };
+  const char* editKeys[] = {
+    "       edit        ",
+    "prev sprite       <",
+    "next sprite       >",
+    "change type       *",
+    "h-expand          h",
+    "v-expand          v",
+    "toggle x-width    \x1e",
+    "copy sprite  ctrl+c",
+    "horz flip    ctrl+h",
+    "vert flip    ctrl+v",
+  };
 
   const char* displayKeys[] = {
     "     display       ",
@@ -1034,16 +1044,20 @@ static void ShowHelp()
     "25/50-line    alt+d",
   };
 
+  POKE(0xD015, 0);
+
   flushkeybuf();
   clrscr();
   DrawHeader();
-  PrintKeyGroup(fileKeys, 4, 0, 2);
-  PrintKeyGroup(editKeys, 9, 21, 2);
-  PrintKeyGroup(drawKeys, 7, 0, 2 + 4 + 1);
-  PrintKeyGroup(colorKeys, 7, 0, 2 + 4 + 1 + 7 + 1);
-  PrintKeyGroup(displayKeys, 3, 42, 2);
+  PrintKeyGroup(fileKeys, ARRAY_SIZE(fileKeys), 0, 2);
+  PrintKeyGroup(editKeys, ARRAY_SIZE(editKeys), 21, 2);
+  PrintKeyGroup(drawKeys, ARRAY_SIZE(drawKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1);
+  PrintKeyGroup(colorKeys, ARRAY_SIZE(colorKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1 + ARRAY_SIZE(drawKeys) + 1);
+  PrintKeyGroup(displayKeys, ARRAY_SIZE(displayKeys), 42, 2);
 
   cgetc();
+
+  POKE(0xD015, 7);
 }
 
 static void DoExit()
@@ -1168,6 +1182,8 @@ static void MainLoop()
       ShowHelp();
       EraseCanvasSpace();
       SetRedrawFullCanvas();
+      textcolor(COLOUR_BLUE);
+      cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
       g_state.redrawFlags = REDRAW_SB_ALL;
       break;
 
