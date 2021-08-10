@@ -42,17 +42,17 @@
 
     v0.9        Transfer to/from frozen sprite memory of registers and data.
                 Display: 50-line mode, wide-screen/4:3 aspect ratio modes.
+                UI Enhancements and fixes.
                 Fixes buffer overrun in Ask() function.
                 Sprite preview at side.
                 Fancy editing cursor sprite.
                 Fancy pointer sprite
                 H/V expand toggle
                 Size optimizations
+                Redrawing optimizations
+                Fetch/Store slot shortcuts.
 
     TODO:
-
-    * Instead of re-drawing full canvas, we should invalidate
-      only the needed area.
     * Consider SPRBPMEN for 16-color sprites
  */
 
@@ -214,7 +214,7 @@ static APPSTATE g_state;
 static unsigned long g_freezeSlotStartSector;
 
 /* Nonstatic Function prototypes */
-void UpdateSpriteParameters(void);
+void UpdateSpriteParameters(BOOL);
 void SetDrawTool(BYTE);
 void SetRedrawFullCanvas(void);
 void SetEffectiveToolRect(RECT*);
@@ -388,7 +388,7 @@ static void Initialize()
   g_state.wideScreenMode = 0;
 
   SetDrawTool(DRAWING_TOOL_PIXEL);
-  UpdateSpriteParameters();
+  UpdateSpriteParameters(TRUE);
   SetRedrawFullCanvas();
   MoveCursor(0, 0);
 }
@@ -661,10 +661,10 @@ static void FetchVic2RegsFromSlot()
     POKE(0xD017, PEEK(0xD017) & ~sprBit);
   }
   if (IS_SPR_XWIDTH(g_state.spriteNumber)) {
-      POKE(0xD057, PEEK(0xD057) | sprBit);
+    POKE(0xD057, PEEK(0xD057) | sprBit);
   }
   else {
-      POKE(0xD057, PEEK(0xD057) & ~sprBit);
+    POKE(0xD057, PEEK(0xD057) & ~sprBit);
   }
 }
 
@@ -717,7 +717,7 @@ static void UpdateSpritePreview(void)
                    + (((SIDEBAR_PREVIEW_AREA_HEIGHT * 8) / 2) - (g_state.spriteHeight * VFACTOR / 2))));
 }
 
-void UpdateSpriteParameters(void)
+void UpdateSpriteParameters(BOOL fFetchSlot)
 {
   const BYTE isXWidth = IS_SPR_XWIDTH(g_state.spriteNumber);
 
@@ -726,8 +726,10 @@ void UpdateSpriteParameters(void)
   g_state.bytesPerRow = g_state.spriteSizeBytes / g_state.spriteHeight;
   g_state.spriteDataAddr = SPRITE_DATA_ADDR(g_state.spriteNumber);
 
-  FetchSpriteDataFromSlot();
-  FetchVic2RegsFromSlot();
+  if (fFetchSlot) {
+    FetchSpriteDataFromSlot();
+    FetchVic2RegsFromSlot();
+  }
 
   if (IS_SPR_16COL(g_state.spriteNumber)) {
     g_state.drawCellFn = Draw16ColorCell;
@@ -945,7 +947,7 @@ static void DrawSideBarSpriteInfo()
     textcolor(IS_SPR_HEXPAND(g_state.spriteNumber) ? COLOUR_LIGHTBLUE : COLOUR_DARKGREY);
     cputs(" hexp");
     textcolor(IS_SPR_VEXPAND(g_state.spriteNumber) ? COLOUR_LIGHTBLUE : COLOUR_DARKGREY);
-    cputs(" vexp");    
+    cputs(" vexp");
   }
 }
 
@@ -1083,9 +1085,9 @@ static void DrawScreen()
   DrawSidebar();
 }
 
-static void UpdateAndFullRedraw()
+static void UpdateAndFullRedraw(BOOL fFetchSlot)
 {
-  UpdateSpriteParameters();
+  UpdateSpriteParameters(fFetchSlot);
   EraseCanvasSpace();
   SetRedrawFullCanvas();
 }
@@ -1255,7 +1257,7 @@ static void MainLoop()
       else if (key == ',' && g_state.spriteNumber-- == 0)
         g_state.spriteNumber = SPRITE_MAX_COUNT - 1;
 
-      UpdateAndFullRedraw();
+      UpdateAndFullRedraw(TRUE);
       g_state.cursorX = MIN(g_state.spriteWidth - 1, g_state.cursorX);
       g_state.cursorY = MIN(g_state.spriteHeight - 1, g_state.cursorY);
 
@@ -1280,14 +1282,14 @@ static void MainLoop()
         freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
         break;
       }
-      UpdateAndFullRedraw();
+      UpdateAndFullRedraw(FALSE);
       break;
 
     case '@': // 94: // Up-arrow
 
       freeze_poke(REG_SPRX64EN, freeze_peek(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
       g_state.redrawFlags = REDRAW_SB_ALL;
-      UpdateAndFullRedraw();
+      UpdateAndFullRedraw(FALSE);
       break;
 
     case 3: // CTRL-C
@@ -1362,12 +1364,12 @@ static void MainLoop()
 
     case 240: // ALT-D
       setscreensize(80, 50);
-      UpdateAndFullRedraw();
+      UpdateAndFullRedraw(FALSE);
       break;
 
     case 174: // ALT-R
       g_state.wideScreenMode = ~g_state.wideScreenMode & 1;
-      UpdateAndFullRedraw();
+      UpdateAndFullRedraw(FALSE);
       break;
 
       /* --------------------------- FILE GROUP ----------------------------- */
@@ -1385,6 +1387,14 @@ static void MainLoop()
 
     case 0xF7: // F7 SAVE
       Ask("enter file name to save: ", buf, 19);
+      break;
+
+    case 0xF9: // Fetch from slot
+      UpdateAndFullRedraw(TRUE);
+      break;
+
+    case 0xFB: // F11 Save to slot
+      PutSpriteDataToSlot();
       break;
 
     case 14: // CTRL-N
