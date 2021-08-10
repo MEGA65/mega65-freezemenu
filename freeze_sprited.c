@@ -219,7 +219,7 @@ void SetDrawTool(BYTE);
 void SetRedrawFullCanvas(void);
 void SetEffectiveToolRect(RECT*);
 void SetupTextPalette(void);
-void MoveCursor(BYTE x, BYTE y);
+void MoveCursor(void);
 
 /* Toolbox Character set, in order of DRAWING_TOOL... enumeration */
 
@@ -390,7 +390,7 @@ static void Initialize()
   SetDrawTool(DRAWING_TOOL_PIXEL);
   UpdateSpriteParameters(TRUE);
   SetRedrawFullCanvas();
-  MoveCursor(0, 0);
+  MoveCursor();
 }
 
 void LoadSlotSpritePalette()
@@ -409,10 +409,10 @@ void SetupTextPalette(void)
   // setmapedpal(SPRITE_PALETTE);
 }
 
-void MoveCursor(BYTE x, BYTE y)
+void MoveCursor()
 {
-  POKE(0xD002, SPRITE_OFFSET_X + (g_state.canvasLeftX * 4) + (x * g_state.cellsPerPixel * 4));
-  POKE(0xD003, SPRITE_OFFSET_Y + (2 * 8) + (y * 8));
+  POKE(0xD002, SPRITE_OFFSET_X + (g_state.canvasLeftX * 4) + (g_state.cursorX * g_state.cellsPerPixel * 4));
+  POKE(0xD003, SPRITE_OFFSET_Y + (2 * 8) + (g_state.cursorY * 8));
 }
 
 static void DrawShapeChar(BYTE x, BYTE y)
@@ -777,7 +777,13 @@ void UpdateSpriteParameters(BOOL fFetchSlot)
 
   // Setup Edit cursor
 
-  lcopy(editCursors + 63 * (g_state.cellsPerPixel - 1), 0x3C0, 63);
+  lcopy((long) editCursors + 63 * (g_state.cellsPerPixel - 1), 0x3C0, 63);
+
+  // The edit cursor maybe off-bounds if a different sprite type was switched,
+  // so force to recalculate
+  g_state.cursorX = MIN(g_state.cursorX, g_state.spriteWidth - 1);
+  g_state.cursorY = MIN(g_state.cursorY, g_state.spriteHeight - 1);
+  MoveCursor();
 }
 
 static void UpdateColorRegs()
@@ -1118,7 +1124,7 @@ static void MainLoop()
         g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
         g_state.cursorX = (mx - 55) / 8;
         g_state.cursorY = (my - 66) / 8;
-        MoveCursor(g_state.cursorX, g_state.cursorY);
+        MoveCursor();
         fire_lock = 0;
       }
     }
@@ -1201,28 +1207,28 @@ static void MainLoop()
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorY = (g_state.cursorY == g_state.spriteHeight - 1) ? 0 : (g_state.cursorY + 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor(g_state.cursorX, g_state.cursorY);
+      MoveCursor();
       break;
 
     case CH_CURS_UP:
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorY = (g_state.cursorY == 0) ? (g_state.spriteHeight - 1) : (g_state.cursorY - 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor(g_state.cursorX, g_state.cursorY);
+      MoveCursor();
       break;
 
     case CH_CURS_LEFT:
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor(g_state.cursorX, g_state.cursorY);
+      MoveCursor();
       break;
 
     case CH_CURS_RIGHT:
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor(g_state.cursorX, g_state.cursorY);
+      MoveCursor();
       break;
 
       /* ------------------------- EDIT GROUP ------------------------------------------ */
@@ -1387,6 +1393,7 @@ static void MainLoop()
 
     case 0xF7: // F7 SAVE
       Ask("enter file name to save: ", buf, 19);
+
       break;
 
     case 0xF9: // Fetch from slot
