@@ -363,7 +363,11 @@ void scan_directory(unsigned char drive_id)
       }
     }
     else if (x > 4) {
-      if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d81", 4))) {
+      if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4))
+	  || (!strncmp(&dirent->d_name[x - 4], ".d81", 4)))
+	  || (!strncmp(&dirent->d_name[x - 4], ".d65", 4)))
+	  || (!strncmp(&dirent->d_name[x - 4], ".d65", 4)))
+	{
         // File is a disk image
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
@@ -548,6 +552,15 @@ char* freeze_select_disk_image(unsigned char drive_id)
           POKE(0xD081, 0x10);
           usleep(7000);
         }
+	// Now check the contents of $D084 to find out the most recently
+	// requested track, and seek the head to that track.
+	x=freeze_peek(0xFFD3084); // Get last requested track by frozen programme
+	while(x) {
+	  POKE(0xD081, 0x18);
+	  while(PEEK(0xD082)&0x80) POKE(0xD020,PEEK(0xD020)+1);
+	  x--;
+	}
+
 
         // Mounted ok, so return this image
         return disk_name_return;
