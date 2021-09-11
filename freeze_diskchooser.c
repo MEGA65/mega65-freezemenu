@@ -364,8 +364,8 @@ void scan_directory(unsigned char drive_id)
     }
     else if (x > 4) {
       if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4))
-	  || (!strncmp(&dirent->d_name[x - 4], ".d81", 4)))
-	  || (!strncmp(&dirent->d_name[x - 4], ".d65", 4)))
+	  || (!strncmp(&dirent->d_name[x - 4], ".d81", 4))
+	  || (!strncmp(&dirent->d_name[x - 4], ".D65", 4))
 	  || (!strncmp(&dirent->d_name[x - 4], ".d65", 4)))
 	{
         // File is a disk image
