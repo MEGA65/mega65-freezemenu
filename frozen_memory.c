@@ -26,7 +26,6 @@ void request_freeze_region_list(void)
       break;
   }
   freeze_region_count = i;
-
 }
 
 uint32_t find_thumbnail_offset(void)
@@ -149,6 +148,34 @@ unsigned char freeze_fetch_sector(uint32_t addr, unsigned char* buffer)
   return 0;
 }
 
+unsigned char freeze_fetch_sector_32(uint32_t addr, uint32_t dest, unsigned int count)
+{
+
+  // Find sector
+  uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
+  unsigned short offset;
+  if (count > 512) {
+    // sector size exceeded
+    return 0x56;
+  }
+  offset = freeze_slot_offset & 0x1ff;
+  freeze_slot_offset = freeze_slot_offset >> 9L;
+
+  if (freeze_slot_offset == 0xFFFFFFFFL) {
+    // Invalid / unfrozen memory
+    return 0x55;
+  }
+
+  // XXX - We should cache sectors
+
+  // Read the sector
+  sdcard_readsector(freeze_slot_start_sector + freeze_slot_offset);
+
+  // Return the byte
+  lcopy((long)&sector_buffer[offset], dest, count);
+  return 0;
+}
+
 unsigned char freeze_store_sector(uint32_t addr, unsigned char* buffer)
 {
   // Find sector
@@ -164,6 +191,32 @@ unsigned char freeze_store_sector(uint32_t addr, unsigned char* buffer)
   }
 
   lcopy((long)buffer, (long)&sector_buffer[offset], 512);
+
+  // Write the sector
+  sdcard_writesector(freeze_slot_start_sector + freeze_slot_offset, 0);
+
+  return 0;
+}
+
+unsigned char freeze_store_sector_32(uint32_t addr, uint32_t src, unsigned int count)
+{
+
+  // Find sector
+  uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
+  unsigned short offset;
+  if (count > 512) {
+    // sector size exceeded
+    return 0x56;
+  }
+  offset = freeze_slot_offset & 0x1ff;
+  freeze_slot_offset = freeze_slot_offset >> 9L;
+
+  if (freeze_slot_offset == 0xFFFFFFFFL) {
+    // Invalid / unfrozen memory
+    return 0x55;
+  }
+
+  lcopy(src, (long)&sector_buffer[offset], count);
 
   // Write the sector
   sdcard_writesector(freeze_slot_start_sector + freeze_slot_offset, 0);
