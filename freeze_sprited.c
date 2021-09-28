@@ -670,7 +670,7 @@ static void FetchVic2RegsFromSlot()
 
 static void FetchSpriteDataFromSlot()
 {
-  register BYTE i;
+  register BYTE i;  //TODO: Sprites may exceed 255 bytes
   for (i = 0; i < g_state.spriteSizeBytes; ++i) {
     lpoke(SPRITE_BUFFER + i, freeze_peek(g_state.spriteDataAddr + i));
   }
@@ -678,9 +678,17 @@ static void FetchSpriteDataFromSlot()
 
 static void PutSpriteDataToSlot()
 {
-  register BYTE i;
+  register BYTE i; //TODO: Sprites may exceed 255 bytes
   for (i = 0; i < g_state.spriteSizeBytes; ++i) {
     freeze_poke(g_state.spriteDataAddr + i, lpeek(SPRITE_BUFFER + i));
+  }
+}
+
+static void CopySpriteData(const uint32_t to_addr)
+{
+  register BYTE i; //TODO: Sprites may exceed 255 bytes
+  for (i = 0; i < g_state.spriteSizeBytes; ++i) {
+    freeze_poke(to_addr + i, lpeek(SPRITE_BUFFER + i));
   }
 }
 
@@ -777,7 +785,7 @@ void UpdateSpriteParameters(BOOL fFetchSlot)
 
   // Setup Edit cursor
 
-  lcopy((long) editCursors + 63 * (g_state.cellsPerPixel - 1), 0x3C0, 63);
+  lcopy((long)editCursors + 63 * (g_state.cellsPerPixel - 1), 0x3C0, 63);
 
   // The edit cursor maybe off-bounds if a different sprite type was switched,
   // so force to recalculate
@@ -1030,8 +1038,8 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 
 static void ShowHelp()
 {
-  const char* fileKeys[] = { "  file / txfer     ", "new          ctrl+n", "load             f5", "save raw       f7,r",
-    "save basic     f7,b", "fetch slot       f8", "store slot       f9" };
+  const char* fileKeys[] = { "  file / txfer     ", "load             f5", "save raw       f7,r", "save basic     f7,b",
+    "fetch slot       f9", "store slot      f11" };
 
   const char* drawKeys[] = { "       tools       ", "pixel             p", "box               x", "filled box      s-x",
     "circle            o", "filled circle   s-o", "line              l" };
@@ -1041,11 +1049,12 @@ static void ShowHelp()
 
   const char* editKeys[] = {
     "       edit        ",
+    "clear        ctrl+n",
     "prev sprite       <",
     "next sprite       >",
     "change type       *",
-    "h-expand          h",
-    "v-expand          v",
+    "toggle h-expand   h",
+    "toggle v-expand   v",
     "toggle x-width    \x1e",
     "copy sprite  ctrl+c",
     "horz flip    ctrl+h",
@@ -1304,7 +1313,7 @@ static void MainLoop()
         BYTE toSprite = buf[0] - 48;
         if (SPRITE_SIZE_BYTES(toSprite) == g_state.spriteSizeBytes) {
           // Display error if bytes do not match
-          lcopy(g_state.spriteDataAddr, SPRITE_DATA_ADDR(toSprite), g_state.spriteSizeBytes);
+          CopySpriteData(SPRITE_DATA_ADDR(toSprite));
         }
         else {
           bordercolor(COLOUR_RED);
@@ -1328,6 +1337,13 @@ static void MainLoop()
       bordercolor(DEFAULT_BORDER_COLOR);
       UpdateSpritePreview();
       g_state.redrawFlags = REDRAW_SB_INFO;
+      break;
+
+    case 8: // CTRL-H  (Horz flip)
+      break;
+
+    case 22: // CTRL-V  (Vert flip)
+
       break;
 
       /* ------------------------------- COLOR GROUP -------------------------- */
