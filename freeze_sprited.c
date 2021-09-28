@@ -670,26 +670,20 @@ static void FetchVic2RegsFromSlot()
 
 static void FetchSpriteDataFromSlot()
 {
-  register BYTE i;  //TODO: Sprites may exceed 255 bytes
-  for (i = 0; i < g_state.spriteSizeBytes; ++i) {
-    lpoke(SPRITE_BUFFER + i, freeze_peek(g_state.spriteDataAddr + i));
-  }
+  //TODO: Sprites may exceed 512 bytes
+  freeze_fetch_sector_32(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void PutSpriteDataToSlot()
 {
-  register BYTE i; //TODO: Sprites may exceed 255 bytes
-  for (i = 0; i < g_state.spriteSizeBytes; ++i) {
-    freeze_poke(g_state.spriteDataAddr + i, lpeek(SPRITE_BUFFER + i));
-  }
+  //TODO: Sprites may exceed 512 bytes
+  freeze_store_sector_32(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void CopySpriteData(const uint32_t to_addr)
 {
-  register BYTE i; //TODO: Sprites may exceed 255 bytes
-  for (i = 0; i < g_state.spriteSizeBytes; ++i) {
-    freeze_poke(to_addr + i, lpeek(SPRITE_BUFFER + i));
-  }
+  //TODO: Sprites may exceed 512 bytes
+  freeze_store_sector_32(to_addr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void UpdatePalette(void)
@@ -1318,8 +1312,8 @@ static void MainLoop()
         else {
           bordercolor(COLOUR_RED);
           cgetc();
-          bordercolor(DEFAULT_BORDER_COLOR);
         }
+        bordercolor(DEFAULT_BORDER_COLOR);
       }
       break;
 
