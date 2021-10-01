@@ -16,7 +16,7 @@
     You should have received a copy of the GNU Lesser General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-    Version   0.9
+    Version   0.10
     Date      2021-05-28
 
     CHANGELOG
@@ -52,11 +52,16 @@
                 Redrawing optimizations
                 Fetch/Store slot shortcuts.
 
+    v0.10       90-column display mode by default.
+                Faster I/O to Freeze memory (fetch_sector_32 functions)
+                Fixed Copy Sprite bug
+                Fixed 64bit-width sprite preview.
+                Changes at HELP screen
+
+
     TODO:
     * Consider SPRBPMEN for 16-color sprites
  */
-
-//#define TEST_SPRITES
 
 #include <cc65.h>
 #include "../mega65-libc/cc65/include/conio.h"
@@ -670,19 +675,19 @@ static void FetchVic2RegsFromSlot()
 
 static void FetchSpriteDataFromSlot()
 {
-  //TODO: Sprites may exceed 512 bytes
+  // TODO: Sprites may exceed 512 bytes
   freeze_fetch_sector_32(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void PutSpriteDataToSlot()
 {
-  //TODO: Sprites may exceed 512 bytes
+  // TODO: Sprites may exceed 512 bytes
   freeze_store_sector_32(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void CopySpriteData(const uint32_t to_addr)
 {
-  //TODO: Sprites may exceed 512 bytes
+  // TODO: Sprites may exceed 512 bytes
   freeze_store_sector_32(to_addr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
@@ -1295,10 +1300,11 @@ static void MainLoop()
       break;
 
     case '@': // 94: // Up-arrow
-
+      POKE(LOCAL_REG_SPRX64EN, PEEK(LOCAL_REG_SPRX64EN) ^ (1 << PREVIEW_SPRITE_NUM));
       freeze_poke(REG_SPRX64EN, freeze_peek(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
       g_state.redrawFlags = REDRAW_SB_ALL;
       UpdateAndFullRedraw(FALSE);
+      UpdateSpritePreview();
       break;
 
     case 3: // CTRL-C
