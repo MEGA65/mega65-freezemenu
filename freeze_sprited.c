@@ -57,12 +57,12 @@
                 Fixed Copy Sprite bug
                 Fixed 64bit-width sprite preview.
                 Changes at HELP screen
+                Cursor updates optimization and fix w/SPRX64EN activated
 
 
     TODO:
     * Consider SPRBPMEN for 16-color sprites
  */
-
 #include <cc65.h>
 #include "../mega65-libc/cc65/include/conio.h"
 #include "../mega65-libc/cc65/include/mouse.h"
@@ -206,6 +206,8 @@ typedef struct tagAPPSTATE {
   void (*drawCellFn)(BYTE, BYTE);
   void (*paintCellFn)(BYTE, BYTE);
   void (*drawShapeFn)(PAINTFUNC);
+  void (*updateCursorXFn)(void);
+  void (*updateCursorYFn)(void);
   unsigned int spriteSizeBytes;
   long spriteDataAddr;
 } APPSTATE;
@@ -224,7 +226,9 @@ void SetDrawTool(BYTE);
 void SetRedrawFullCanvas(void);
 void SetEffectiveToolRect(RECT*);
 void SetupTextPalette(void);
-void MoveCursor(void);
+void UpdateCursorX(void);
+void UpdateCursorY(void);
+void UpdateCursorXMSB(void);
 
 /* Toolbox Character set, in order of DRAWING_TOOL... enumeration */
 
@@ -391,11 +395,15 @@ static void Initialize()
   g_state.toolOrgX = g_state.toolOrgY = 0;
   g_state.color[COLOR_BACK] = DEFAULT_BACK_COLOR;
   g_state.wideScreenMode = 0;
+  g_state.updateCursorXFn = UpdateCursorX;
+  g_state.updateCursorYFn = UpdateCursorY;
 
   SetDrawTool(DRAWING_TOOL_PIXEL);
   UpdateSpriteParameters(TRUE);
   SetRedrawFullCanvas();
-  MoveCursor();
+
+  g_state.updateCursorXFn();
+  g_state.updateCursorYFn();
 }
 
 void LoadSlotSpritePalette()
@@ -414,10 +422,31 @@ void SetupTextPalette(void)
   // setmapedpal(SPRITE_PALETTE);
 }
 
-void MoveCursor()
+void UpdateCursorX()
 {
-  POKE(0xD002, SPRITE_OFFSET_X + (g_state.canvasLeftX * 4) + (g_state.cursorX * g_state.cellsPerPixel * 4));
-  POKE(0xD003, SPRITE_OFFSET_Y + (2 * 8) + (g_state.cursorY * 8));
+  BYTE cvw = g_state.canvasLeftX * 4;
+  BYTE xc = g_state.cursorX * g_state.cellsPerPixel * 4;
+  POKE(0xD002, SPRITE_OFFSET_X + cvw + xc);
+}
+
+void UpdateCursorY()
+{
+  BYTE yc = g_state.cursorY * 8;
+  POKE(0xD003, SPRITE_OFFSET_Y + (2 * 8) + yc);
+}
+
+void UpdateCursorXMSB()
+{
+  BYTE cvw = g_state.canvasLeftX * 4;
+  BYTE xc = g_state.cursorX * g_state.cellsPerPixel * 4;
+  const unsigned short sx = SPRITE_OFFSET_X + cvw + xc;
+  if (sx < 256) {
+    POKE(0xD010, PEEK(0xD010) & ~(1 << EDIT_CURSOR_NUM));
+  }
+  else {
+    POKE(0xD010, PEEK(0xD010) | (1 << EDIT_CURSOR_NUM));
+  }
+  POKE(0xD002, sx);
 }
 
 static void DrawShapeChar(BYTE x, BYTE y)
@@ -790,7 +819,8 @@ void UpdateSpriteParameters(BOOL fFetchSlot)
   // so force to recalculate
   g_state.cursorX = MIN(g_state.cursorX, g_state.spriteWidth - 1);
   g_state.cursorY = MIN(g_state.cursorY, g_state.spriteHeight - 1);
-  MoveCursor();
+  g_state.updateCursorXFn();
+  g_state.updateCursorYFn();
 }
 
 static void UpdateColorRegs()
@@ -1132,7 +1162,8 @@ static void MainLoop()
         g_state.drawCellFn(g_state.cursorX, g_state.cursorY);
         g_state.cursorX = (mx - 55) / 8;
         g_state.cursorY = (my - 66) / 8;
-        MoveCursor();
+        g_state.updateCursorXFn();
+        g_state.updateCursorYFn();
         fire_lock = 0;
       }
     }
@@ -1215,28 +1246,28 @@ static void MainLoop()
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorY = (g_state.cursorY == g_state.spriteHeight - 1) ? 0 : (g_state.cursorY + 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor();
+      g_state.updateCursorYFn();
       break;
 
     case CH_CURS_UP:
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorY = (g_state.cursorY == 0) ? (g_state.spriteHeight - 1) : (g_state.cursorY - 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor();
+      g_state.updateCursorYFn();
       break;
 
     case CH_CURS_LEFT:
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorX = (g_state.cursorX == 0) ? (g_state.spriteWidth - 1) : (g_state.cursorX - 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor();
+      g_state.updateCursorXFn();
       break;
 
     case CH_CURS_RIGHT:
       g_state.drawShapeFn(g_state.drawCellFn);
       g_state.cursorX = (g_state.cursorX == g_state.spriteWidth - 1) ? 0 : (g_state.cursorX + 1);
       g_state.redrawFlags = REDRAW_SB_COORD | REDRAW_TOOL_PREVIEW;
-      MoveCursor();
+      g_state.updateCursorXFn();
       break;
 
       /* ------------------------- EDIT GROUP ------------------------------------------ */
@@ -1303,6 +1334,7 @@ static void MainLoop()
       POKE(LOCAL_REG_SPRX64EN, PEEK(LOCAL_REG_SPRX64EN) ^ (1 << PREVIEW_SPRITE_NUM));
       freeze_poke(REG_SPRX64EN, freeze_peek(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
       g_state.redrawFlags = REDRAW_SB_ALL;
+      g_state.updateCursorXFn = PEEK(LOCAL_REG_SPRX64EN) & (1 << PREVIEW_SPRITE_NUM) ? UpdateCursorXMSB : UpdateCursorX;  
       UpdateAndFullRedraw(FALSE);
       UpdateSpritePreview();
       break;
