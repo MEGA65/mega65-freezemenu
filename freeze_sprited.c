@@ -58,6 +58,8 @@
                 Fixed 64bit-width sprite preview.
                 Changes at HELP screen
                 Cursor updates optimization and fix w/SPRX64EN activated
+                Fix "K" key for 16color
+
 
 
     TODO:
@@ -74,14 +76,24 @@
 #include "freezer.h"
 
 extern int errno;
-
+//#define SPRITED_STANDALONE
 #define PAGE_SIZE 256
-#define VIC_BASE 0xFFD3000UL // This is where VIC-II is mapped in frozen memory
 #define LOCAL_VIC_BASE 0xD000
-#define REG_SPRPTR_B0 (freeze_peek(VIC_BASE + 0x6CUL))
-#define REG_SPRPTR_B1 (freeze_peek(VIC_BASE + 0x6DUL))
-#define REG_SPRPTR_B2 (freeze_peek(VIC_BASE + 0x6EUL) & 0x7F)
-#define REG_SPRPTR16 (freeze_peek(VIC_BASE + 0x6EUL) & 0x80)
+#ifdef SPRITED_STANDALONE
+#define VIC_BASE LOCAL_VIC_BASE
+#define CIA2_PORT_A 0xDD00UL
+#define FREEZE_PEEK(x) PEEK((x))
+#define FREEZE_POKE(x,y) POKE((x),(y))
+#else
+#define VIC_BASE 0xFFD3000UL // This is where VIC-II is mapped in frozen memory
+#define CIA2_PORT_A 0xFFD3D00UL
+#define FREEZE_PEEK(x) freeze_peek((x))
+#define FREEZE_POKE(x,y) freeze_poke((x),(y))
+#endif
+#define REG_SPRPTR_B0 (FREEZE_PEEK(VIC_BASE + 0x6CUL))
+#define REG_SPRPTR_B1 (FREEZE_PEEK(VIC_BASE + 0x6DUL))
+#define REG_SPRPTR_B2 (FREEZE_PEEK(VIC_BASE + 0x6EUL) & 0x7F)
+#define REG_SPRPTR16 (FREEZE_PEEK(VIC_BASE + 0x6EUL) & 0x80)
 #define REG_SPR_VEXPAND (VIC_BASE + 0x17UL)
 #define REG_SPR_HEXPAND (VIC_BASE + 0x1DUL)
 #define REG_SPR_16COL (VIC_BASE + 0x6BUL)
@@ -100,19 +112,19 @@ extern int errno;
 #define LOCAL_REG_SPRITE_COLOR(n) (LOCAL_VIC_BASE + 0x27UL + (n))
 #define LOCAL_REG_SPRPALSEL (LOCAL_VIC_BASE + 0x70UL)
 
-#define SPRITE_PALETTE ((freeze_peek(REG_SPRPALSEL) & 0x30) >> 4)
-#define IS_SPR_MULTICOLOR(n) ((freeze_peek(REG_SPR_MULTICOLOR)) & (1 << (n)))
-#define IS_SPR_16COL(n) ((freeze_peek(REG_SPR_16COL)) & (1 << (n)))
-#define IS_SPR_XWIDTH(n) ((freeze_peek(REG_SPRX64EN)) & (1 << (n)))
-#define IS_SPR_HEXPAND(n) ((freeze_peek(REG_SPR_HEXPAND)) & (1 << (n)))
-#define IS_SPR_VEXPAND(n) ((freeze_peek(REG_SPR_VEXPAND)) & (1 << (n)))
+#define SPRITE_PALETTE ((FREEZE_PEEK(REG_SPRPALSEL) & 0x30) >> 4)
+#define IS_SPR_MULTICOLOR(n) ((FREEZE_PEEK(REG_SPR_MULTICOLOR)) & (1 << (n)))
+#define IS_SPR_16COL(n) ((FREEZE_PEEK(REG_SPR_16COL)) & (1 << (n)))
+#define IS_SPR_XWIDTH(n) ((FREEZE_PEEK(REG_SPRX64EN)) & (1 << (n)))
+#define IS_SPR_HEXPAND(n) ((FREEZE_PEEK(REG_SPR_HEXPAND)) & (1 << (n)))
+#define IS_SPR_VEXPAND(n) ((FREEZE_PEEK(REG_SPR_VEXPAND)) & (1 << (n)))
 #define SPRITE_POINTER_ADDR (((long)REG_SPRPTR_B0) | ((long)REG_SPRPTR_B1 << 8) | ((long)REG_SPRPTR_B2 << 16))
 #define SPRITE_SIZE_BYTES(n) ((IS_SPR_XWIDTH((n)) | IS_SPR_16COL((n))) ? 168 : 64)
 #define SPRITE_DATA_ADDR(n)                                                                                                 \
   (REG_SPRPTR16 ? 64                                                                                                        \
-                      * (((long)freeze_peek(SPRITE_POINTER_ADDR + 1 + n * 2) << 8)                                          \
-                          + ((long)freeze_peek(SPRITE_POINTER_ADDR + n * 2)))                                               \
-                : (long)(64 * freeze_peek(SPRITE_POINTER_ADDR + n)) | (((long)(~freeze_peek(0xFFD3D00UL) & 0x3)) << 14))
+                      * (((long)FREEZE_PEEK(SPRITE_POINTER_ADDR + 1 + n * 2) << 8)                                          \
+                          + ((long)FREEZE_PEEK(SPRITE_POINTER_ADDR + n * 2)))                                               \
+                : (long)(64 * FREEZE_PEEK(SPRITE_POINTER_ADDR + n)) | (((long)(~FREEZE_PEEK(CIA2_PORT_A) & 0x3)) << 14))
 // #define REG_SPRBPMEN_0_3            (vic_registers[0x49] >> 4)
 // #define REG_SPRBPMEN_4_7            (vic_registers[0x4B] >> 4)
 // #define SPRITE_BITPLANE_ENABLE(n)	(((REG_SPRBPMEN_4_7) << 4 | REG_SPRBPMEN_0_3) & (1 << (n)))
@@ -418,7 +430,7 @@ void SetupTextPalette(void)
   // combination and  Foreground colors in alt-palette are used from the 16th index,
   // so we avoid fiddling with this.
 
-  // POKE(0xD070UL, (PEEK(0xD070UL) & ~48) | ((freeze_peek(REG_SPRPALSEL) & 0xC) << 2));
+  // POKE(0xD070UL, (PEEK(0xD070UL) & ~48) | ((FREEZE_PEEK(REG_SPRPALSEL) & 0xC) << 2));
   // setmapedpal(SPRITE_PALETTE);
 }
 
@@ -586,7 +598,8 @@ void SetDrawTool(BYTE dt)
 static void DrawMonoCell(BYTE x, BYTE y)
 {
   register BYTE cell = 0;
-  const long byteAddr = (SPRITE_BUFFER + (y * g_state.spriteWidth / 8)) + (x / 8);
+  const BYTE bufoff = y * g_state.spriteWidth / 8;
+  const long byteAddr = (SPRITE_BUFFER + bufoff) + (x / 8);
   const BYTE p = lpeek(byteAddr) & (0x80 >> (x % 8));
 
   gotoxy(g_state.canvasLeftX + (x * g_state.cellsPerPixel), y + 2);
@@ -725,7 +738,7 @@ static void UpdatePalette(void)
   // register BYTE i = 0;
   // if (IS_SPR_16COL(g_state.spriteNumber)) {
 
-  //     setmapedpal( (freeze_peek(REG_SPRPALSEL) >> 2) & 0x3);
+  //     setmapedpal( (FREEZE_PEEK(REG_SPRPALSEL) >> 2) & 0x3);
   //     for (i = 0; i < 16; ++i) {
   //         POKE(0xD100 + i,
   //     }
@@ -785,9 +798,9 @@ void UpdateSpriteParameters(BOOL fFetchSlot)
     g_state.spriteWidth = isXWidth ? 32 : 12;
     g_state.cellsPerPixel = isXWidth ? 2 : 4;
     g_state.pixelsPerByte = 4;
-    g_state.color[COLOR_FORE] = freeze_peek(REG_SPRITE_COLOR(g_state.spriteNumber));
-    g_state.color[COLOR_MC1] = freeze_peek(REG_SPRITE_MULTICOL1);
-    g_state.color[COLOR_MC2] = freeze_peek(REG_SPRITE_MULTICOL2);
+    g_state.color[COLOR_FORE] = FREEZE_PEEK(REG_SPRITE_COLOR(g_state.spriteNumber));
+    g_state.color[COLOR_MC1] = FREEZE_PEEK(REG_SPRITE_MULTICOL1);
+    g_state.color[COLOR_MC2] = FREEZE_PEEK(REG_SPRITE_MULTICOL2);
     POKE(LOCAL_REG_SPR_16COL, PEEK(LOCAL_REG_SPR_16COL) & ~(1 << PREVIEW_SPRITE_NUM));
     POKE(LOCAL_REG_SPR_MULTICOLOR, PEEK(LOCAL_REG_SPR_MULTICOLOR) | (1 << PREVIEW_SPRITE_NUM));
   }
@@ -798,7 +811,7 @@ void UpdateSpriteParameters(BOOL fFetchSlot)
     g_state.spriteWidth = isXWidth ? 64 : 24;
     g_state.cellsPerPixel = isXWidth ? 1 : 2;
     g_state.pixelsPerByte = 8;
-    g_state.color[COLOR_FORE] = freeze_peek(REG_SPRITE_COLOR(g_state.spriteNumber));
+    g_state.color[COLOR_FORE] = FREEZE_PEEK(REG_SPRITE_COLOR(g_state.spriteNumber));
     POKE(LOCAL_REG_SPR_16COL, PEEK(LOCAL_REG_SPR_16COL) & ~(1 << PREVIEW_SPRITE_NUM));
     POKE(LOCAL_REG_SPR_MULTICOLOR, PEEK(LOCAL_REG_SPR_MULTICOLOR) & ~(1 << PREVIEW_SPRITE_NUM));
   }
@@ -825,9 +838,9 @@ void UpdateSpriteParameters(BOOL fFetchSlot)
 
 static void UpdateColorRegs()
 {
-  freeze_poke(REG_SPRITE_COLOR(g_state.spriteNumber), g_state.color[COLOR_FORE]);
-  freeze_poke(REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
-  freeze_poke(REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
+  FREEZE_POKE(REG_SPRITE_COLOR(g_state.spriteNumber), g_state.color[COLOR_FORE]);
+  FREEZE_POKE(REG_SPRITE_MULTICOL1, g_state.color[COLOR_MC1]);
+  FREEZE_POKE(REG_SPRITE_MULTICOL2, g_state.color[COLOR_MC2]);
   bordercolor(COLOUR_BLUE);
 
   POKE(LOCAL_REG_SPRITE_COLOR(PREVIEW_SPRITE_NUM), g_state.color[COLOR_FORE]);
@@ -1068,7 +1081,7 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 static void ShowHelp()
 {
   const char* fileKeys[] = { "  file / txfer     ", "load             f5", "save raw       f7,r", "save basic     f7,b",
-    "fetch slot       f9", "store slot      f11" };
+    "fetch slot       f9", "store slot      f11",   "exit             f3" };
 
   const char* drawKeys[] = { "       tools       ", "pixel             p", "box               x", "filled box      s-x",
     "circle            o", "filled circle   s-o", "line              l" };
@@ -1102,7 +1115,7 @@ static void ShowHelp()
   clrscr();
   DrawHeader();
   PrintKeyGroup(fileKeys, ARRAY_SIZE(fileKeys), 0, 2);
-  PrintKeyGroup(editKeys, ARRAY_SIZE(editKeys), 21, 2);
+  PrintKeyGroup(editKeys, ARRAY_SIZE(editKeys), 22, 2);
   PrintKeyGroup(drawKeys, ARRAY_SIZE(drawKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1);
   PrintKeyGroup(colorKeys, ARRAY_SIZE(colorKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1 + ARRAY_SIZE(drawKeys) + 1);
   PrintKeyGroup(displayKeys, ARRAY_SIZE(displayKeys), 42, 2);
@@ -1313,18 +1326,18 @@ static void MainLoop()
       switch (g_state.spriteColorMode) {
       case SPR_COLOR_MODE_16COLOR:
         // Switch to Hi-Res
-        freeze_poke(REG_SPR_16COL, freeze_peek(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
-        freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+        FREEZE_POKE(REG_SPR_16COL, FREEZE_PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+        FREEZE_POKE(REG_SPR_MULTICOLOR, FREEZE_PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
         break;
       case SPR_COLOR_MODE_MULTICOLOR:
         // Switch to 16-col
-        freeze_poke(REG_SPR_16COL, freeze_peek(REG_SPR_16COL) | (1 << g_state.spriteNumber));
-        freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
+        FREEZE_POKE(REG_SPR_16COL, FREEZE_PEEK(REG_SPR_16COL) | (1 << g_state.spriteNumber));
+        FREEZE_POKE(REG_SPR_MULTICOLOR, FREEZE_PEEK(REG_SPR_MULTICOLOR) & ~(1 << g_state.spriteNumber));
         break;
       case SPR_COLOR_MODE_MONOCHROME:
         // Switch to Multicol
-        freeze_poke(REG_SPR_16COL, freeze_peek(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
-        freeze_poke(REG_SPR_MULTICOLOR, freeze_peek(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
+        FREEZE_POKE(REG_SPR_16COL, FREEZE_PEEK(REG_SPR_16COL) & ~(1 << g_state.spriteNumber));
+        FREEZE_POKE(REG_SPR_MULTICOLOR, FREEZE_PEEK(REG_SPR_MULTICOLOR) | (1 << g_state.spriteNumber));
         break;
       }
       UpdateAndFullRedraw(FALSE);
@@ -1332,9 +1345,9 @@ static void MainLoop()
 
     case '@': // 94: // Up-arrow
       POKE(LOCAL_REG_SPRX64EN, PEEK(LOCAL_REG_SPRX64EN) ^ (1 << PREVIEW_SPRITE_NUM));
-      freeze_poke(REG_SPRX64EN, freeze_peek(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
+      FREEZE_POKE(REG_SPRX64EN, FREEZE_PEEK(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
       g_state.redrawFlags = REDRAW_SB_ALL;
-      g_state.updateCursorXFn = PEEK(LOCAL_REG_SPRX64EN) & (1 << PREVIEW_SPRITE_NUM) ? UpdateCursorXMSB : UpdateCursorX;  
+      g_state.updateCursorXFn = PEEK(LOCAL_REG_SPRX64EN) & (1 << PREVIEW_SPRITE_NUM) ? UpdateCursorXMSB : UpdateCursorX;
       UpdateAndFullRedraw(FALSE);
       UpdateSpritePreview();
       break;
@@ -1357,7 +1370,7 @@ static void MainLoop()
 
     case 118: // "V"-expand
       POKE(0xD017, PEEK(0xD017) ^ (1 << PREVIEW_SPRITE_NUM));
-      freeze_poke(VIC_BASE + 0x17, freeze_peek(VIC_BASE + 0x17) ^ (1 << g_state.spriteNumber));
+      FREEZE_POKE(VIC_BASE + 0x17, FREEZE_PEEK(VIC_BASE + 0x17) ^ (1 << g_state.spriteNumber));
       bordercolor(DEFAULT_BORDER_COLOR);
       UpdateSpritePreview();
       g_state.redrawFlags = REDRAW_SB_INFO;
@@ -1365,7 +1378,7 @@ static void MainLoop()
 
     case 104: // "H"-expand
       POKE(0xD01D, PEEK(0xD01D) ^ (1 << PREVIEW_SPRITE_NUM));
-      freeze_poke(VIC_BASE + 0x1D, freeze_peek(VIC_BASE + 0x1D) ^ (1 << g_state.spriteNumber));
+      FREEZE_POKE(VIC_BASE + 0x1D, FREEZE_PEEK(VIC_BASE + 0x1D) ^ (1 << g_state.spriteNumber));
       bordercolor(DEFAULT_BORDER_COLOR);
       UpdateSpritePreview();
       g_state.redrawFlags = REDRAW_SB_INFO;
@@ -1400,16 +1413,21 @@ static void MainLoop()
 
     case 107: // k
       g_state.redrawFlags = REDRAW_SB_COLOR;
-      g_state.currentColorIdx = COLOR_BACK;
+      if (g_state.spriteColorMode == SPR_COLOR_MODE_16COLOR) {
+        g_state.color[g_state.currentColorIdx] = 0;
+      }
+      else {
+        g_state.currentColorIdx = COLOR_BACK;
+      }
       break;
 
     case 16: // Ctrl+P
     {
-      const unsigned char cBankReg = freeze_peek(REG_SPRPALSEL);
+      const unsigned char cBankReg = FREEZE_PEEK(REG_SPRPALSEL);
       const unsigned char cSprPalBank = (cBankReg & 0xC) >> 2;
       gotoxy(1, 1);
       cputdec(cSprPalBank, 0, 4);
-      freeze_poke(REG_SPRPALSEL, (cBankReg & ~0xC) | (((cSprPalBank + 1) % 4) << 2));
+      FREEZE_POKE(REG_SPRPALSEL, (cBankReg & ~0xC) | (((cSprPalBank + 1) % 4) << 2));
       bordercolor(DEFAULT_BORDER_COLOR);
       SetupTextPalette();
     } break;
