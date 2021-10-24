@@ -83,12 +83,12 @@ extern int errno;
 #define VIC_BASE LOCAL_VIC_BASE
 #define CIA2_PORT_A 0xDD00UL
 #define FREEZE_PEEK(x) PEEK((x))
-#define FREEZE_POKE(x,y) POKE((x),(y))
+#define FREEZE_POKE(x, y) POKE((x), (y))
 #else
 #define VIC_BASE 0xFFD3000UL // This is where VIC-II is mapped in frozen memory
 #define CIA2_PORT_A 0xFFD3D00UL
 #define FREEZE_PEEK(x) freeze_peek((x))
-#define FREEZE_POKE(x,y) freeze_poke((x),(y))
+#define FREEZE_POKE(x, y) freeze_poke((x), (y))
 #endif
 #define REG_SPRPTR_B0 (FREEZE_PEEK(VIC_BASE + 0x6CUL))
 #define REG_SPRPTR_B1 (FREEZE_PEEK(VIC_BASE + 0x6DUL))
@@ -1081,7 +1081,7 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 static void ShowHelp()
 {
   const char* fileKeys[] = { "  file / txfer     ", "load             f5", "save raw       f7,r", "save basic     f7,b",
-    "fetch slot       f9", "store slot      f11",   "exit             f3" };
+    "fetch slot       f9", "store slot      f11", "exit             f3" };
 
   const char* drawKeys[] = { "       tools       ", "pixel             p", "box               x", "filled box      s-x",
     "circle            o", "filled circle   s-o", "line              l" };
@@ -1286,6 +1286,7 @@ static void MainLoop()
       /* ------------------------- EDIT GROUP ------------------------------------------ */
 
     case ' ':
+
       if (g_state.drawingTool == DRAWING_TOOL_PIXEL) {
         SetRect(&g_state.redrawRect, g_state.cursorX, g_state.cursorY, g_state.cursorX + 1, g_state.cursorY + 1);
         g_state.paintCellFn(g_state.cursorX, g_state.cursorY);
@@ -1322,6 +1323,7 @@ static void MainLoop()
       break;
 
     case '*':
+      g_state.toolActive = 0;
       g_state.redrawFlags = REDRAW_SB_ALL;
       switch (g_state.spriteColorMode) {
       case SPR_COLOR_MODE_16COLOR:
@@ -1484,52 +1486,52 @@ static void MainLoop()
 
     case 111: // o = circle  tool
       SetDrawTool(DRAWING_TOOL_CIRCLE);
-      g_state.redrawFlags = REDRAW_SB_TOOLS;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;;
       SetRedrawFullCanvas();
       break;
 
     case 79: // "O" = filled circle  tool
       SetDrawTool(DRAWING_TOOL_FILLED_CIRCLE);
-      g_state.redrawFlags = REDRAW_SB_TOOLS;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
       SetRedrawFullCanvas();
       break;
 
     case 112: // p=pixel tool
       SetDrawTool(DRAWING_TOOL_PIXEL);
-      g_state.redrawFlags = REDRAW_SB_TOOLS;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
       SetRedrawFullCanvas();
       g_state.toolActive = 0;
       break;
 
     case 120: // x = draw box
       SetDrawTool(DRAWING_TOOL_BOX);
-      g_state.redrawFlags = REDRAW_SB_TOOLS;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
       SetRedrawFullCanvas();
       break;
 
     case 88: // "X"
       SetDrawTool(DRAWING_TOOL_FILLEDBOX);
-      g_state.redrawFlags = REDRAW_SB_TOOLS;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
       SetRedrawFullCanvas();
       break;
 
     case 108: // l = line
       SetDrawTool(DRAWING_TOOL_LINE);
-      g_state.redrawFlags = REDRAW_SB_TOOLS;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
       SetRedrawFullCanvas();
       break;
 
     default:
       if (key >= '0' && key <= '9') {
         g_state.color[g_state.currentColorIdx] = key - 48;
-        g_state.redrawFlags = REDRAW_SB_COLOR;
+        g_state.redrawFlags = REDRAW_SB_COLOR | REDRAW_TOOL_PREVIEW;
         SetRedrawFullCanvas();
         UpdateColorRegs();
       }
       else if (key >= 97 && key <= 102) // a..f
       {
         g_state.color[g_state.currentColorIdx] = 10 + key - 'a';
-        g_state.redrawFlags = REDRAW_SB_COLOR;
+        g_state.redrawFlags = REDRAW_SB_COLOR | REDRAW_TOOL_PREVIEW;
         SetRedrawFullCanvas();
         UpdateColorRegs();
       }
