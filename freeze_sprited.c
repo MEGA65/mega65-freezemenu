@@ -1091,6 +1091,8 @@ static void ShowHelp()
 
   const char* editKeys[] = {
     "       edit        ",
+    "spacebar       draw",
+    "del           erase",
     "clear        ctrl+n",
     "prev sprite       <",
     "next sprite       >",
@@ -1153,6 +1155,17 @@ unsigned short joy_delay_countdown = 0;
 unsigned char fire_lock = 0;
 
 unsigned short mx, my;
+
+static void SetBackground()
+{
+  g_state.redrawFlags = REDRAW_SB_COLOR;
+  if (g_state.spriteColorMode == SPR_COLOR_MODE_16COLOR) {
+    g_state.color[g_state.currentColorIdx] = 0;
+  }
+  else {
+    g_state.currentColorIdx = COLOR_BACK;
+  }
+}
 
 static void MainLoop()
 {
@@ -1305,6 +1318,18 @@ static void MainLoop()
         }
       }
       break;
+
+    case 20: // DEL
+    {
+      const BYTE cIndex = g_state.currentColorIdx;
+      SetRect(&g_state.redrawRect, g_state.cursorX, g_state.cursorY, g_state.cursorX + 1, g_state.cursorY + 1);
+      SetBackground();
+      g_state.paintCellFn(g_state.cursorX, g_state.cursorY);
+      g_state.currentColorIdx = cIndex;
+    } 
+    
+    break;
+
     case ',':
     case '.':
 
@@ -1414,13 +1439,7 @@ static void MainLoop()
       break;
 
     case 107: // k
-      g_state.redrawFlags = REDRAW_SB_COLOR;
-      if (g_state.spriteColorMode == SPR_COLOR_MODE_16COLOR) {
-        g_state.color[g_state.currentColorIdx] = 0;
-      }
-      else {
-        g_state.currentColorIdx = COLOR_BACK;
-      }
+      SetBackground();
       break;
 
     case 16: // Ctrl+P
@@ -1486,7 +1505,8 @@ static void MainLoop()
 
     case 111: // o = circle  tool
       SetDrawTool(DRAWING_TOOL_CIRCLE);
-      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;;
+      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
+
       SetRedrawFullCanvas();
       break;
 
