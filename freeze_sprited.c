@@ -890,7 +890,7 @@ void SetRedrawFullCanvas(void)
 
 static void DrawHeader()
 {
-  cprintf("{home}{rvson}{lgrn}mega65 sprite editor v0.9          (c)2021 hernan di pietro-paul gardner-stephen{rvsoff}");
+  cprintf("{home}{rvson}{lgrn}                            the mega65 sprite editor                            {rvsoff}");
 }
 
 static void DrawColorSelector()
@@ -1011,7 +1011,7 @@ static void DrawCoordinates()
 {
   if (g_state.redrawFlags & REDRAW_SB_COORD) {
     cputncxy(SIDEBAR_COLUMN, SCREEN_ROWS - 1, SIDEBAR_WIDTH, ' ');
-    gotox(SIDEBAR_COLUMN);
+    gotoxy(SIDEBAR_COLUMN, SCREEN_ROWS - 1);
     textcolor(COLOUR_CYAN);
     cputc('(');
     cputdec(g_state.cursorX, 0, 0);
@@ -1050,6 +1050,7 @@ static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
   revers(0);
   textcolor(COLOUR_BLUE);
   cputncxy(0, SCREEN_ROWS - 1, SCREEN_COLS, ' ');
+  g_state.redrawFlags |= REDRAW_SB_COORD;
 }
 
 static BYTE SaveRawData(const BYTE name[16], char deviceNumber)
