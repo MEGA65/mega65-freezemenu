@@ -175,7 +175,8 @@ extern int errno;
 #define REDRAW_SB_COLOR 4
 #define REDRAW_SB_TOOLS 8
 #define REDRAW_TOOL_PREVIEW 16
-#define REDRAW_SB_ALL 1 + 2 + 4 + 8 + 16
+#define REDRAW_TOOL_HEADER 32
+#define REDRAW_SB_ALL 1 + 2 + 4 + 8 + 16 + 32
 
 typedef unsigned char BYTE;
 typedef unsigned char BOOL;
@@ -890,7 +891,8 @@ void SetRedrawFullCanvas(void)
 
 static void DrawHeader()
 {
-  cprintf("{home}{rvson}{lgrn}                            the mega65 sprite editor                            {rvsoff}");
+  if (g_state.redrawFlags & REDRAW_TOOL_HEADER)
+    cprintf("{home}{rvson}{lgrn}                            the mega65 sprite editor                            {rvsoff}");
 }
 
 static void DrawColorSelector()
@@ -1031,6 +1033,7 @@ static void DrawSpritePreviewArea()
 
 static void DrawSidebar()
 {
+  DrawHeader();
   DrawSideBarSpriteInfo();
   DrawCoordinates();
   DrawToolbox();
@@ -1123,8 +1126,16 @@ static void ShowHelp()
   PrintKeyGroup(colorKeys, ARRAY_SIZE(colorKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1 + ARRAY_SIZE(drawKeys) + 1);
   PrintKeyGroup(displayKeys, ARRAY_SIZE(displayKeys), 42, 2);
 
-  cgetc();
+  textcolor(COLOUR_CYAN);
+  revers(1);
+  cputncxy(22, SCREEN_ROWS - 4, SCREEN_COLS - 22, 32);
+  cputsxy(22, SCREEN_ROWS - 3, " mega65 sprite editor  v0.10 (c) 2021 hernan di pietro    ");
+  cputsxy(22, SCREEN_ROWS - 2, " mouse/joy code by paul gardner-stephen.                  ");
+  cputncxy(22, SCREEN_ROWS - 1, SCREEN_COLS - 22, 32);
+  revers(0);
 
+  cgetc();
+  clrscr();
   POKE(0xD015, 7);
 }
 
