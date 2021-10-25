@@ -15,6 +15,7 @@ LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
 		AUDIOMIX.M65 \
+		MAKEDISK.M65 \
 		SPRITED.M65 \
 		ROMLOAD.M65 \
 		C65THUMB.M65 \
@@ -43,6 +44,15 @@ ASSFILES=	freezer.s \
 		helper.s
 
 AMASSFILES=	audiomix.s \
+		freeze_audiomix.s \
+		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s
+
+MDASSFILES=	makedisk.s \
 		freeze_audiomix.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -123,6 +133,10 @@ FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
+
+MAKEDISK.M65:	$(MDASSFILES) $(DATAFILES) $(CC65)
+	$(warning ======== Making: $@)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 $(MDASSFILES)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 	$(warning ======== Making: $@)
