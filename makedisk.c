@@ -117,7 +117,7 @@ void setup_menu_screen(void)
   POKE(0xD018U, 0x15); // upper case
 
   // NTSC 60Hz mode for monitor compatibility?
-  POKE(0xD06FU, 0x80);
+  //  POKE(0xD06FU, 0x80);
 
   // Reset border widths
   POKE(0xD05CU, 80);
@@ -137,7 +137,7 @@ void setup_menu_screen(void)
   POKE(0xD059U, 0); // 80 bytes per row
 
   // Fill colour RAM with a value that won't cause problems in Super-Extended Attribute Mode
-  lfill(0xff80000U, 1, 2000);
+  //  lfill(0xff80000U, 1, 2000);
 }
 
 unsigned char ascii_to_screencode(char c)
@@ -407,9 +407,57 @@ void poll_touch_panel(void)
 }
 #endif
 
+void draw_box(unsigned char x1,unsigned char y1,unsigned char x2,unsigned char y2,
+	      unsigned char colour,unsigned char erase)
+{
+  unsigned char x,y;
+
+  // Clear colour RAM
+  for(x=x1;x<=x2;x++) {
+    for(y=y1;y<=y2;y++) {
+      lpoke(COLOUR_RAM_ADDRESS+y*80+x*2+1,colour);
+      lpoke(COLOUR_RAM_ADDRESS+y*80+x*2+0,0);
+    }
+  }
+
+  if (erase) {
+    for(x=x1+1;x<x2;x++) {
+      for(y=y1+1;y<y2;y++) {
+	lpoke(SCREEN_ADDRESS+y*80+x*2+0,0x20);
+	lpoke(SCREEN_ADDRESS+y*80+x*2+1,0);
+      }
+    }
+  }
+  
+  for(x=x1;x<x2;x++) {
+    lpoke(SCREEN_ADDRESS+y1*80+x*2,0x40); // horizontal line, centred
+    lpoke(SCREEN_ADDRESS+y1*80+x*2+1,0);
+    lpoke(SCREEN_ADDRESS+y2*80+x*2,0x40); // horizontal line, centred
+    lpoke(SCREEN_ADDRESS+y2*80+x*2+1,0);
+  }
+  
+  for(y=y1;y<y2;y++) {
+    lpoke(SCREEN_ADDRESS+y*80+x1*2,0x42); // vertical line, centred
+    lpoke(SCREEN_ADDRESS+y*80+x1*2+1,0);
+    lpoke(SCREEN_ADDRESS+y*80+x2*2,0x42); // vertical line, centred
+    lpoke(SCREEN_ADDRESS+y*80+x2*2+1,0);
+  }
+  lpoke(SCREEN_ADDRESS+y1*80+x1*2,0x55); // top left corner
+  lpoke(SCREEN_ADDRESS+y1*80+x2*2,73); // top right corner
+  lpoke(SCREEN_ADDRESS+y2*80+x1*2,74); // bottom left corner
+  lpoke(SCREEN_ADDRESS+y2*80+x2*2,75); // bottom right corner
+  lpoke(SCREEN_ADDRESS+y1*80+x1*2+1,0);
+  lpoke(SCREEN_ADDRESS+y1*80+x2*2+1,0);
+  lpoke(SCREEN_ADDRESS+y2*80+x1*2+1,0);
+  lpoke(SCREEN_ADDRESS+y2*80+x2*2+1,0);
+  
+}
+
 void do_make_disk_image(void)
 {
-  
+  draw_box(10,8,30,17,14,1);
+
+  while(!PEEK(0xD610)) continue;
 }
 
 #ifdef __CC65__
