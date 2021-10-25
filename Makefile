@@ -53,7 +53,7 @@ AMASSFILES=	audiomix.s \
 		helper.s
 
 MDASSFILES=	makedisk.s \
-		freeze_audiomix.s \
+		fdisk_fat32.s \
 		frozen_memory.s \
 		fdisk_memory.s \
 		fdisk_screen.s \

@@ -338,9 +338,8 @@ void scan_directory(unsigned char drive_id)
     lcopy((unsigned long)"- 1565 DRIVE 1 -    ", 0x40000L + (file_count * 64), 20);
     file_count++;
   }
-  // XXX - Uncomment after we implement this feature
-  //  lcopy((unsigned long)"- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
-  //  file_count++;
+  lcopy((unsigned long)"- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
+  file_count++;
 
   dir = opendir();
   dirent = readdir(dir);
@@ -514,6 +513,8 @@ char* freeze_select_disk_image(unsigned char drive_id)
           }
           else if (disk_name_return[3] == 'E') {
             // Create and mount new empty D81 file
+	    // (this is like exec()/fork(), so there is no return value
+	    mega65_dos_exechelper("MAKEDISK.M65");
           }
         }
         else {

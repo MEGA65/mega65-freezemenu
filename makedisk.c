@@ -407,6 +407,11 @@ void poll_touch_panel(void)
 }
 #endif
 
+void do_make_disk_image(void)
+{
+  
+}
+
 #ifdef __CC65__
 void main(void)
 #else
@@ -459,7 +464,7 @@ int main(int argc, char** argv)
 
   request_freeze_region_list();
 
-  do_audio_mixer();
+  do_make_disk_image();
   mega65_dos_exechelper("FREEZER.M65");
 
   return;
