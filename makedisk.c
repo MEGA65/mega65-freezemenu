@@ -453,10 +453,38 @@ void draw_box(unsigned char x1,unsigned char y1,unsigned char x2,unsigned char y
   
 }
 
+void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned char colour,char *out)
+{
+  unsigned char ofs=0,x,c;
+  for(x=x1;x<(x1+len);x++) {
+    lpoke(SCREEN_ADDRESS+y1*80+x1*2+0,' ');
+    lpoke(SCREEN_ADDRESS+y1*80+x1*2+1,0);
+    lpoke(COLOUR_RAM_ADDRESS+y1*80+x1*2+0,0x00);
+    lpoke(COLOUR_RAM_ADDRESS+y1*80+x1*2+1,colour);    
+  }
+
+  out[0]=0;
+  
+  while(1) {
+    // Enable cursor on current char
+    lpoke(COLOUR_RAM_ADDRESS+y1*80+(x1+ofs)*2+1,colour|0x30);
+
+    c=PEEK(0xD610);
+    switch(c) {
+    case 0x03: out[0]=0; return;
+    case 0x0d: return;
+    }
+    if (c) POKE(0xD610,0);
+  }
+  
+}
+
 void do_make_disk_image(void)
 {
+  char filename[16+1];
   draw_box(10,8,30,17,14,1);
-
+  input_text(11,12,16,1,filename);
+  
   while(!PEEK(0xD610)) continue;
 }
 
