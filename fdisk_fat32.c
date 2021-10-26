@@ -6,6 +6,57 @@
 #include "fdisk_screen.h"
 #include "ascii.h"
 
+unsigned long root_dir_sector=0;
+unsigned long fat1_sector=0;
+unsigned long fat2_sector=0;
+
+extern unsigned char sector_buffer[512];
+
+void sdcard_readsector(const uint32_t sector_number);
+
+
+void parse_partition_entry(const char i)
+{
+  char j;
+  
+  int offset=0x1be + (i<<4);
+
+  char active=sector_buffer[offset+0];
+  char shead=sector_buffer[offset+1];
+  char ssector=sector_buffer[offset+2]&0x1f;
+  int scylinder=((sector_buffer[offset+2]<<2)&0x300)+sector_buffer[offset+3];
+  char id=sector_buffer[offset+4];
+  char ehead=sector_buffer[offset+5];
+  char esector=sector_buffer[offset+6]&0x1f;
+  int ecylinder=((sector_buffer[offset+6]<<2)&0x300)+sector_buffer[offset+7];
+  uint32_t lba_start,lba_end;
+
+  for(j=0;j<4;j++) ((char *)&lba_start)[j]=sector_buffer[offset+8+j];
+  for(j=0;j<4;j++) ((char *)&lba_end)[j]=sector_buffer[offset+12+j];
+ 
+#if 0
+  printf("%02X%c : Start=%3d/%2d/%4d or %08X / End=%3d/%2d/%4d or %08X\n",
+	 id,active&80?'*':' ',
+	 shead,ssector,scylinder,lba_start,ehead,esector,ecylinder,lba_end);
+#endif
+  
+}
+
+
+unsigned char fat32_open_file_system()
+{
+  unsigned char i;
+  sdcard_readsector(0);
+  if ((sector_buffer[0x1fe]!=0x55)||(sector_buffer[0x1ff]!=0xAA)) {
+    return 255;
+  } else {  
+    for(i=0;i<4;i++) {
+      parse_partition_entry(i);
+    }
+  }
+  
+}
+
 /*
   Create a file in the root directory of the new FAT32 filesystem
   with the indicated name and size.

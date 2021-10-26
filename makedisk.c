@@ -507,8 +507,13 @@ void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned cha
 	lpoke(SCREEN_ADDRESS+y1*80+(x1+ofs)*2+0,' ');       
 	lpoke(COLOUR_RAM_ADDRESS+y1*80+(x1+ofs)*2+1,colour);    
 	break;
-      case 0x03: out[0]=0; return;
-      case 0x0d: return;      
+      case 0x03: out[0]=0;
+	POKE(0xD610,0);
+	return;
+      case 0x0d:
+	out[ofs]=0;
+	POKE(0xD610,0);
+	return;      
       }
     }
     if (c) POKE(0xD610,0);
@@ -519,9 +524,25 @@ void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned cha
 void do_make_disk_image(void)
 {
   char filename[16+1];
+  unsigned char len;
   draw_box(10,8,30,13,14,1);
   write_text(11,9,14,"ENTER FILENAME:");
   input_text(11,11,8,1,filename);
+  for(len=0;filename[len];len++) {
+    // Convert to upper case and work out length of string
+    if (filename[len]>=0x61&&filename[len]<=0x7a)
+      filename[len]-=0x20;
+  }
+  if (!len) return;
+  filename[len++]='.';
+  filename[len++]=0x44;
+  filename[len++]=0x38;
+  filename[len++]=0x31;
+  filename[len]=0;
+  lcopy(filename,0x0400,16);
+
+
+  fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
   
   while(!PEEK(0xD610)) continue;
 }
