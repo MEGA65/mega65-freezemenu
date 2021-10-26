@@ -453,6 +453,21 @@ void draw_box(unsigned char x1,unsigned char y1,unsigned char x2,unsigned char y
   
 }
 
+void write_text(unsigned char x1,unsigned char y1,unsigned char colour,char *t)
+{
+  unsigned char ofs=0,x,c;
+  for(x=x1;t[x-x1];x++) {
+    c=t[x-x1];
+    if (c>0x60) c-=0x60;
+    if (c>0x40) c-=0x40;
+    lpoke(SCREEN_ADDRESS+y1*80+x*2+0,c);
+    lpoke(SCREEN_ADDRESS+y1*80+x*2+1,0);
+    lpoke(COLOUR_RAM_ADDRESS+y1*80+x*2+0,0x00);
+    lpoke(COLOUR_RAM_ADDRESS+y1*80+x*2+1,colour);    
+  }
+  
+}
+
 void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned char colour,char *out)
 {
   unsigned char ofs=0,x,c;
@@ -470,9 +485,31 @@ void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned cha
     lpoke(COLOUR_RAM_ADDRESS+y1*80+(x1+ofs)*2+1,colour|0x30);
 
     c=PEEK(0xD610);
-    switch(c) {
-    case 0x03: out[0]=0; return;
-    case 0x0d: return;
+    if (c>=0x41&&c<=0x5a||c>=0x61&&c<=0x7a||c>=0x30&&c<=0x39) {
+      if (ofs<len) {
+	out[ofs]=c;
+	// ASCII to screen code conversion
+	if (c>0x60) {
+	  c-=0x60;
+	}
+	lpoke(SCREEN_ADDRESS+y1*80+(x1+ofs)*2+0,c);       
+	lpoke(COLOUR_RAM_ADDRESS+y1*80+(x1+ofs)*2+1,colour);    
+	ofs++;
+      }
+    } else {
+      switch(c) {
+      case 0x14: // delete
+	// XXX actually copy chars down, instead of just erasing from
+	// end of line, and allow cursor left and right
+	lpoke(SCREEN_ADDRESS+y1*80+(x1+ofs)*2+0,' ');       
+	lpoke(COLOUR_RAM_ADDRESS+y1*80+(x1+ofs)*2+1,colour);    
+	if (ofs) ofs--;
+	lpoke(SCREEN_ADDRESS+y1*80+(x1+ofs)*2+0,' ');       
+	lpoke(COLOUR_RAM_ADDRESS+y1*80+(x1+ofs)*2+1,colour);    
+	break;
+      case 0x03: out[0]=0; return;
+      case 0x0d: return;      
+      }
     }
     if (c) POKE(0xD610,0);
   }
@@ -482,8 +519,9 @@ void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned cha
 void do_make_disk_image(void)
 {
   char filename[16+1];
-  draw_box(10,8,30,17,14,1);
-  input_text(11,12,16,1,filename);
+  draw_box(10,8,30,13,14,1);
+  write_text(11,9,14,"ENTER FILENAME:");
+  input_text(11,11,8,1,filename);
   
   while(!PEEK(0xD610)) continue;
 }
