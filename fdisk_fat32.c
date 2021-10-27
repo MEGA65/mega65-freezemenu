@@ -74,7 +74,7 @@ void parse_partition_entry(const char i)
 }
 
 
-unsigned char fat32_open_file_system()
+unsigned char fat32_open_file_system(void)
 {
   unsigned char i;
   sdcard_readsector(0);

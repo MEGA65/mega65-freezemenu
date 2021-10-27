@@ -16,7 +16,7 @@
 extern unsigned long root_dir_sector;
 extern unsigned long fat1_sector;
 extern unsigned long fat2_sector;
-
+unsigned char fat32_open_file_system(void);
 
 signed char swipe_dir = 0;
 
@@ -530,6 +530,16 @@ void do_make_disk_image(void)
 {
   char filename[16+1];
   unsigned char len;
+
+  fat32_open_file_system();
+  if (!fat1_sector) {
+    draw_box(10,8,30,13,2,1);
+    write_text(11,9,7,"COULD NOT FIND SD CARD");
+    while(!PEEK(0xD610)) continue;
+    POKE(0xD610,0);
+    return;
+  }
+  
   draw_box(10,8,30,13,14,1);
   write_text(11,9,14,"ENTER FILENAME:");
   input_text(11,11,8,1,filename);
