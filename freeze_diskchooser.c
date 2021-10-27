@@ -25,6 +25,9 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+extern unsigned short slot_number;
+
+
 short file_count = 0;
 short selection_number = 0;
 short display_offset = 0;
@@ -514,6 +517,11 @@ char* freeze_select_disk_image(unsigned char drive_id)
           else if (disk_name_return[3] == 'E') {
             // Create and mount new empty D81 file
 	    // (this is like exec()/fork(), so there is no return value
+
+	    // Save the current freeze slot number, so that the image can get mounted against us
+	    POKE(0x03C0,slot_number&0xff);
+	    POKE(0x03C1,slot_number>>8);
+
 	    mega65_dos_exechelper("MAKEDISK.M65");
           }
         }

@@ -530,6 +530,7 @@ void do_make_disk_image(void)
 {
   char filename[16+1];
   unsigned char len;
+  unsigned short slot_number=0;
 
   fat32_open_file_system();
   if (!fat1_sector) {
@@ -556,8 +557,25 @@ void do_make_disk_image(void)
   filename[len]=0;
   lcopy(filename,0x0400,16);
 
-
+  // Actually create the file
   fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
+
+  // Mark it as mounted in freeze slot stored in $03C0/1
+  slot_number = PEEK(0x3C0) + (PEEK(0x3C1)<<8L);
+  request_freeze_region_list();
+  find_freeze_slot_start_sector(slot_number);
+  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+
+  // Replace disk image name in process descriptor block
+  for (i = 0; (i < 32) && filename[i]; i++)
+    freeze_poke(0xFFFBD00L + 0x15 + i, filename[i]);
+  // Update length of name
+  freeze_poke(0xFFFBD00L + 0x13, i);
+  // Pad with spaces as required by hypervisor
+  for (; i < 32; i++)
+    freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
+  
+  
   
   while(!PEEK(0xD610)) continue;
 }
