@@ -13,6 +13,11 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+extern unsigned long root_dir_sector;
+extern unsigned long fat1_sector;
+extern unsigned long fat2_sector;
+
+
 signed char swipe_dir = 0;
 
 // Used to quickly return from functions if a navigation key has been pressed

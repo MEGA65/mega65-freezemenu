@@ -9,6 +9,11 @@
 unsigned long root_dir_sector=0;
 unsigned long fat1_sector=0;
 unsigned long fat2_sector=0;
+unsigned short reserved_sectors=0;
+unsigned char sectors_per_cluster=0;
+unsigned char fat_copies=0;
+unsigned long sectors_per_fat=0;
+unsigned long root_dir_cluster=0;
 
 extern unsigned char sector_buffer[512];
 
@@ -29,11 +34,37 @@ void parse_partition_entry(const char i)
   char ehead=sector_buffer[offset+5];
   char esector=sector_buffer[offset+6]&0x1f;
   int ecylinder=((sector_buffer[offset+6]<<2)&0x300)+sector_buffer[offset+7];
-  uint32_t lba_start,lba_end;
+  uint32_t lba_start,lba_size;
 
   for(j=0;j<4;j++) ((char *)&lba_start)[j]=sector_buffer[offset+8+j];
-  for(j=0;j<4;j++) ((char *)&lba_end)[j]=sector_buffer[offset+12+j];
- 
+  for(j=0;j<4;j++) ((char *)&lba_size)[j]=sector_buffer[offset+12+j];
+
+  switch (id) {
+  case 0x0b: case 0x0c:
+    // FAT32
+    // lba_start has start of partition
+    sdcard_readsector(lba_start);
+    // reserved sectors @ $00e-$00f
+    reserved_sectors=sector_buffer[0x0e]+(sector_buffer[0x0f]<<8L);
+    // sectors per cluster @ $00d
+    sectors_per_cluster=sector_buffer[0x0d];
+    // number of FATs @ $010
+    fat_copies=sector_buffer[0x10];
+    // hidden sectors @ $01c-$01f
+    // sectors per FAT @ $024-$027
+    for(j=0;j<4;j++) ((char *)&sectors_per_fat)[j]=sector_buffer[0x24+j];
+    // cluster of root directort @ $02c-$02f
+    for(j=0;j<4;j++) ((char *)&root_dir_cluster)[j]=sector_buffer[0x2c+j];
+    // $55 $AA signature @ $1fe-$1ff    
+    
+    // FATs begin at partition + reserved sectors
+    // root dir = cluster 2 begins after 2nd FAT
+    root_dir_sector=lba_start + reserved_sectors + sectors_per_fat * fat_copies;
+    fat1_sector=lba_start + reserved_sectors;
+    fat2_sector=lba_start + reserved_sectors + sectors_per_fat;
+    
+  }
+  
 #if 0
   printf("%02X%c : Start=%3d/%2d/%4d or %08X / End=%3d/%2d/%4d or %08X\n",
 	 id,active&80?'*':' ',
