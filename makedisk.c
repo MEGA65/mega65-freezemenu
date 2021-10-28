@@ -526,6 +526,26 @@ void input_text(unsigned char x1,unsigned char y1,unsigned char len,unsigned cha
   
 }
 
+char hexchar(unsigned char v)
+{
+  v=v&0xf;
+  if (v<10) return '0'+v;
+  return 0x41+v-10;
+}
+
+void hexout(char *m,unsigned long v,int n)
+{
+  if (!n) return;
+  do {
+    m[n-1]=hexchar(v);
+    v=v>>4L;
+    
+  } while(--n);
+}
+
+
+char msg[80];
+
 void do_make_disk_image(void)
 {
   char filename[16+1];
@@ -558,7 +578,7 @@ void do_make_disk_image(void)
   lcopy(filename,0x0400,16);
 
   // Actually create the file
-  fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
+  //  fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
 
   // Mark it as mounted in freeze slot stored in $03C0/1
   slot_number = PEEK(0x3C0) + (PEEK(0x3C1)<<8L);
@@ -574,7 +594,13 @@ void do_make_disk_image(void)
   // Pad with spaces as required by hypervisor
   for (; i < 32; i++)
     freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
-  
+
+  if (!mega65_dos_attachd81(filename)) {
+    // Mounted the new image
+    
+    // Write the header, BAM and directory sectors
+    
+  }
   
   
   while(!PEEK(0xD610)) continue;
