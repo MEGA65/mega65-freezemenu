@@ -97,109 +97,150 @@ unsigned char fat32_open_file_system(void)
 
   The root directory is the start of cluster 2, and clusters are
   assumed to be 4KB in size, to keep things simple.
+
+  XXX -- Should allow creation of files > 128 clusters long
+  XXX -- Should allow creation of files in sub-directories
+  XXX -- Should allow multi-cluster directories
+  XXX -- Should allow extending of directory if last cluster of directory is already full
+
 */
 long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, long fat1_sector, long fat2_sector)
 {
   unsigned char i,sn,len;
-  unsigned short offset;
+  unsigned short offset,j;
   unsigned short clusters;
   unsigned long start_cluster = 0;
+  unsigned long dir_cluster = 2;
+  unsigned long last_dir_cluster = 2;
   unsigned long next_cluster;
   unsigned long contiguous_clusters = 0;
-
-  char free_dir_sector_num=0xff;
+  unsigned long fat_sector_num=0;
+  
+  unsigned long free_dir_sector_num=0;
   unsigned short free_dir_sector_ofs=0;
   
   char message[40] = "Found file: ????????.???";
-
+  
   clusters = size / (512 * sectors_per_cluster);
-
+  if (size%(512*sectors_per_cluster)) clusters++;
+      
   // Look for a free directory slot.
   // Also complain if the file already exists
-  // XXX - Does not follow root directory clusters or
-  // append new clusters to the end of the directory.
-  for (sn=0;sn<sectors_per_cluster;sn++) {
-    sdcard_readsector(root_dir_sector+sn);
-    for (offset = 0; offset < 512; offset += 32) {
-      for (i = 0; i < 8; i++)
-	message[i] = sector_buffer[offset + i];
-      len=8;
-      while(len&&(message[len]==' '||message[len]==0)) len--;
-      message[len++]='.';
-      for (i = 0; i < 3; i++)
-	message[len + i] = sector_buffer[offset + 8 + i];
-      len+=3;
-      while(len&&(message[len]==' '||message[len]==0)) len--;
-      if (!strcmp(message,name)) {
-	// ERROR: Name already exists
-	return 0;
-      }
-      if (sector_buffer[offset]==0) {
-	if (free_dir_sector_num==0xff) {
-	  free_dir_sector_num=sn;
+  while(dir_cluster>=2&&dir_cluster<0xf0000000) {
+    for (sn=0;sn<sectors_per_cluster;sn++) {
+      sdcard_readsector(root_dir_sector+((dir_cluster-2)*sectors_per_cluster)+sn);
+      for (offset = 0; offset < 512; offset += 32) {
+	for (i = 0; i < 8; i++)
+	  message[i] = sector_buffer[offset + i];
+	len=8;
+	while(len&&(message[len]==' '||message[len]==0)) len--;
+	message[len++]='.';
+	for (i = 0; i < 3; i++)
+	  message[len + i] = sector_buffer[offset + 8 + i];
+	len+=3;
+	while(len&&(message[len]==' '||message[len]==0)) len--;
+	if (!strcmp(message,name)) {
+	  // ERROR: Name already exists
+	  return 0;
+	}
+	if (sector_buffer[offset]==0) {
+	  free_dir_sector_num=root_dir_sector+sn;
 	  free_dir_sector_ofs=offset;
 	  break;
 	}
       }
     }
+    // Stop once we have found a free directory slot
+    if (free_dir_sector_num) break;
+
+    // Chain to next directory cluster, and extend directory
+    // if required.
+    last_dir_cluster=dir_cluster;
+    dir_cluster = fat32_follow_cluster(dir_cluster);
+    if ((!dir_cluster)||(dir_cluster>=0xf0000000)) {
+      // End of directory -- allocate new cluster
+      // XXX - Not implemented
+      dir_cluster=fat32_allocate_cluster(last_dir_cluster);
+
+      if ((!dir_cluster)||(dir_cluster>=0xf0000000)) {
+	// Disk full
+	return 0;
+      } else {
+	// Zero out new directory cluster
+	lfill(sector_buffer,0,512);
+	for (sn=0;sn<sectors_per_cluster;sn++) {
+	  sdcard_readsector(root_dir_sector+((dir_cluster-2)*sectors_per_cluster)+sn);
+	}
+      }
+    }
   }
-  if (sn == sectors_per_cluster) {
-    //    write_line("ERROR: First sector of root directory already full.", 0);
-    return 0;
+      
+  // Find where we have enough contiguous space
+  contiguous_clusters=0;
+  start_cluster=0;
+  for(fat_sector_num=0;fat_sector_num <= (fat2_sector-fat1_sector); fat_sector_num++) {
+
+    // This can take a while if the disk is full, because we use a naive search.
+    // So show the user that something is happening.
+    POKE(0xD020,PEEK(0xD020+1));
+    
+    sdcard_readsector(fat1_sector+fat_sector_num);
+
+    // Skip any FAT sectors with allocated clusters
+    for(j=0;j<512;j++) if (sector_buffer[j]) break;
+    if (j!=512) {
+      // Reset count of contiguous clusters
+      contiguous_clusters=0;
+      continue;
+    } else {
+      // Start from here
+      if (!contiguous_clusters) start_cluster=fat_sector_num*128;
+      contiguous_clusters+=128;
+    }
+    if (contiguous_clusters>=clusters) break;
   }
 
-  
-  sdcard_readsector(fat1_sector);
-  for (offset = 0; offset < 512; offset += 4) {
-    next_cluster = sector_buffer[offset];
-    next_cluster |= ((long)sector_buffer[offset + 1] << 8L);
-    next_cluster |= ((long)sector_buffer[offset + 2] << 16L);
-    next_cluster |= ((long)sector_buffer[offset + 3] << 24L);
-    //    screen_decimal(screen_line_address - 80 + 8, offset / 4);
-    //    screen_hex(screen_line_address - 80 + 32, next_cluster);
-    if (!next_cluster) {
-      if (!start_cluster) {
-        start_cluster = offset / 4;
-      }
-      contiguous_clusters++;
-      if (contiguous_clusters == clusters) {
-        // End of chain marker
-        sector_buffer[offset + 0] = 0xff;
-        sector_buffer[offset + 1] = 0xff;
-        sector_buffer[offset + 2] = 0xff;
-        sector_buffer[offset + 3] = 0x0f;
-        break;
-      }
-      else {
-        // Point to next cluster
-        sector_buffer[offset + 0] = (offset / 4) + 1;
-        sector_buffer[offset + 1] = 0;
-        sector_buffer[offset + 2] = 0;
-        sector_buffer[offset + 3] = 0;
-      }
-    }
-    else {
-      if (start_cluster) {
-	//        write_line("ERROR: Disk space is fragmented. File not created.", 0);
-        return 0;
+  // Abort if the disk is full
+  if (contiguous_clusters<clusters) return 0;
+
+  // Write cluster chain into both FATs
+  fat_sector_num=start_cluster/128;
+  next_cluster=start_cluster+1;
+  while(contiguous_clusters) {
+    contiguous_clusters--;
+    lfill(sector_buffer,0,512);
+    for (offset = 0; offset < 512; offset += 4) {
+      if (!next_cluster) {
+	if (!start_cluster) {
+	  start_cluster = offset / 4;
+	}
+	contiguous_clusters++;
+	if (!contiguous_clusters) {
+	  // End of chain marker
+	  sector_buffer[offset + 0] = 0xff;
+	  sector_buffer[offset + 1] = 0xff;
+	  sector_buffer[offset + 2] = 0xff;
+	  sector_buffer[offset + 3] = 0x0f;
+	  break;
+	}
+	else {
+	  // Point to next cluster
+	  sector_buffer[offset + 0] = (next_cluster>>0);
+	  sector_buffer[offset + 1] = (next_cluster>>8);
+	  sector_buffer[offset + 2] = (next_cluster>>16);
+	  sector_buffer[offset + 3] = (next_cluster>>24);
+	}
       }
     }
-  }
-  if ((!start_cluster) || (contiguous_clusters != clusters)) {
-    //    write_line("ERROR: Could not find enough free clusters early in file system", 0);
-    return 0;
+    sdcard_writesector(fat1_sector+fat_sector_num, 0);
+    sdcard_writesector(fat2_sector+fat_sector_num, 0);    
   }
   //  write_line("First free cluster is ", 0);
   //  screen_decimal(screen_line_address - 80 + 22, start_cluster);
 
-  // Commit sector to disk (in both copies of FAT)
-  sdcard_writesector(fat1_sector, 0);
-  sdcard_writesector(fat2_sector, 0);
-
-
 
   // Build directory entry
-  sdcard_readsector(root_dir_sector+free_dir_sector_num);
+  sdcard_readsector(free_dir_sector_num);
   for (i = 0; i < 32; i++)
     sector_buffer[offset + i] = 0x00;
   for (i = 0; i < 12; i++)
@@ -214,7 +255,7 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
   sector_buffer[offset + 0x1E] = (size >> 16L) & 0xff;
   sector_buffer[offset + 0x1F] = (size >> 24l) & 0xff;
 
-  sdcard_writesector(root_dir_sector+free_dir_sector_num,0);
+  sdcard_writesector(free_dir_sector_num,0);
 
   return root_dir_sector + (start_cluster - 2) * 8;
 }
