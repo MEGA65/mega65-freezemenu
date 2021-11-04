@@ -551,6 +551,7 @@ void do_make_disk_image(void)
   char filename[16+1];
   unsigned char len;
   unsigned short slot_number=0;
+  unsigned long file_sector;
 
   fat32_open_file_system();
   if (!fat1_sector) {
@@ -578,7 +579,17 @@ void do_make_disk_image(void)
   lcopy(filename,0x0400,16);
 
   // Actually create the file
-  //  fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
+  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1); POKE(0xD610,0);
+  file_sector=fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
+  if (!file_sector)
+    {
+      // Error making file
+      draw_box(10,8,30,13,2,1);
+      write_text(11,9,2,"Error creating file");
+      write_text(11,11,2,"Press almost any key...");
+      while(!PEEK(0xD610)) continue;
+      POKE(0xD610,0);
+    }
 
   // Mark it as mounted in freeze slot stored in $03C0/1
   slot_number = PEEK(0x3C0) + (PEEK(0x3C1)<<8L);
@@ -601,9 +612,6 @@ void do_make_disk_image(void)
     // Write the header, BAM and directory sectors
     
   }
-  
-  
-  while(!PEEK(0xD610)) continue;
 }
 
 #ifdef __CC65__
