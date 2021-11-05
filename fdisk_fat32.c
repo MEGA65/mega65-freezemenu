@@ -88,6 +88,43 @@ unsigned char fat32_open_file_system(void)
   
 }
 
+unsigned long fat32_follow_cluster(unsigned long cluster)
+{
+  unsigned long r;
+  // Read out the cluster number from the FAT
+  sdcard_readsector(fat1_sector+(cluster/128));
+  r=*(unsigned long *)sector_buffer[(cluster&127)<<2];
+  return r;
+}
+
+unsigned long fat32_allocate_cluster(unsigned long cluster)
+{
+  unsigned long r;
+  unsigned long fat_sector_num;
+  unsigned short i;
+
+  // Find free cluster
+  for(fat_sector_num=0;fat_sector_num <= (fat2_sector-fat1_sector); fat_sector_num++) {
+    sdcard_readsector(fat1_sector+fat_sector_num);
+    for(i=0;i<512;i+=4) {
+      if (sector_buffer[i]) continue;
+      if (sector_buffer[i+3]) continue;
+      if (sector_buffer[i+1]) continue;
+      if (sector_buffer[i+2]) continue;
+    }
+    if (i<512) {
+      // Found one
+      r=fat_sector_num*128+(i>>2);
+      *(unsigned long *)sector_buffer[i]=cluster;
+      sdcard_writesector(fat1_sector+fat_sector_num,0);
+      sdcard_writesector(fat2_sector+fat_sector_num,0);
+      return r;
+    }
+  }
+  return 0;
+}
+
+
 /*
   Create a file in the root directory of the new FAT32 filesystem
   with the indicated name and size.
