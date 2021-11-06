@@ -546,7 +546,85 @@ void hexout(char *m,unsigned long v,int n)
 
 char msg[80];
 
-void do_make_disk_image(void)
+unsigned char bam_sector1[0x100]=
+  {
+   0x28, 0x02, 0x44, 0xbb, 0x39, 0x38, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff,
+   0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff,
+   0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff,
+   0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff,
+   0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff,
+   0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff,
+   0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff,
+   0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff,
+   0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff,
+   0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff,
+   0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff,
+   0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff,
+   0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff,
+   0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x28, 0xff,
+   0xff, 0xff, 0xff, 0xff, 0x28, 0xff, 0xff, 0xff, 0xff, 0xff, 0x24, 0xf0, 0xff, 0xff, 0xff, 0xff
+  };
+
+unsigned char to_hex(unsigned char i)
+{
+  if (i<10) return '0'+i;
+  return 0x41+i-10;
+}
+
+void format_disk_image(unsigned long file_sector,char *filename,unsigned char isD65)
+{
+  unsigned char i;
+  unsigned short s;
+  unsigned char sect_count=80*20;
+  if (isD65) sect_count=85*64;
+
+  // Make sure entire image is empty
+  lfill(sector_buffer,0,512);
+  for(s=0;s<sect_count;s++)
+    {
+      // XXX - Using multi-sector writes here would be much faster
+      sdcard_writesector(file_sector+s,0);
+    }
+  
+  // Link to first directory sector
+  sector_buffer[0]=0x28;
+  sector_buffer[1]=0x03;
+  // Filename
+  lcopy(filename,&sector_buffer[4],16);
+  if (strlen(filename)<16) {
+    for(i=strlen(filename);i<16;i++) sector_buffer[4+i]=0xa0;
+  }
+  // Random disk ID
+  i=PEEK(0xD012);
+  sector_buffer[0x16]=to_hex(i&0xf);
+  sector_buffer[0x17]=to_hex(i>>4);
+  // DOS type
+  sector_buffer[0x19]=0x31;
+  sector_buffer[0x1A]=0x44;
+
+  lcopy(bam_sector1,&sector_buffer[0x100],0x100);
+
+  // Disk ID in BAM
+  sector_buffer[0x104]=to_hex(i&0xf);
+  sector_buffer[0x105]=to_hex(i>>4);  
+
+  if (!isD65) sdcard_writesector(file_sector+(39*10*2+0),0);
+  else sdcard_writesector(file_sector+(39*64*2+0),0);
+
+  lfill(sector_buffer,0,0x200);
+  lcopy(bam_sector1,sector_buffer,0x100);
+  // Disk ID in BAM
+  sector_buffer[0x004]=to_hex(i&0xf);
+  sector_buffer[0x005]=to_hex(i>>4);
+  sector_buffer[0x101]=0xff;
+  
+  if (!isD65) sdcard_writesector(file_sector+(39*10*2+1),0);
+  else sdcard_writesector(file_sector+(39*64*2+1),0);
+ 
+}
+
+void do_make_disk_image(unsigned char isD65)
 {
   char filename[16+1];
   unsigned char len;
@@ -562,9 +640,11 @@ void do_make_disk_image(void)
     return;
   }
   
-  draw_box(10,8,30,13,14,1);
-  write_text(11,9,14,"ENTER FILENAME:");
-  input_text(11,11,8,1,filename);
+  draw_box(10,8,30,14,14,1);
+  write_text(11,9,14,"ENTER NAME FOR");
+  if (isD65) write_text(11,10,14,"HD (D65) IMAGE:");
+  else write_text(11,10,14,"DD (D81) IMAGE:");
+  input_text(11,12,8,1,filename);  
   for(len=0;filename[len];len++) {
     // Convert to upper case and work out length of string
     if (filename[len]>=0x61&&filename[len]<=0x7a)
@@ -573,27 +653,44 @@ void do_make_disk_image(void)
   if (!len) return;
   filename[len++]='.';
   filename[len++]=0x44;
-  filename[len++]=0x38;
-  filename[len++]=0x31;
+  if (isD65) {
+    filename[len++]=0x36;
+    filename[len++]=0x35;
+  } else {
+    filename[len++]=0x38;
+    filename[len++]=0x31;
+  } 
   filename[len]=0;
   lcopy(filename,0x0400,16);
 
+  draw_box(10,8,30,14,7,1);
+  write_text(11,9,7,"CREATING IMAGE...");
+  
   // Actually create the file
   //  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1); POKE(0xD610,0);
-  file_sector=fat32_create_contiguous_file(filename, 819200, root_dir_sector, fat1_sector, fat2_sector);
+  file_sector=fat32_create_contiguous_file(filename,
+					   isD65 ? (85*64*2*512L) : (80*10*2*512L),
+					   root_dir_sector, fat1_sector, fat2_sector);
   if (!file_sector)
     {
       // Error making file
-      draw_box(10,8,30,13,2,1);
+      draw_box(10,8,30,14,2,1);
       write_text(11,9,2,"Error creating file");
-      write_text(11,11,2,"Press almost any key...");
+      write_text(11,12,1,"Press almost any key...");
       while(!PEEK(0xD610)) continue;
       POKE(0xD610,0);
-    } else {
-      // Error making file
-      draw_box(8,8,32,13,10,1);
-      write_text(9,9,10,"Created disk image");
-      write_text(9,11,10,"Press almost any key...");
+    }
+  else
+    {
+      // File creation succeeded
+      
+      // Write header, BAM and zero out directory track
+      write_text(11,10,14,"FORMATTING IMAGE...");
+      format_disk_image(file_sector,filename,isD65);
+      
+      draw_box(8,8,32,14,13,1);
+      write_text(9,9,13,"Created disk image");
+      write_text(9,12,1,"Press almost any key...");
 
       // Mark it as mounted in freeze slot stored in $03C0/1
       slot_number = PEEK(0x3C0) + (PEEK(0x3C1)<<8L);
@@ -610,12 +707,6 @@ void do_make_disk_image(void)
       for (; i < 32; i++)
 	freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
       
-      if (!mega65_dos_attachd81(filename)) {
-	// Mounted the new image
-	
-	// Write the header, BAM and directory sectors
-	
-      }
 
       while(!PEEK(0xD610)) continue;
       POKE(0xD610,0);      
@@ -676,7 +767,10 @@ int main(int argc, char** argv)
 
   request_freeze_region_list();
 
-  do_make_disk_image();
+  if (PEEK(0x033C))
+    do_make_disk_image(1); // 0=DD, 1=HD
+  else
+    do_make_disk_image(0); // 0=DD, 1=HD
   mega65_dos_exechelper("FREEZER.M65");
 
   return;

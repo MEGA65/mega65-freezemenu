@@ -341,7 +341,9 @@ void scan_directory(unsigned char drive_id)
     lcopy((unsigned long)"- 1565 DRIVE 1 -    ", 0x40000L + (file_count * 64), 20);
     file_count++;
   }
-  lcopy((unsigned long)"- NEW D81 IMAGE -   ",0x40000L+(file_count*64),20);
+  lcopy((unsigned long)"- NEW D81 DD IMAGE -",0x40000L+(file_count*64),20);
+  file_count++;
+  lcopy((unsigned long)"- NEW D65 HD IMAGE -",0x40000L+(file_count*64),20);
   file_count++;
 
   dir = opendir();
@@ -522,6 +524,11 @@ char* freeze_select_disk_image(unsigned char drive_id)
 	    POKE(0x03C0,slot_number&0xff);
 	    POKE(0x03C1,slot_number>>8);
 
+	    // Tell MAKEDISK if we want a D81 or a D65 image
+	    if (disk_name_return[7]=='8')
+	      POKE(0x33c,0); // 0=DD
+	    else
+	      POKE(0x33c,1); // 1=HD
 	    mega65_dos_exechelper("MAKEDISK.M65");
           }
         }
