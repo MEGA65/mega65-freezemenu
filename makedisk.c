@@ -579,7 +579,7 @@ void do_make_disk_image(void)
   lcopy(filename,0x0400,16);
 
   // Actually create the file
-  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1); POKE(0xD610,0);
+  //  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1); POKE(0xD610,0);
   file_sector=fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
   if (!file_sector)
     {
@@ -589,29 +589,39 @@ void do_make_disk_image(void)
       write_text(11,11,2,"Press almost any key...");
       while(!PEEK(0xD610)) continue;
       POKE(0xD610,0);
-    }
+    } else {
+      // Error making file
+      draw_box(8,8,32,13,10,1);
+      write_text(9,9,10,"Created disk image");
+      write_text(9,11,10,"Press almost any key...");
 
-  // Mark it as mounted in freeze slot stored in $03C0/1
-  slot_number = PEEK(0x3C0) + (PEEK(0x3C1)<<8L);
-  request_freeze_region_list();
-  find_freeze_slot_start_sector(slot_number);
-  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+      // Mark it as mounted in freeze slot stored in $03C0/1
+      slot_number = PEEK(0x3C0) + (PEEK(0x3C1)<<8L);
+      request_freeze_region_list();
+      find_freeze_slot_start_sector(slot_number);
+      freeze_slot_start_sector = *(uint32_t*)0xD681U;
+      
+      // Replace disk image name in process descriptor block
+      for (i = 0; (i < 32) && filename[i]; i++)
+	freeze_poke(0xFFFBD00L + 0x15 + i, filename[i]);
+      // Update length of name
+      freeze_poke(0xFFFBD00L + 0x13, i);
+      // Pad with spaces as required by hypervisor
+      for (; i < 32; i++)
+	freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
+      
+      if (!mega65_dos_attachd81(filename)) {
+	// Mounted the new image
+	
+	// Write the header, BAM and directory sectors
+	
+      }
 
-  // Replace disk image name in process descriptor block
-  for (i = 0; (i < 32) && filename[i]; i++)
-    freeze_poke(0xFFFBD00L + 0x15 + i, filename[i]);
-  // Update length of name
-  freeze_poke(0xFFFBD00L + 0x13, i);
-  // Pad with spaces as required by hypervisor
-  for (; i < 32; i++)
-    freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
-
-  if (!mega65_dos_attachd81(filename)) {
-    // Mounted the new image
-    
-    // Write the header, BAM and directory sectors
-    
+      while(!PEEK(0xD610)) continue;
+      POKE(0xD610,0);      
   }
+  
+
 }
 
 #ifdef __CC65__
