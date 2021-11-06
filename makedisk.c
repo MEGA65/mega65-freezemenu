@@ -580,7 +580,7 @@ void do_make_disk_image(void)
 
   // Actually create the file
   //  while(!PEEK(0xD610)) POKE(0xD020,PEEK(0xD020)+1); POKE(0xD610,0);
-  file_sector=fat32_create_contiguous_file(filename, 8192000, root_dir_sector, fat1_sector, fat2_sector);
+  file_sector=fat32_create_contiguous_file(filename, 819200, root_dir_sector, fat1_sector, fat2_sector);
   if (!file_sector)
     {
       // Error making file
