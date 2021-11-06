@@ -411,9 +411,9 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
 	// Write chain
 	*(unsigned long*)&sector_buffer[offset] = start_cluster+(k<<7)+(offset>>2)+1;
       } 
-      if (((k<<7)+(offset>>2))==clusters) {
+      if (((k<<7)+(offset>>2))==(clusters-1)) {
 	// Mark end of chain
-	*(unsigned long*)&sector_buffer[offset] = 0x0FFFFFFF;
+	*(unsigned long*)&sector_buffer[offset] = 0x0FFFFFF8;
       } 
     }
     // Write FAT sector to both FATs
@@ -446,14 +446,14 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
   // Create time 0x0e -- 0x0f
   *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x0e]=j;
   // Modify time 0x16 -- 0x17
-  *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x16]=j;
+  //  *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x16]=j;
   j=((tm.tm_year-80)<<9); // DOS is based on 1980, tm struct on 1900
   j|=(tm.tm_mon<<5);
   j|=tm.tm_mday;
   // Create date 0x10 -- 0x11
   *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x10]=j;
   // Modify date 0x18 -- 0x19
-  *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x18]=j;
+  // *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x18]=j;
   // Start cluster
   sector_buffer[free_dir_sector_ofs + 0x1A] = start_cluster;
   sector_buffer[free_dir_sector_ofs + 0x1B] = start_cluster >> 8;
