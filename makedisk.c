@@ -618,6 +618,12 @@ void format_disk_image(unsigned long file_sector,char *filename,unsigned char is
   sector_buffer[0x004]=to_hex(i&0xf);
   sector_buffer[0x005]=to_hex(i>>4);
   sector_buffer[0x101]=0xff;
+  // Link to first sector of dir
+  sector_buffer[0x000]=0x00;
+  sector_buffer[0x001]=0xFF;  
+  // Mark all sectors free in 2nd half of disk
+  sector_buffer[0x0FA]=40;
+  sector_buffer[0x0FB]=0xff;
   
   if (!isD65) sdcard_writesector(file_sector+(39*10*2+1),0);
   else sdcard_writesector(file_sector+(39*64*2+1),0);
