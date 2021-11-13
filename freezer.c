@@ -942,10 +942,7 @@ int main(int argc, char** argv)
 
         case 'M':
         case 'm': // Monitor
-          freeze_monitor();
-          setup_menu_screen();
-	  predraw_freeze_menu();
-	  draw_freeze_menu();
+          mega65_dos_exechelper("MONITOR.M65");
           break;
 
         case 'A':

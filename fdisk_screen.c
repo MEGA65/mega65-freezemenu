@@ -16,8 +16,8 @@ unsigned char* footer_messages[FOOTER_MAX + 1] = {
 
 unsigned char screen_hex_buffer[6];
 
-unsigned char screen_hex_digits[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 0x41, 0x42, 0x43, 0x44, 0x45,
-  0x46 };
+unsigned char screen_hex_digits[16] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 0x01, 0x02, 0x03, 0x04, 0x05,
+  0x06 };
 unsigned char to_screen_hex(unsigned char c)
 {
   return screen_hex_digits[c & 0xf];
