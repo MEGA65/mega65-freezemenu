@@ -769,6 +769,8 @@ int main(int argc, char** argv)
   // Silence SIDs
   POKE(0xD418U, 0);
   POKE(0xD438U, 0);
+  POKE(0xD458U, 0);
+  POKE(0xD478U, 0);
 
   set_palette();
 
