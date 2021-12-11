@@ -190,6 +190,10 @@ unsigned char viciv_regs[0x80]=
 void setup_menu_screen(void)
 {
   // Reset all VIC-IV registers
+  // EXCEPT preserve $D054 CRT emulation mode...
+  viciv_regs[0x54]=(viciv_regs[0x54]&(0xff-0xa8))|(PEEK(0xD054)&0xa8);
+  // EXCEPT preserve PAL/NTSC
+  viciv_regs[0x6f]=PEEK(0xD06F);
   lcopy(viciv_regs,0xffd3000L,128);
   
   //  POKE(0xD018U, 0x15); // upper case
