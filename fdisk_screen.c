@@ -194,7 +194,7 @@ void setup_screen(void)
   m65_io_enable();
 
   // Normal 8-bit text mode
-  POKE(0xD054U, 0);
+  POKE(0xD054U, (PEEK(0xD054)&0xa8)| 0x00);
 
   // 80-column mode, fast CPU, extended attributes enable
   *((unsigned char*)0xD031) = 0xe0;

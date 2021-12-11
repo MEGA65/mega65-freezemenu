@@ -133,7 +133,7 @@ void setup_menu_screen(void)
   POKE(0xD018U, 0x15); // upper case
 
   // NTSC 60Hz mode for monitor compatibility?
-  POKE(0xD06FU, 0x80);
+  //  POKE(0xD06FU, 0x80);
 
   // Reset border widths
   POKE(0xD05CU, 80);
@@ -148,7 +148,7 @@ void setup_menu_screen(void)
 
   // 16-bit text mode with full colour for chars >$FF
   // (which we will use for showing the thumbnail)
-  POKE(0xD054U, 0x05);
+  POKE(0xD054U, (PEEK(0xD054)&0xa8)| 0x05);
   POKE(0xD058U, 80);
   POKE(0xD059U, 0); // 80 bytes per row
 
@@ -184,7 +184,7 @@ void screen_of_death(char* msg)
   POKE(0xD015U, 0x00);
 
   // Normal video mode
-  POKE(0xD054U, 0x00);
+  POKE(0xD054U, (PEEK(0xD054)&0xa8)| 0x00);
 
   // Reset colour palette to normal for black and white
   POKE(0xD100U, 0x00);

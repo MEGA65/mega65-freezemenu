@@ -38,7 +38,7 @@ void clear_sector_buffer(void)
 #endif
 }
 
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.3       "
+unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.4       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3 * 40 + 4)
@@ -54,9 +54,9 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.3       "
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
                              " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
                              " cccccccccccccccccccccccccccccccccccccc "
-                             " M - MONITOR         E - POKES          "
-                             " P - (UN)PROTECT ROM S - SPRITE EDITOR  "
-                             " A - AUDIO & VOLUME  X - POKE FINDER    "
+                             " M - MONITOR                            "
+                             " A - AUDIO & VOLUME                     "
+                             " S - SPRITE EDITOR                      "
                              " cccccccccccccccccccccccccccccccccccccc "
                              "                                        "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
@@ -240,8 +240,8 @@ void screen_of_death(char* msg)
   // No sprites
   POKE(0xD015U,0x00);
   
-  // Normal video mode
-  POKE(0xD054U,0x00);
+  // Normal video mode (but preserve CRT emulation etc)
+  POKE(0xD054U,PEEK(0xD054)&0xA8);
 
   // Reset colour palette to normal for black and white
   POKE(0xD100U,0x00);  POKE(0xD200U,0x00);  POKE(0xD300U,0x00);
