@@ -219,7 +219,7 @@ void setup_menu_screen(void)
   // Colour RAM at offset $0000
   
   // Fill colour RAM with sensible value at the start
-  lfill(0xff8000U, 1, 2000);
+  lfill(0xff80000U, 1, 2000);
 }
 
 unsigned char ascii_to_screencode(char c)
