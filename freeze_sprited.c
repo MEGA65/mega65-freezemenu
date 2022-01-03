@@ -385,6 +385,11 @@ static void Initialize()
 
   // Sprite properties (color, initial pos, etc.)
 
+  POKE(0xD074, 0); // Alpha OFF
+  POKE(0xD076, 0);// V400 mode off for editor sprites.
+  POKE(0xD077, 0); // Y-MSBs off
+  POKE(0xD078, 0); // Y-MSBs off
+
   POKE(0xD015, 7); // Enable #0, #1, #2
   POKE(0xD01D, 0); // H-expand off for editor sprites.
   POKE(0xD017, 0); // V-expand off for editor sprites.
@@ -1119,6 +1124,7 @@ static void ShowHelp()
 
   flushkeybuf();
   clrscr();
+  g_state.redrawFlags |= REDRAW_TOOL_HEADER;
   DrawHeader();
   PrintKeyGroup(fileKeys, ARRAY_SIZE(fileKeys), 0, 2);
   PrintKeyGroup(editKeys, ARRAY_SIZE(editKeys), 22, 2);
