@@ -177,44 +177,33 @@ void set_palette(void)
 
 unsigned char viciv_regs[0x80]=
   {
-   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-   0x00,0x9B,0x37,0x00,0x00,0x00,0xC8,0x00,0x14,0x71,0xE0,0x00,0x00,0x00,0x00,0x00,
+   0x64,0x64,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+   0x00,0x9B,0x37,0x00,0x00,0x01,0xC9,0x00,0x14,0x71,0xE0,0x00,0x00,0x00,0x00,0x00,
    0x0E,0x06,0x01,0x02,0x03,0x04,0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x0C,0x00,
    0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
    0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x68,0x00,0xF8,0x01,0x50,0x00,0x68,0x00,
-   0x0C,0x83,0xE9,0x81,0x05,0x00,0x00,0x00,  80,   0,0x78,0x01,0x50,0xC0,0x28,0x00,
-   0x00,0xb8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x90,0x00,0x00,0xF8,0x07,0x00,0x00,
-   0xFF,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x37,0x81,0x18,0xC2,0x00,0x00,0x7F   
+   0x0C,0x83,0x00,0x81,0x05,0x00,0x00,0x00,0x50,0x00,0x78,0x01,0x50,0xC0,0x28,0x00,
+   0x00,0xb8,0x00,0x00,0x00,0x00,0x00,0x1f,0x00,0x90,0x00,0x00,0xF8,0x07,0x00,0x00,
+   0xFF,0x00,0x00,0x11,0x00,0x00,0x00,0x00,0x00,0x37,0x81,0x18,0xC2,0x00,0x00,0x7F
   };
 
 void setup_menu_screen(void)
 {
   // Reset all VIC-IV registers
   // EXCEPT preserve $D054 CRT emulation mode...
-  viciv_regs[0x54]=(viciv_regs[0x54]&(0xff-0xa8))|(PEEK(0xD054)&0xa8);
+  viciv_regs[0x54]=(viciv_regs[0x54]&(0xff-0x20))|(PEEK(0xD054)&0x20);
   // EXCEPT preserve PAL/NTSC
   viciv_regs[0x6f]=PEEK(0xD06F);
-  lcopy(viciv_regs,0xffd3000L,128);
+  lcopy(viciv_regs,0xffd3000L,47);
+  // don't write D02f, or we switch back to vic-ii
+  lcopy(viciv_regs+48,0xffd3030L,80);
   
-  //  POKE(0xD018U, 0x15); // upper case
-
-  // We now keep video mode, assuming the user to have correctly set it up
-  // NTSC 60Hz mode for monitor compatibility?
-  //  POKE(0xD06FU,0x80);
-
   // Reset border widths
-
   // No sprites
-  POKE(0xD015U, 0x00);
-
   // Move screen to SCREEN_ADDRESS
-  //  POKE(0xD018U, (((CHARSET_ADDRESS - 0x8000U) >> 11) << 1) + (((SCREEN_ADDRESS - 0x8000U) >> 10) << 4));
-  //  POKE(0xDD00U, (PEEK(0xDD00U) & 0xfc) | 0x01);
-
   // 16-bit text mode with full colour for chars >$FF
   // (which we will use for showing the thumbnail)
   // 80 bytes per row
-
   // Screen at $00B800
   // Colour RAM at offset $0000
   
@@ -446,8 +435,8 @@ void draw_thumbnail(void)
       j=8; if (x==72) j=2;
 
       lcopy ((unsigned long)&thumbnail_buffer[x + yoffset],
-	     0x50000L + xoffset + yoffset_out,
-	     j);
+       0x50000L + xoffset + yoffset_out,
+       j);
 
       xoffset+=64*6;      
     }
@@ -650,8 +639,8 @@ void draw_freeze_menu(void)
     }
 #if 0
       if (detect_cpu_speed()==40) {
-	read_file_from_sdcard("F40THUMB.M65",0x052000L);
-	snail=1;
+  read_file_from_sdcard("F40THUMB.M65",0x052000L);
+  snail=1;
       }
 #endif
 
@@ -789,17 +778,15 @@ int main(int argc, char** argv)
   else
     sdhc_card = 0;
 
-  setup_menu_screen();
-
   request_freeze_region_list();
 
+  setup_menu_screen();
   predraw_freeze_menu();
   draw_freeze_menu();
 
   draw_thumbnail();
 
   // Flush input buffer
-  mega65_fast();
   while (PEEK(0xD610U))
     POKE(0xD610U, 0);
 
@@ -928,7 +915,7 @@ int main(int argc, char** argv)
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           draw_freeze_menu();
-	  draw_thumbnail();
+    draw_thumbnail();
           POKE(0xD020U, 6);
           break;
         case 0x91: // Cursor up
@@ -942,7 +929,7 @@ int main(int argc, char** argv)
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           draw_freeze_menu();
-	  draw_thumbnail();
+    draw_thumbnail();
           POKE(0xD020U, 6);
           break;
 
@@ -976,9 +963,9 @@ int main(int argc, char** argv)
 
 #if 0
       case 'P': case 'p': // Toggle ROM area write-protect
-	freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x04);
-	draw_freeze_menu();
-	break;
+  freeze_poke(0xFFD367dL,freeze_peek(0xFFD367dL)^0x04);
+  draw_freeze_menu();
+  break;
 #endif
 
         case 'c':
@@ -1042,83 +1029,83 @@ int main(int argc, char** argv)
           draw_freeze_menu();
           break;
         case '0': // Select mounted disk image
-        {
-          char* disk_image = freeze_select_disk_image(0);
+          {
+            char* disk_image = freeze_select_disk_image(0);
 
-          // Restore freeze region offset list to $0400 screen
-          request_freeze_region_list();
+            // Restore freeze region offset list to $0400 screen
+            request_freeze_region_list();
 
-          if ((unsigned short)disk_image == 0xFFFF) {
-            // Have no disk image
-          }
-          else if (disk_image) {
+            if ((unsigned short)disk_image == 0xFFFF) {
+              // Have no disk image
+            }
+            else if (disk_image) {
 
-            {
-              unsigned char i;
-              POKE(0xD020U, 6);
+              {
+                unsigned char i;
+                POKE(0xD020U, 6);
 
-              // Replace disk image name in process descriptor block
-              for (i = 0; (i < 32) && disk_image[i]; i++)
-                freeze_poke(0xFFFBD00L + 0x15 + i, disk_image[i]);
-              // Update length of name
-              freeze_poke(0xFFFBD00L + 0x13, i);
-              // Pad with spaces as required by hypervisor
-              for (; i < 32; i++)
-                freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
+                // Replace disk image name in process descriptor block
+                for (i = 0; (i < 32) && disk_image[i]; i++)
+                  freeze_poke(0xFFFBD00L + 0x15 + i, disk_image[i]);
+                // Update length of name
+                freeze_poke(0xFFFBD00L + 0x13, i);
+                // Pad with spaces as required by hypervisor
+                for (; i < 32; i++)
+                  freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
+              }
             }
           }
-        }
 
-	  predraw_freeze_menu();
+          predraw_freeze_menu();
           draw_freeze_menu();
           break;
         case '1': // Select mounted disk image for 2nd drive
-        {
-          char* disk_image = freeze_select_disk_image(1);
+          {
+            char* disk_image = freeze_select_disk_image(1);
 
-          // Restore freeze region offset list to $0400 screen
-          request_freeze_region_list();
+            // Restore freeze region offset list to $0400 screen
+            request_freeze_region_list();
 
-          if ((unsigned short)disk_image == 0xFFFF) {
-            // Have no disk image
-          }
-          else if (disk_image) {
+            if ((unsigned short)disk_image == 0xFFFF) {
+              // Have no disk image
+            }
+            else if (disk_image) {
 
-            {
-              unsigned char i;
-              POKE(0xD020U, 6);
+              {
+                unsigned char i;
+                POKE(0xD020U, 6);
 
-              // Replace disk image name in process descriptor block
-              for (i = 0; (i < 32) && disk_image[i]; i++)
-                freeze_poke(0xFFFBD00L + 0x35 + i, disk_image[i]);
-              // Update length of name
-              freeze_poke(0xFFFBD00L + 0x14, i);
-              // Pad with spaces as required by hypervisor
-              for (; i < 32; i++)
-                freeze_poke(0xFFFBD00L + 0x35 + i, ' ');
+                // Replace disk image name in process descriptor block
+                for (i = 0; (i < 32) && disk_image[i]; i++)
+                  freeze_poke(0xFFFBD00L + 0x35 + i, disk_image[i]);
+                // Update length of name
+                freeze_poke(0xFFFBD00L + 0x14, i);
+                // Pad with spaces as required by hypervisor
+                for (; i < 32; i++)
+                  freeze_poke(0xFFFBD00L + 0x35 + i, ' ');
+              }
             }
           }
-        }
-	  predraw_freeze_menu();
+          predraw_freeze_menu();
           draw_freeze_menu();
           break;
 
         case 0xf5: // F5 = Reset
-        {
-          // Set C64 memory map, PC to reset vector and resume
-          freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
-          freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
-          // Reset $01 port values
-          freeze_poke(0xFFD3640U + 0x10, 0x3f);
-          freeze_poke(0xFFD3640U + 0x11, 0x3f);
-          // disable interrupts, clear decimal mode
-          freeze_poke(0xFFD3640U + 0x07, 0xe7);
-          // Clear memory mapping
-          for (c = 0x0a; c <= 0x0f; c++)
-            freeze_poke(0xFFD3640U + c, 0);
-	  // Turn off extended graphics mode, if selected
-	  freeze_poke(0xFFD3054U,0x00);
-        }
+          {
+            // Set C64 memory map, PC to reset vector and resume
+            freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
+            freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
+            // Reset $01 port values
+            freeze_poke(0xFFD3640U + 0x10, 0x3f);
+            freeze_poke(0xFFD3640U + 0x11, 0x3f);
+            // disable interrupts, clear decimal mode
+            freeze_poke(0xFFD3640U + 0x07, 0xe7);
+            // Clear memory mapping
+            for (c = 0x0a; c <= 0x0f; c++)
+              freeze_poke(0xFFD3640U + c, 0);
+            // Turn off extended graphics mode, only keep palemu
+            freeze_poke(0xFFD3054U, freeze_peek(0xFFD3054U) & 0x20);
+          }
           // fall through
         case 0xf3: // F3 = resume
           unfreeze_slot(slot_number);
@@ -1129,46 +1116,47 @@ int main(int argc, char** argv)
           break;
 
         case 0xf7: // F7 = save to slot
-        {
-          // Get start sectors of the source and destination slots
-          uint32_t i;
-          uint32_t j;
-          uint32_t dest_freeze_slot_start_sector;
-          find_freeze_slot_start_sector(0);
-          freeze_slot_start_sector = *(uint32_t*)0xD681U;
-          find_freeze_slot_start_sector(slot_number);
-          dest_freeze_slot_start_sector = *(uint32_t*)0xD681U;
+          {
+            // Get start sectors of the source and destination slots
+            uint32_t i;
+            uint32_t j;
+            uint32_t dest_freeze_slot_start_sector;
+            find_freeze_slot_start_sector(0);
+            freeze_slot_start_sector = *(uint32_t*)0xD681U;
+            find_freeze_slot_start_sector(slot_number);
+            dest_freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          // 512KB = 1024 sectors
-          // Process in 64KB blocks, so that we can do multi-sector writes
-          // and generally be about 10x faster than otherwise.
-          for (i = 0; i < 1024; i += 128) {
-            POKE(0xD020U, 0x0e);
-            for (j = 0; j < 128; j++) {
-              sdcard_readsector(freeze_slot_start_sector + i + j);
-              lcopy((unsigned long)sector_buffer, 0x40000U + (j << 9), 512);
-            }
-            POKE(0xD020U, 0x00);
-            for (j = 0; j < 128; j++) {
-              lcopy(0x40000U + (j << 9), (unsigned long)sector_buffer, 512);
+            // 512KB = 1024 sectors
+            // Process in 64KB blocks, so that we can do multi-sector writes
+            // and generally be about 10x faster than otherwise.
+            for (i = 0; i < 1024; i += 128) {
+              POKE(0xD020U, 0x0e);
+              for (j = 0; j < 128; j++) {
+                sdcard_readsector(freeze_slot_start_sector + i + j);
+                lcopy((unsigned long)sector_buffer, 0x40000U + (j << 9), 512);
+              }
+              POKE(0xD020U, 0x00);
+              for (j = 0; j < 128; j++) {
+                lcopy(0x40000U + (j << 9), (unsigned long)sector_buffer, 512);
 #ifdef USE_MULTIBLOCK_WRITE
-              if (!j)
-                sdcard_writesector(dest_freeze_slot_start_sector + i + j, 1);
-              else
-                sdcard_writenextsector();
+                if (!j)
+                  sdcard_writesector(dest_freeze_slot_start_sector + i + j, 1);
+                else
+                  sdcard_writenextsector();
 #else
-              sdcard_writesector(dest_freeze_slot_start_sector + i + j, 0);
+                sdcard_writesector(dest_freeze_slot_start_sector + i + j, 0);
+#endif
+              }
+#ifdef USE_MULTIBLOCK_WRITE
+              // Close multi-sector write job
+              sdcard_writemultidone();
 #endif
             }
-#ifdef USE_MULTIBLOCK_WRITE
-            // Close multi-sector write job
-            sdcard_writemultidone();
-#endif
-          }
-          POKE(0xD020U, 6);
+            POKE(0xD020U, 6);
 
-          draw_freeze_menu();
-        } break;
+            draw_freeze_menu();
+          }
+          break;
 
         case 'R':
         case 'r': // Switch ROMs
