@@ -162,15 +162,15 @@ ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 2>/dev/null
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 2>/dev/null
 
 GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 2>/dev/null
 
 tools/thumbnail-surround-formatter:
 	$(warning ======== Making: $@)
