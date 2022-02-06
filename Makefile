@@ -31,7 +31,8 @@ M65IDESOURCES=	freezer.c \
 		fdisk_memory.c \
 		fdisk_screen.c \
 		fdisk_fat32.c \
-		fdisk_hal_mega65.c
+		fdisk_hal_mega65.c \
+		freeze_common.c
 
 ASSFILES=	freezer.s \
 		frozen_memory.s \
@@ -41,7 +42,8 @@ ASSFILES=	freezer.s \
 		fdisk_fat32.s \
 		fdisk_hal_mega65.s \
 		charset.s \
-		helper.s
+		helper.s \
+		freeze_common.s
 
 
 MONASSFILES=	monitor.s \
@@ -78,7 +80,8 @@ SEASSFILES=	sprited.s \
 		fdisk_screen.s \
 		fdisk_hal_mega65.s \
 		charset.s \
-		helper.s
+		helper.s \
+		freeze_common.s
 
 RLASSFILES=	romload.s \
 		freeze_romload.s \
@@ -98,7 +101,8 @@ HEADERS=	Makefile \
 		fdisk_screen.h \
 		fdisk_fat32.h \
 		fdisk_hal.h \
-		ascii.h
+		ascii.h \
+		freeze_common.h
 
 DATAFILES=	ascii8x8.bin
 
@@ -121,20 +125,25 @@ else
 	( cd cc65 && make -j 8 )
 endif
 
-ascii8x8.bin: ascii00-7f.png pngprepare
+ascii8x8.bin: ascii00-7f.png tools/pngprepare
 	$(warning ======== Making: $@)
-	./pngprepare charrom ascii00-7f.png ascii8x8.bin
+	./tools/pngprepare charrom ascii00-7f.png ascii8x8.bin
 
 asciih:	asciih.c
 	$(warning ======== Making: $@)
 	$(CC) -o asciih asciih.c
-ascii.h:	asciih
+
+ascii.h: asciih
 	$(warning ======== Making: $@)
 	./asciih
 
-pngprepare:	pngprepare.c
+tools/pngprepare:	tools/pngprepare.c
 	$(warning ======== Making: $@)
-	$(CC) -I/usr/local/include -L/usr/local/lib -o pngprepare pngprepare.c -lpng
+	$(CC) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare tools/pngprepare.c -lpng
+
+tools/thumbnail-surround-formatter:
+	$(warning ======== Making: $@)
+	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
@@ -172,24 +181,20 @@ GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatt
 	$(warning ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 2>/dev/null
 
-tools/thumbnail-surround-formatter:
-	$(warning ======== Making: $@)
-	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
-
 format:
 	find . -type d \( -path ./cc65 -o -path ./cbmconvert \) -prune -false -o -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' | xargs clang-format --style=file -i
 
-clean:
-	rm -f $(FILES) *.o \
-	audiomix.s \
+.PHONY: clean cleangen
+
+clean: cleangen
+	rm -f $(FILES) \
+	*.o *.map *.list \
 	freeze_*.s \
-	frozen_memory.s \
-	fdisk_*.s \
-	freezer.s sprited.s \
-	*.map \
-	ascii.h ascii8x8.bin asciih \
-	pngprepare \
+	frozen_*.s \
+	audiomix.s makedisk.s monitor.s romload.s sprited.s \
+	asciih \
+	tools/pngprepare \
 	tools/thumbnail-surround-formatter
 
 cleangen:
-	rm ascii8x8.bin
+	rm -f ascii8x8.bin ascii.h

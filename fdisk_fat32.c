@@ -353,7 +353,7 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
 	// Zero out new directory cluster
 	mega65_serial_monitor_write("Zeroing out new directory cluster\n");
 	serial_hex(dir_cluster);
-	lfill(sector_buffer,0,512);
+	lfill((long)sector_buffer,0,512);
 	for (sn=0;sn<sectors_per_cluster;sn++) {
 	  sdcard_readsector(root_dir_sector+((dir_cluster-2)*sectors_per_cluster)+sn);
 	}

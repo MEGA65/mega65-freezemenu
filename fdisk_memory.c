@@ -33,10 +33,9 @@ unsigned char dma_byte;
 
 void do_dma(void)
 {
-  unsigned char i;
   m65_io_enable();
 
-  //  for(i=0;i<24;i++)
+  //  for(unsigned char i=0;i<24;i++)
   // screen_hex_byte(SCREEN_ADDRESS+i*3,PEEK(i+(unsigned int)&dmalist));
 
   // Now run DMA job (to and from anywhere, and list is in low 1MB)
