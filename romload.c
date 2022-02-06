@@ -164,55 +164,6 @@ unsigned char ascii_to_screencode(char c)
 }
 
 static unsigned short i;
-char* deadly_haiku[3] = { "Error consumes all", "As sand erodes rock and stone", "Now also your mind" };
-
-void screen_of_death(char* msg)
-{
-  POKE(0, 0x41);
-  POKE(0xD02FU, 0x47);
-  POKE(0xD02FU, 0x53);
-
-  // Reset video mode
-  POKE(0xD05DU, 0x01);
-  POKE(0xD011U, 0x1b);
-  POKE(0xD016U, 0xc8);
-  POKE(0xD018U, 0x17); // lower case
-  POKE(0xD06FU, 0x80); // NTSC 60Hz mode for monitor compatibility?
-  POKE(0xD06AU, 0x00); // Charset from bank 0
-
-  // No sprites
-  POKE(0xD015U, 0x00);
-
-  // Normal video mode
-  POKE(0xD054U, (PEEK(0xD054)&0xa8)| 0x00);
-
-  // Reset colour palette to normal for black and white
-  POKE(0xD100U, 0x00);
-  POKE(0xD200U, 0x00);
-  POKE(0xD300U, 0x00);
-  POKE(0xD101U, 0xFF);
-  POKE(0xD201U, 0xFF);
-  POKE(0xD301U, 0xFF);
-
-  POKE(0xD020U, 0);
-  POKE(0xD021U, 0);
-
-  // Reset CPU IO ports
-  POKE(1, 0x3f);
-  POKE(0, 0x3F);
-  lfill(0x0400U, ' ', 1000);
-  lfill(0xff80000U, 1, 2000);
-
-  for (i = 0; deadly_haiku[0][i]; i++)
-    POKE(0x0400 + 10 * 40 + 11 + i, ascii_to_screencode(deadly_haiku[0][i]));
-  for (i = 0; deadly_haiku[1][i]; i++)
-    POKE(0x0400 + 12 * 40 + 11 + i, ascii_to_screencode(deadly_haiku[1][i]));
-  for (i = 0; deadly_haiku[2][i]; i++)
-    POKE(0x0400 + 14 * 40 + 11 + i, ascii_to_screencode(deadly_haiku[2][i]));
-
-  while (1)
-    continue;
-}
 
 unsigned char detect_cpu_speed(void)
 {

@@ -23,7 +23,7 @@ signed char swipe_dir = 0;
       return;                                                                                                               \
   }
 
-static uint8_t sector_buffer[512];
+uint8_t sector_buffer[512];
 
 unsigned short slot_number = 0;
 
@@ -194,9 +194,9 @@ void setup_menu_screen(void)
   viciv_regs[0x54]=(viciv_regs[0x54]&(0xff-0x20))|(PEEK(0xD054)&0x20);
   // EXCEPT preserve PAL/NTSC
   viciv_regs[0x6f]=PEEK(0xD06F);
-  lcopy(viciv_regs,0xffd3000L,47);
+  lcopy((long)viciv_regs, 0xffd3000L, 47);
   // don't write D02f, or we switch back to vic-ii
-  lcopy(viciv_regs+48,0xffd3030L,80);
+  lcopy((long)viciv_regs+48, 0xffd3030L, 80);
   
   // Reset border widths
   // No sprites
@@ -251,7 +251,7 @@ void screen_of_death(char* msg)
   for(i=0;deadly_haiku[1][i];i++) POKE(0x0400+12*40+11+i,ascii_to_screencode(deadly_haiku[1][i]));
   for(i=0;deadly_haiku[2][i];i++) POKE(0x0400+14*40+11+i,ascii_to_screencode(deadly_haiku[2][i]));
 #endif
-  while (1)
+  while (1 || msg)
     continue;
 }
 
@@ -410,7 +410,7 @@ void draw_thumbnail(void)
   // Copy thumbnail memory to buffer
   for (i = 0; i < 8; i++) {
     sdcard_readsector(freeze_slot_start_sector + thumbnail_sector + i);
-    lcopy((long)sector_buffer, thumbnail_buffer + (i * 0x200), 0x200);
+    lcopy((long)sector_buffer, (long)thumbnail_buffer + (i * 0x200), 0x200);
     NAVIGATION_KEY_CHECK();
   }
 
