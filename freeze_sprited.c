@@ -148,7 +148,7 @@ extern int errno;
 #define SIDEBAR_PREVIEW_AREA_TOP 10
 #define SIDEBAR_PREVIEW_AREA_BOTTOM 20
 #define SIDEBAR_PREVIEW_AREA_HEIGHT (SIDEBAR_PREVIEW_AREA_BOTTOM - SIDEBAR_PREVIEW_AREA_TOP)
-#define SPRITE_OFFSET_X 23
+#define SPRITE_OFFSET_X 24
 #define SPRITE_OFFSET_Y 50
 
 #define JOY_DELAY 10000U
@@ -1275,7 +1275,7 @@ static void MainLoop()
 
       /* ------------------------------------ HELP ----------------------------------- */
 
-    case 0xF1: // F1
+    case 31: // HELP
       ShowHelp();
       EraseCanvasSpace();
       SetRedrawFullCanvas();
