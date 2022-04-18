@@ -2,10 +2,12 @@
 ifdef USE_LOCAL_CC65
 	# use locally installed binary (requires cc65 to be in the $PATH)
 	CC65=	cc65
+	CA65= ca65
 	CL65=	cl65
 else
 	# use the binary built from the submodule
 	CC65=	cc65/bin/cc65
+	CA65= ca65
 	CL65=	cc65/bin/cl65
 endif
 
@@ -104,7 +106,7 @@ DATAFILES=	ascii8x8.bin
 
 %.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
-	$(CC65) $(COPTS) -o $@ $<
+	$(CC65) $(COPTS) --add-source -o $@ $<
 
 all:	$(FILES)
 
@@ -143,7 +145,7 @@ tools/thumbnail-surround-formatter:
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 $(ASSFILES)
+	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 $(ASSFILES)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
 	$(warning ======== Making: $@)

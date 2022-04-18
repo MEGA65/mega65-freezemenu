@@ -692,6 +692,16 @@ void draw_freeze_menu(void)
   }
 }
 
+// NOTE: I wanted to tweak the string to look nicer, but this gave me dos driver errors once back in BASIC (doing a DIR)
+char tweak(char c) {
+  if (c == '_')
+    c = 0x66;
+  else if (c == '~')
+    c = 0x27;
+
+  return c;
+}
+
 // Left/right do left/right
 // fire = F3
 // down = disk menu
@@ -700,6 +710,8 @@ unsigned char joy_to_key[32] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xF3,       // With fire pressed
   0, 0, 0, 0, 0, 0, 0, 0x1d, 0, 0, 0, 0x9d, 0, 'd', 'v', 0 // without fire
 };
+
+unsigned char origD689 = 0;
 
 #ifdef WITH_TOUCH
 // clang-format off
@@ -775,6 +787,10 @@ int main(int argc, char** argv)
   POKE(0xD478U, 0);
 
   set_palette();
+
+  // assure we're viewing the sdcard's sector buffer (and not the floppy disk buffer)
+  origD689 = PEEK(0xD689);
+  POKE(0xD689, PEEK(0xD689) | 128);
 
   // Now find the start sector of the slot, and make a copy for safe keeping
   slot_number = 0;
@@ -1055,7 +1071,7 @@ int main(int argc, char** argv)
 
                 // Replace disk image name in process descriptor block
                 for (i = 0; (i < 32) && disk_image[i]; i++)
-                  freeze_poke(0xFFFBD00L + 0x15 + i, disk_image[i]);
+                  freeze_poke(0xFFFBD00L + 0x15 + i, /*tweak(*/disk_image[i]/*)*/);
                 // Update length of name
                 freeze_poke(0xFFFBD00L + 0x13, i);
                 // Pad with spaces as required by hypervisor
@@ -1117,6 +1133,8 @@ int main(int argc, char** argv)
           }
           // fall through
         case 0xf3: // F3 = resume
+          // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
+          POKE(0xD689, origD689);
           unfreeze_slot(slot_number);
 
           // should never get here

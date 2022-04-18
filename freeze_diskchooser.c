@@ -300,6 +300,10 @@ void draw_disk_image_list(void)
       for (x = 0; x < 20; x++) {
         if ((name[x] >= 'A' && name[x] <= 'Z') || (name[x] >= 'a' && name[x] <= 'z'))
           POKE(addr + (x << 1), name[x] & 0x1f);
+        else if (name[x] == '_')
+          POKE(addr + (x << 1), 0x46);
+        else if (name[x] == '~')
+          POKE(addr + (x << 1), 0x27); // use a single-quote to substitute for a tilde
         else
           POKE(addr + (x << 1), name[x]);
       }
