@@ -108,6 +108,8 @@ unsigned char c64_palette[64]={
 
 unsigned char colour_table[256];
 
+void topetsciiupper(char* str, int len);
+
 void set_palette(void)
 {
   // First set the 16 C64 colours
@@ -590,17 +592,21 @@ void draw_freeze_menu(void)
       for (i = 0; i < process_descriptor.d81_image0_namelen; i++)
         if (!process_descriptor.d81_image0_name[i])
           break;
-      if (i == process_descriptor.d81_image0_namelen)
+      if (i == process_descriptor.d81_image0_namelen) {
+        topetsciiupper(process_descriptor.d81_image0_name, process_descriptor.d81_image0_namelen);
         lcopy((unsigned long)process_descriptor.d81_image0_name, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
             process_descriptor.d81_image0_namelen < 19 ? process_descriptor.d81_image0_namelen : 19);
+      }
     }
     if (process_descriptor.d81_image1_namelen) {
       for (i = 0; i < process_descriptor.d81_image1_namelen; i++)
         if (!process_descriptor.d81_image1_name[i])
           break;
-      if (i == process_descriptor.d81_image1_namelen)
+      if (i == process_descriptor.d81_image1_namelen) {
+        topetsciiupper(process_descriptor.d81_image1_name, process_descriptor.d81_image1_namelen);
         lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
             process_descriptor.d81_image1_namelen < 19 ? process_descriptor.d81_image1_namelen : 19);
+      }
     }
   }
 
@@ -694,12 +700,28 @@ void draw_freeze_menu(void)
 
 // NOTE: I wanted to tweak the string to look nicer, but this gave me dos driver errors once back in BASIC (doing a DIR)
 char tweak(char c) {
+  if (c < 0x60 || c >= 0x7a) {
+    return c;
+  }
+  else {
+    c = (c & 0x5f);
+  }
+
+  /*
   if (c == '_')
     c = 0x66;
   else if (c == '~')
     c = 0x27;
+    */
 
   return c;
+}
+
+void topetsciiupper(char* str, int len)
+{
+  int i;
+  for (i = 0; i < len; i++)
+    str[i] = tweak(str[i]);
 }
 
 // Left/right do left/right
@@ -1071,7 +1093,7 @@ int main(int argc, char** argv)
 
                 // Replace disk image name in process descriptor block
                 for (i = 0; (i < 32) && disk_image[i]; i++)
-                  freeze_poke(0xFFFBD00L + 0x15 + i, /*tweak(*/disk_image[i]/*)*/);
+                  freeze_poke(0xFFFBD00L + 0x15 + i, tweak(disk_image[i]));
                 // Update length of name
                 freeze_poke(0xFFFBD00L + 0x13, i);
                 // Pad with spaces as required by hypervisor
@@ -1102,7 +1124,7 @@ int main(int argc, char** argv)
 
                 // Replace disk image name in process descriptor block
                 for (i = 0; (i < 32) && disk_image[i]; i++)
-                  freeze_poke(0xFFFBD00L + 0x35 + i, disk_image[i]);
+                  freeze_poke(0xFFFBD00L + 0x35 + i, tweak(disk_image[i]));
                 // Update length of name
                 freeze_poke(0xFFFBD00L + 0x14, i);
                 // Pad with spaces as required by hypervisor
