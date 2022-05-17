@@ -468,6 +468,16 @@ char* freeze_select_disk_image(unsigned char drive_id)
           break;
         }
 
+      // First, clear flags for the F011 image
+      if (drive_id == 0) {
+        // Clear flags for drive 0
+        lpoke(0xffd368bL, lpeek(0xffd368bL) & 0xb8);
+      }
+      else if (drive_id == 1) {
+        // Clear flags for drive 1
+        lpoke(0xffd368bL, lpeek(0xffd368bL) & 0x47);
+      }
+
       // Try to mount it, with border black while working
       POKE(0xD020U, 0);
       if (disk_name_return[0] == '/') {
