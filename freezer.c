@@ -38,7 +38,7 @@ void clear_sector_buffer(void)
 #endif
 }
 
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.4       "
+unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.6       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              " cccccccccccccccccccccccccccccccccccccc "
 #define LOAD_RESUME_OFFSET (3 * 40 + 4)
