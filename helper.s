@@ -16,6 +16,10 @@
 
 	.p4510
 	
+  ;; fall-back to FREEZER.M65 if other .M65 file can't be loaded
+_freezer_m65:
+  .asciiz "freezer.m65"
+
 _mega65_dos_exechelper:
 	;; char mega65_dos_exechelper(char *image_name);
 
@@ -33,6 +37,7 @@ _mega65_dos_exechelper:
 	sta $0140
 	
 	;; Copy file name
+@NameCopy:
 	ldy #0
 @NameCopyLoop:
 	lda (ptr1),y
@@ -65,6 +70,28 @@ _mega65_dos_exechelper:
 
 	;; Call helper routine
 	jsr $0340
+
+  ;; un-successful? Then try loading freezer instead
+  ldz #$00
+@loop0:
+  ldx #$00
+@loop1:
+  ldy #$00
+@loop2:
+  iny
+  bne @loop2
+  inc $d020   ;; colour-cycle the border to indicate missing file
+  inx
+  bne @loop1
+  inz
+  cpz #60
+  bne @loop0
+  
+  lda #<_freezer_m65
+  sta ptr1
+  lda #>_freezer_m65
+  sta ptr1+1
+  bra @NameCopy
 	
 	;; as this is effectively like exec() on unix, it can only return an error
 	LDA #$01
@@ -73,13 +100,19 @@ _mega65_dos_exechelper:
 	RTS
 
 loadfile_routine:
-	; Now load the file to $0400 over the screen
+	; Now load the file to $07ff
         lda #$36
         ldx #$FF
         ldy #$07
         ldz #$00
         sta $d640
         nop
+        bcs load_succeeded
+        lda #10  ; set border to pink to indicate failure to load .M65 file
+        inc $d020
+        rts
+
+load_succeeded:
         ldz     #$00
 	jmp $080d
 	rts
