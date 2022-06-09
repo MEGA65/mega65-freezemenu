@@ -386,7 +386,7 @@ static void Initialize()
   // Sprite properties (color, initial pos, etc.)
 
   POKE(0xD074, 0); // Alpha OFF
-  POKE(0xD076, 0);// V400 mode off for editor sprites.
+  POKE(0xD076, 0); // V400 mode off for editor sprites.
   POKE(0xD077, 0); // Y-MSBs off
   POKE(0xD078, 0); // Y-MSBs off
 
@@ -1344,8 +1344,8 @@ static void MainLoop()
       SetBackground();
       g_state.paintCellFn(g_state.cursorX, g_state.cursorY);
       g_state.currentColorIdx = cIndex;
-    } 
-    
+    }
+
     break;
 
     case ',':

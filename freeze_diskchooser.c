@@ -27,7 +27,6 @@
 
 extern unsigned short slot_number;
 
-
 short file_count = 0;
 short selection_number = 0;
 short display_offset = 0;
@@ -345,9 +344,9 @@ void scan_directory(unsigned char drive_id)
     lcopy((unsigned long)"- 1565 DRIVE 1 -    ", 0x40000L + (file_count * 64), 20);
     file_count++;
   }
-  lcopy((unsigned long)"- NEW D81 DD IMAGE -",0x40000L+(file_count*64),20);
+  lcopy((unsigned long)"- NEW D81 DD IMAGE -", 0x40000L + (file_count * 64), 20);
   file_count++;
-  lcopy((unsigned long)"- NEW D65 HD IMAGE -",0x40000L+(file_count*64),20);
+  lcopy((unsigned long)"- NEW D65 HD IMAGE -", 0x40000L + (file_count * 64), 20);
   file_count++;
 
   dir = opendir();
@@ -371,11 +370,8 @@ void scan_directory(unsigned char drive_id)
       }
     }
     else if (x > 4) {
-      if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4))
-	  || (!strncmp(&dirent->d_name[x - 4], ".d81", 4))
-	  || (!strncmp(&dirent->d_name[x - 4], ".D65", 4))
-	  || (!strncmp(&dirent->d_name[x - 4], ".d65", 4)))
-	{
+      if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d81", 4))
+          || (!strncmp(&dirent->d_name[x - 4], ".D65", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d65", 4))) {
         // File is a disk image
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
@@ -522,18 +518,18 @@ char* freeze_select_disk_image(unsigned char drive_id)
           }
           else if (disk_name_return[3] == 'E') {
             // Create and mount new empty D81 file
-	    // (this is like exec()/fork(), so there is no return value
+            // (this is like exec()/fork(), so there is no return value
 
-	    // Save the current freeze slot number, so that the image can get mounted against us
-	    POKE(0x03C0,slot_number&0xff);
-	    POKE(0x03C1,slot_number>>8);
+            // Save the current freeze slot number, so that the image can get mounted against us
+            POKE(0x03C0, slot_number & 0xff);
+            POKE(0x03C1, slot_number >> 8);
 
-	    // Tell MAKEDISK if we want a D81 or a D65 image
-	    if (disk_name_return[7]=='8')
-	      POKE(0x33c,0); // 0=DD
-	    else
-	      POKE(0x33c,1); // 1=HD
-	    mega65_dos_exechelper("MAKEDISK.M65");
+            // Tell MAKEDISK if we want a D81 or a D65 image
+            if (disk_name_return[7] == '8')
+              POKE(0x33c, 0); // 0=DD
+            else
+              POKE(0x33c, 1); // 1=HD
+            mega65_dos_exechelper("MAKEDISK.M65");
           }
         }
         else {
@@ -572,15 +568,15 @@ char* freeze_select_disk_image(unsigned char drive_id)
           POKE(0xD081, 0x10);
           usleep(7000);
         }
-	// Now check the contents of $D084 to find out the most recently
-	// requested track, and seek the head to that track.
-	x=freeze_peek(0xFFD3084); // Get last requested track by frozen programme
-	while(x) {
-	  POKE(0xD081, 0x18);
-	  while(PEEK(0xD082)&0x80) POKE(0xD020,PEEK(0xD020)+1);
-	  x--;
-	}
-
+        // Now check the contents of $D084 to find out the most recently
+        // requested track, and seek the head to that track.
+        x = freeze_peek(0xFFD3084); // Get last requested track by frozen programme
+        while (x) {
+          POKE(0xD081, 0x18);
+          while (PEEK(0xD082) & 0x80)
+            POKE(0xD020, PEEK(0xD020) + 1);
+          x--;
+        }
 
         // Mounted ok, so return this image
         return disk_name_return;

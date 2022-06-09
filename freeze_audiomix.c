@@ -567,7 +567,7 @@ void test_audio(unsigned char advanced_view)
   POKE(0xD478U, 0x0f);
 
   for (note = 0; note < 5; note++) {
-      // clang-format off
+    // clang-format off
       switch(note) {
       case 0: sid_num = 0; break;
       case 1: sid_num = 2; break;
@@ -575,7 +575,7 @@ void test_audio(unsigned char advanced_view)
       case 3: sid_num = 3; break;
       case 4: sid_num = 0; break;
       }
-      // clang-format on
+    // clang-format on
 
     sid_addr = 0xd400 + (0x20 * sid_num);
 
