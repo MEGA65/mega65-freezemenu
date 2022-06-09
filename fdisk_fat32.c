@@ -240,32 +240,34 @@ unsigned long fat32_follow_cluster(unsigned long cluster)
 
 unsigned long fat32_allocate_cluster(unsigned long cluster)
 {
-  unsigned long r;
+  unsigned long new_cluster;
   unsigned long fat_sector_num;
   unsigned short i;
 
   // Find free cluster
-  for (fat_sector_num = 0; fat_sector_num <= (fat2_sector - fat1_sector); fat_sector_num++) {
-    sdcard_readsector(fat1_sector + fat_sector_num);
-    for (i = 0; i < 512; i += 4) {
-      if (sector_buffer[i])
-        continue;
-      if (sector_buffer[i + 3])
-        continue;
-      if (sector_buffer[i + 1])
-        continue;
-      if (sector_buffer[i + 2])
+  for(fat_sector_num=0;fat_sector_num <= (fat2_sector-fat1_sector); fat_sector_num++) {
+    sdcard_readsector(fat1_sector+fat_sector_num);
+    for(i=0;i<512;i+=4) {
+      if (*(unsigned long*)&sector_buffer[i])
         continue;
     }
-    if (i < 512) {
-      // Found one
-      r = fat_sector_num * 128 + (i >> 2);
-      *(unsigned long*)sector_buffer[i] = cluster;
-      sdcard_writesector(fat1_sector + fat_sector_num, 0);
-      sdcard_writesector(fat2_sector + fat_sector_num, 0);
-      return r;
+    if (i<512) {
+      // Found new free cluster, so place end-of-chain marker on it
+      new_cluster=fat_sector_num*128+(i>>2);
+      *(unsigned long *)&sector_buffer[i]=0x0fffffff;
+      sdcard_writesector(fat1_sector+fat_sector_num,0);
+      sdcard_writesector(fat2_sector+fat_sector_num,0);
+
+      // chain old cluster to new cluster
+      fat_sector_num=cluster/128;
+      sdcard_readsector(fat1_sector+fat_sector_num);
+      *(unsigned long *)&sector_buffer[(cluster&127)<<2] = new_cluster;
+      sdcard_writesector(fat1_sector+fat_sector_num,0);
+      sdcard_writesector(fat2_sector+fat_sector_num,0);
+      return new_cluster;
     }
   }
+
   return 0;
 }
 
@@ -370,7 +372,7 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
         serial_hex(dir_cluster);
         lfill((long)sector_buffer, 0, 512);
         for (sn = 0; sn < sectors_per_cluster; sn++) {
-          sdcard_readsector(root_dir_sector + ((dir_cluster - 2) * sectors_per_cluster) + sn);
+          sdcard_writesector(root_dir_sector + ((dir_cluster - 2) * sectors_per_cluster) + sn, 0);
         }
       }
     }
