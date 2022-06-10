@@ -108,8 +108,7 @@ loadfile_routine:
         sta $d640
         nop
         bcs load_succeeded
-        lda #10  ; set border to pink to indicate failure to load .M65 file
-        inc $d020
+
         rts
 
 load_succeeded:
