@@ -532,7 +532,7 @@ void format_disk_image(unsigned long file_sector, char* filename, unsigned char 
 {
   unsigned char i;
   unsigned short s;
-  unsigned char sect_count = 80 * 20;
+  unsigned short sect_count = 80 * 20;
   if (isD65)
     sect_count = 85 * 64;
 
