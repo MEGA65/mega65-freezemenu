@@ -245,11 +245,11 @@ unsigned long fat32_allocate_cluster(unsigned long cluster)
   unsigned short i;
 
   // Find free cluster
-  for(fat_sector_num=0;fat_sector_num <= (fat2_sector-fat1_sector); fat_sector_num++) {
+  for(fat_sector_num=0;fat_sector_num < (fat2_sector-fat1_sector); fat_sector_num++) {
     sdcard_readsector(fat1_sector+fat_sector_num);
     for(i=0;i<512;i+=4) {
-      if (*(unsigned long*)&sector_buffer[i])
-        continue;
+      if (*(unsigned long*)&sector_buffer[i] == 0)
+        break;
     }
     if (i<512) {
       // Found new free cluster, so place end-of-chain marker on it
@@ -355,14 +355,14 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
     // if required.
     last_dir_cluster = dir_cluster;
     dir_cluster = fat32_follow_cluster(dir_cluster);
-    if ((!dir_cluster) || (dir_cluster >= 0xf0000000)) {
+    if ((!dir_cluster) || (dir_cluster >= 0x0f000000)) {
       // End of directory --
       dir_cluster = fat32_allocate_cluster(last_dir_cluster);
 
       mega65_serial_monitor_write("Allocating new directory cluster");
       serial_hex(dir_cluster);
 
-      if ((!dir_cluster) || (dir_cluster >= 0xf0000000)) {
+      if ((!dir_cluster) || (dir_cluster >= 0x0f000000)) {
         // Disk full
         return 0;
       }
