@@ -468,19 +468,10 @@ char* freeze_select_disk_image(unsigned char drive_id)
       if (drive_id == 0) {
         // Clear flags for drive 0
         lpoke(0xffd368bL, lpeek(0xffd368bL) & 0xb8);
-
-        // there seem to be an issue reliably using lpoke/lpeek here
-        // so for now we repeat to ensure we have what we want
-        while (lpeek(0xffd36a1L) & 1) {
-          lpoke(0xffd36a1L, lpeek(0xffd36a1L) & 0xfe);
-        }
       }
       else if (drive_id == 1) {
         // Clear flags for drive 1
         lpoke(0xffd368bL, lpeek(0xffd368bL) & 0x47);
-        while (lpeek(0xffd36a1L) & 4) {
-          lpoke(0xffd36a1L, lpeek(0xffd36a1L) & 0xfb);
-        }
       }
 
       // Try to mount it, with border black while working
