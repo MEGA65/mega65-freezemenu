@@ -528,7 +528,7 @@ unsigned char to_hex(unsigned char i)
   return 0x41 + i - 10;
 }
 
-void format_disk_image(unsigned long file_sector, char* filename, unsigned char isD65)
+void format_disk_image(unsigned long file_sector, char* diskname, unsigned char isD65)
 {
   unsigned char i;
   unsigned short s;
@@ -546,10 +546,10 @@ void format_disk_image(unsigned long file_sector, char* filename, unsigned char 
   // Link to first directory sector
   sector_buffer[0] = 0x28;
   sector_buffer[1] = 0x03;
-  // Filename
-  lcopy(filename, &sector_buffer[4], 16);
-  if (strlen(filename) < 16) {
-    for (i = strlen(filename); i < 16; i++)
+  // Diskname
+  lcopy(diskname, &sector_buffer[4], 16);
+  if (strlen(diskname) < 16) {
+    for (i = strlen(diskname); i < 16; i++)
       sector_buffer[4 + i] = 0xa0;
   }
   // Random disk ID
@@ -592,8 +592,9 @@ void format_disk_image(unsigned long file_sector, char* filename, unsigned char 
 
 void do_make_disk_image(unsigned char isD65)
 {
+  char diskname[16 + 1];
   char filename[16 + 1];
-  unsigned char len;
+  unsigned char filename_len;
   unsigned short slot_number = 0;
   unsigned long file_sector;
 
@@ -614,24 +615,28 @@ void do_make_disk_image(unsigned char isD65)
   else
     write_text(11, 10, 14, "DD (D81) IMAGE:");
   input_text(11, 12, 8, 1, filename);
-  for (len = 0; filename[len]; len++) {
+  for (filename_len = 0; filename[filename_len]; filename_len++) {
     // Convert to upper case and work out length of string
-    if (filename[len] >= 0x61 && filename[len] <= 0x7a)
-      filename[len] -= 0x20;
+    if (filename[filename_len] >= 0x61 && filename[filename_len] <= 0x7a)
+      filename[filename_len] -= 0x20;
   }
-  if (!len)
+  if (!filename_len)
     return;
-  filename[len++] = '.';
-  filename[len++] = 0x44;
+
+  // Copy filename into diskname before it gets extended by the filename extension
+  strcpy(diskname, filename);
+  
+  filename[filename_len++] = '.';
+  filename[filename_len++] = 0x44;
   if (isD65) {
-    filename[len++] = 0x36;
-    filename[len++] = 0x35;
+    filename[filename_len++] = 0x36;
+    filename[filename_len++] = 0x35;
   }
   else {
-    filename[len++] = 0x38;
-    filename[len++] = 0x31;
+    filename[filename_len++] = 0x38;
+    filename[filename_len++] = 0x31;
   }
-  filename[len] = 0;
+  filename[filename_len] = 0;
   lcopy(filename, 0x0400, 16);
 
   draw_box(10, 8, 30, 14, 7, 1);
@@ -655,7 +660,7 @@ void do_make_disk_image(unsigned char isD65)
 
     // Write header, BAM and zero out directory track
     write_text(11, 10, 14, "FORMATTING IMAGE...");
-    format_disk_image(file_sector, filename, isD65);
+    format_disk_image(file_sector, diskname, isD65);
 
     draw_box(8, 8, 32, 14, 13, 1);
     write_text(9, 9, 13, "Created disk image");
