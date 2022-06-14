@@ -118,10 +118,50 @@ char draw_directory_entry(unsigned char screen_row)
   return invalid;
 }
 
+static unsigned char current_sector, dir_track, entries, cur_row;
+
+void draw_entries(void)
+{
+  unsigned char i;
+  for (i = 0; i < entries; i++) {
+    if (!draw_directory_entry(cur_row))
+      cur_row++;
+    if (cur_row >= 23)
+      break;
+  }
+}
+
+int read_sector_with_cancel(void)
+{
+  POKE(0xD084U, dir_track);
+  POKE(0xD085U, current_sector);
+  POKE(0xD086U, 0);
+  while (PEEK(0xD082U) & 0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) {
+      POKE(0xD080U, 0);
+      return 0;
+    }
+  }
+  POKE(0xD081U, 0x41); // Read sector
+  while (PEEK(0xD082U) & 0x80) {
+    // Exit if a key has been pressed
+    if (PEEK(0xD610U)) {
+      POKE(0xD080U, 0);
+      return 0;
+    }
+  }
+  if (PEEK(0xD082U) & 0x18)
+    return 0; // abort if the sector read failed
+
+  return 1;
+}
+
 void draw_directory_contents(void)
 {
-  unsigned char x, c, i, entries, current_sector;
-  unsigned char dir_track = 39;
+  unsigned char c, i, x;
+
+  dir_track = 39;
 
   lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 32);
 
@@ -165,26 +205,9 @@ void draw_directory_contents(void)
   POKE(0xD080U, 0x60); // motor and LED on
   POKE(0xD081U, 0x20); // Wait for motor spin up
   current_sector = 1;
-  POKE(0xD084U, dir_track);
-  POKE(0xD085U, current_sector);
-  POKE(0xD086U, 0);
-  while (PEEK(0xD082U) & 0x80) {
-    // Exit if a key has been pressed
-    if (PEEK(0xD610U)) {
-      POKE(0xD080U, 0);
-      return;
-    }
-  }
-  POKE(0xD081U, 0x41); // Read sector
-  while (PEEK(0xD082U) & 0x80) {
-    // Exit if a key has been pressed
-    if (PEEK(0xD610U)) {
-      POKE(0xD080U, 0);
-      return;
-    }
-  }
-  if (PEEK(0xD082U) & 0x18)
-    return; // abort if the sector read failed
+
+  if (!read_sector_with_cancel())
+    return;
 
   // Disk name is in bytes $04-$14, so skip first four bytes of sector buffer
   // (we have to assign the PEEK here, so it doesn't get optimised away)
@@ -214,26 +237,8 @@ void draw_directory_contents(void)
   if (dir_track != 17) // is not a d64? (i.e., d81 or d65?)
   {
     current_sector = 2;
-    POKE(0xD084U, dir_track);
-    POKE(0xD085U, current_sector);
-    POKE(0xD086U, 0);
-    while (PEEK(0xD082U) & 0x80) {
-      // Exit if a key has been pressed
-      if (PEEK(0xD610U)) {
-        POKE(0xD080U, 0);
-        return;
-      }
-    }
-    POKE(0xD081U, 0x41); // Read sector
-    while (PEEK(0xD082U) & 0x80) {
-      // Exit if a key has been pressed
-      if (PEEK(0xD610U)) {
-        POKE(0xD080U, 0);
-        return;
-      }
-    }
-    if (PEEK(0xD082U) & 0x18)
-      return; // abort if the sector read failed
+    if (!read_sector_with_cancel())
+      return;
     // Skip 1st half of sector
     x = 0;
     do
@@ -247,38 +252,15 @@ void draw_directory_contents(void)
       c = PEEK(0xD087U);
     entries = 16;
   }
-  x = 1; // begin drawing on row 1 of screen
-  for (i = 0; i < entries; i++)
-    if (!draw_directory_entry(x))
-      x++;
+  cur_row = 1; // begin drawing on row 1 of screen
+  draw_entries();
 
   current_sector++;
-  POKE(0xD084U, dir_track);
-  POKE(0xD085U, current_sector);
-  POKE(0xD086U, 0);
-  while (PEEK(0xD082U) & 0x80) {
-    // Exit if a key has been pressed
-    if (PEEK(0xD610U)) {
-      POKE(0xD080U, 0);
-      return;
-    }
-  }
-  POKE(0xD081U, 0x41); // Read sector
-  while (PEEK(0xD082U) & 0x80) {
-    // Exit if a key has been pressed
-    if (PEEK(0xD610U)) {
-      POKE(0xD080U, 0);
-      return;
-    }
-  }
-  if (PEEK(0xD082U) & 0x18)
-    return; // abort if the sector read failed
-  for (i = 0; i < 16; i++) {
-    if (!draw_directory_entry(x))
-      x++;
-    if (x >= 23)
-      break;
-  }
+  if (!read_sector_with_cancel())
+    return;
+
+  entries = 16;
+  draw_entries();
 
   // Turn floppy LED and motor back off
   POKE(0xD080U, 0);
@@ -350,6 +332,7 @@ void draw_disk_image_list(void)
 void scan_directory(unsigned char drive_id)
 {
   unsigned char x, dir;
+  char* ptr;
   struct m65_dirent* dirent;
 
   file_count = 0;
@@ -393,9 +376,10 @@ void scan_directory(unsigned char drive_id)
       }
     }
     else if (x > 4) {
-      if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d81", 4))
-          || (!strncmp(&dirent->d_name[x - 4], ".D64", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d64", 4))
-          || (!strncmp(&dirent->d_name[x - 4], ".D65", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d65", 4))) {
+      ptr = &dirent->d_name[x-4];
+      if ((!strcmp(ptr, ".D81")) || (!strcmp(ptr, ".d81"))
+          || (!strcmp(ptr, ".D64")) || (!strcmp(ptr, ".d64"))
+          || (!strcmp(ptr, ".D65")) || (!strcmp(ptr, ".d65"))) {
         // File is a disk image
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);

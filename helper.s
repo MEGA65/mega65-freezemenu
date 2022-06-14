@@ -9,6 +9,7 @@
 	.export _read_file_from_sdcard
 	.export _get_freeze_slot_count
 	.export _opendir, _readdir, _closedir, _closeall
+	.autoimport	on  ;; needed this for jsr incsp2
 	
 	.include "zeropage.inc"
 	
@@ -154,13 +155,15 @@ _mega65_dos_attachd81:
 	STA $D640
 	NOP
 
+  jsr incsp2  ; remove the char* arg from the stack
+	
 	;; return inverted carry flag, so result of 0 = success
 	PHP
 	PLA
 	AND #$01
 	EOR #$01
 	LDX #$00
-	
+
 	RTS
 
 _mega65_dos_chdir:
@@ -209,6 +212,8 @@ _mega65_dos_chdir:
 
 @direntNotFound:
 	
+  jsr incsp2  ; remove the char* arg from the stack
+
 	;; return inverted carry flag, so result of 0 = success
 	PHP
 
