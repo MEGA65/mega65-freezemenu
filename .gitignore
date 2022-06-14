@@ -18,5 +18,6 @@ monitor.s
 pngprepare
 romload.s
 sprited.s
+version.s
 tools/pngprepare
 tools/thumbnail-surround-formatter

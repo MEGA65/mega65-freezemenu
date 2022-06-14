@@ -105,7 +105,7 @@ HEADERS=	Makefile \
 DATAFILES=	ascii8x8.bin
 
 %.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	$(CC65) $(COPTS) --add-source -o $@ $<
 
 all:	$(FILES)
@@ -113,8 +113,17 @@ all:	$(FILES)
 install:	all
 	m65ftp < install.mftp
 
+MAKE_VERSION= \
+	@if [ -z "$(DO_MKVER)" ] || [ "$(DO_MKVER)" -eq "1" ] ; then \
+	echo "Retrieving Git version string... (set env-var DO_MKVER=0 to turn this behaviour off)" ; \
+	echo '.segment "CODE"' > version.s ; \
+	echo '_version:' >> version.s ; \
+	echo "  .asciiz \"v:`./gitversion.sh`\"" >> version.s ; \
+	fi
+
+
 $(CC65):
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 ifdef USE_LOCAL_CC65
 	@echo "Using local installed CC65."
 else
@@ -124,65 +133,71 @@ else
 endif
 
 ascii8x8.bin: ascii00-7f.png tools/pngprepare
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	./tools/pngprepare charrom ascii00-7f.png ascii8x8.bin
 
 tools/asciih:	tools/asciih.c
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	$(CC) -o tools/asciih tools/asciih.c
 
 ascii.h:	tools/asciih
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	./tools/asciih
 
 tools/pngprepare:	tools/pngprepare.c
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	$(CC) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare tools/pngprepare.c -lpng
 
 tools/thumbnail-surround-formatter:
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65)
-	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 $(ASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 version.s $(ASSFILES)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65)
-	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 version.s $(AMASSFILES)
 
 MONITOR.M65:	$(MONASSFILES) $(DATAFILES) $(CC65)
-	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l monitor.list -m monitor.map -o MONITOR.M65 $(MONASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l monitor.list -m monitor.map -o MONITOR.M65 version.s $(MONASSFILES)
 
 MAKEDISK.M65:	$(MDASSFILES) $(DATAFILES) $(CC65)
-	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 $(MDASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 version.s $(MDASSFILES)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
-	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(LIBCASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 version.s $(SEASSFILES) $(LIBCASSFILES)
 
 ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
-	$(warning ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 $(RLASSFILES) $(LIBCASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES) $(LIBCASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 2>/dev/null
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 2>/dev/null
 
 GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatter
-	$(warning ======== Making: $@)
+	$(info ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 2>/dev/null
 
 format:
 	find . -type d \( -path ./cc65 -o -path ./cbmconvert \) -prune -false -o -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' | xargs clang-format --style=file -i
 
-.PHONY: clean cleangen
+.PHONY: clean cleangen version.s
 
 clean: cleangen
 	rm -f $(FILES) \

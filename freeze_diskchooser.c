@@ -120,7 +120,8 @@ char draw_directory_entry(unsigned char screen_row)
 
 void draw_directory_contents(void)
 {
-  unsigned char x, c, i;
+  unsigned char x, c, i, entries, current_sector;
+  unsigned char dir_track = 39;
 
   lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 32);
 
@@ -136,6 +137,11 @@ void draw_directory_contents(void)
     else {
       break;
     }
+
+  // For D64 files, directory sector is at T18/S0
+  i = strlen(disk_name_return);
+  if (disk_name_return[i-2] == '6' && disk_name_return[i-1] == '4')
+    dir_track = 17;
 
   // Try to mount it, with border black while working
   POKE(0xD020U, 0);
@@ -158,8 +164,9 @@ void draw_directory_contents(void)
   // Read T40 S1 (sectors begin at 1, not 0)
   POKE(0xD080U, 0x60); // motor and LED on
   POKE(0xD081U, 0x20); // Wait for motor spin up
-  POKE(0xD084U, 39);
-  POKE(0xD085U, 1);
+  current_sector = 1;
+  POKE(0xD084U, dir_track);
+  POKE(0xD085U, current_sector);
   POKE(0xD086U, 0);
   while (PEEK(0xD082U) & 0x80) {
     // Exit if a key has been pressed
@@ -181,7 +188,10 @@ void draw_directory_contents(void)
 
   // Disk name is in bytes $04-$14, so skip first four bytes of sector buffer
   // (we have to assign the PEEK here, so it doesn't get optimised away)
-  for (x = 0; x < 4; x++)
+  i = 4;
+  if (dir_track == 17) // d64 image? Then find disk name at 0x90
+    i = 0x90;
+  for (x = 0; x < i; x++)
     c = PEEK(0xD087U);
   // Then draw title at the top of the screen
   for (x = 0; x < 16; x++) {
@@ -201,37 +211,50 @@ void draw_directory_contents(void)
     return;
   }
 
-  POKE(0xD084U, 39);
-  POKE(0xD085U, 2);
-  POKE(0xD086U, 0);
-  while (PEEK(0xD082U) & 0x80) {
-    // Exit if a key has been pressed
-    if (PEEK(0xD610U)) {
-      POKE(0xD080U, 0);
-      return;
+  if (dir_track != 17) // is not a d64? (i.e., d81 or d65?)
+  {
+    current_sector = 2;
+    POKE(0xD084U, dir_track);
+    POKE(0xD085U, current_sector);
+    POKE(0xD086U, 0);
+    while (PEEK(0xD082U) & 0x80) {
+      // Exit if a key has been pressed
+      if (PEEK(0xD610U)) {
+        POKE(0xD080U, 0);
+        return;
+      }
     }
-  }
-  POKE(0xD081U, 0x41); // Read sector
-  while (PEEK(0xD082U) & 0x80) {
-    // Exit if a key has been pressed
-    if (PEEK(0xD610U)) {
-      POKE(0xD080U, 0);
-      return;
+    POKE(0xD081U, 0x41); // Read sector
+    while (PEEK(0xD082U) & 0x80) {
+      // Exit if a key has been pressed
+      if (PEEK(0xD610U)) {
+        POKE(0xD080U, 0);
+        return;
+      }
     }
+    if (PEEK(0xD082U) & 0x18)
+      return; // abort if the sector read failed
+    // Skip 1st half of sector
+    x = 0;
+    do
+      c = PEEK(0xD087U);
+    while (++x);
+    entries = 8;
   }
-  if (PEEK(0xD082U) & 0x18)
-    return; // abort if the sector read failed
-  // Skip 1st half of sector
-  x = 0;
-  do
-    c = PEEK(0xD087U);
-  while (++x);
+  else // for d64 files, skip 0x60 bytes more
+  {
+    for (x = 0; x < 0x60; x++)
+      c = PEEK(0xD087U);
+    entries = 16;
+  }
   x = 1; // begin drawing on row 1 of screen
-  for (i = 0; i < 8; i++)
+  for (i = 0; i < entries; i++)
     if (!draw_directory_entry(x))
       x++;
-  POKE(0xD084U, 39);
-  POKE(0xD085U, 3);
+
+  current_sector++;
+  POKE(0xD084U, dir_track);
+  POKE(0xD085U, current_sector);
   POKE(0xD086U, 0);
   while (PEEK(0xD082U) & 0x80) {
     // Exit if a key has been pressed
@@ -371,6 +394,7 @@ void scan_directory(unsigned char drive_id)
     }
     else if (x > 4) {
       if ((!strncmp(&dirent->d_name[x - 4], ".D81", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d81", 4))
+          || (!strncmp(&dirent->d_name[x - 4], ".D64", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d64", 4))
           || (!strncmp(&dirent->d_name[x - 4], ".D65", 4)) || (!strncmp(&dirent->d_name[x - 4], ".d65", 4))) {
         // File is a disk image
         lfill(0x40000L + (file_count * 64), ' ', 64);
