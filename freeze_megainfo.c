@@ -269,26 +269,16 @@ char *get_rom_version(void) {
   return buffer;
 }
 
-static unsigned char hyppo_ver[32] = {
-  0x78, 0xa9, 0x00,
-  0x8d, 0x40, 0xd6,
-  0xea,
-  0x8d, 0x80, 0x03,
-  0x8e, 0x81, 0x03,
-  0x8c, 0x82, 0x03,
-  0x9c, 0x83, 0x03,
-  0x60
-};
-void get_hyppo_version(void) {
-  lcopy((long)hyppo_ver, (long)0x0340, 32);
-  
-  __asm__("jsr $0340");
+char cdecl hyppo_getversion(unsigned char *buffer);
+static unsigned char hyppo_version[4] = { 0xff, 0xff, 0xff, 0xff };
 
-  buffer[0] = 0;
-  itoa(lpeek(0x0380L), numval, 10); strcat(buffer, numval); strcat(buffer, ".");
-  itoa(lpeek(0x0381L), numval, 10); strcat(buffer, numval); strcat(buffer, " / ");
-  itoa(lpeek(0x0382L), numval, 10); strcat(buffer, numval); strcat(buffer, ".");
-  itoa(lpeek(0x0383L), numval, 10); strcat(buffer, numval);
+void get_hyppo_version(void) {
+  
+  POKE(0xD020, PEEK(0xD020) + 1);
+  hyppo_getversion(hyppo_version);
+  POKE(0xD020, PEEK(0xD020) + 1);
+
+  snprintf(buffer, 40, "%02X.%02X / %02X.%02X", hyppo_version[0], hyppo_version[1], hyppo_version[2], hyppo_version[3]);
 }
 
 void output_util_version(unsigned char y, unsigned char col, long addr) {
@@ -344,8 +334,9 @@ void draw_screen(void)
 
   // hyppo/hdos
   write_text(0, 9, 1, "HYPPO/HDOS:");
-  //get_hyppo_version(); -- does not work...
-  strcpy(buffer, "?.? / ?.?");
+  // flip commenting on the next two lines to enable get_hyppo_version
+  //get_hyppo_version();       // does not work...
+  strcpy(buffer, "?.? / ?.?"); // workaround
   write_text(16, 9, 7, buffer);
 
   // ROM version

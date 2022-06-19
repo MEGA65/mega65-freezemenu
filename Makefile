@@ -99,7 +99,8 @@ MIASSFILES=	megainfo.s \
 		fdisk_screen.s \
 		fdisk_hal_mega65.s \
 		charset.s \
-		helper.s
+		helper.s \
+		hyppocalls.s
 
 LIBCASSFILES=	../mega65-libc/cc65/src/conio.s \
 		../mega65-libc/cc65/src/mouse.s
