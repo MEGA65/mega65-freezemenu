@@ -20,5 +20,6 @@ pngprepare
 romload.s
 sprited.s
 version.s
+megainfo.s
 tools/pngprepare
 tools/thumbnail-surround-formatter

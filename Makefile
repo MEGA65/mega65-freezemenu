@@ -21,6 +21,7 @@ FILES=		FREEZER.M65 \
 		MAKEDISK.M65 \
 		SPRITED.M65 \
 		ROMLOAD.M65 \
+		MEGAINFO.M65 \
 		C65THUMB.M65 \
 		C64THUMB.M65 \
 		GUSTHUMB.M65
@@ -84,6 +85,15 @@ SEASSFILES=	sprited.s \
 
 RLASSFILES=	romload.s \
 		freeze_romload.s \
+		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s
+
+MIASSFILES=	megainfo.s \
+		freeze_megainfo.s \
 		frozen_memory.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
@@ -181,6 +191,11 @@ ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES) $(LIBCASSFILES)
+
+MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES) $(LIBCASSFILES)
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(info ======== Making: $@)

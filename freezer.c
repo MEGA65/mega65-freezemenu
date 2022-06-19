@@ -307,17 +307,28 @@ void next_cpu_speed(void)
 }
 
 char c65_rom_name[12];
-char* detect_rom(void)
-{
+char *detect_rom(void) {
   // Check for C65 ROM via version string
-  if ((freeze_peek(0x20016L) == 'V') && (freeze_peek(0x20017L) == '9')) {
+  lcopy(0x20016L, (long)c65_rom_name+4, 7);
+  if ((c65_rom_name[4] == 'V') && (c65_rom_name[5] == '9')) {
     c65_rom_name[0] = ' ';
     c65_rom_name[1] = 'C';
     c65_rom_name[2] = '6';
     c65_rom_name[3] = '5';
     c65_rom_name[4] = ' ';
-    for (i = 0; i < 6; i++)
-      c65_rom_name[5 + i] = freeze_peek(0x20017L + i);
+    c65_rom_name[11] = 0;
+    if (c65_rom_name[6] >= '2') c65_rom_name[1] = 'M';
+    return c65_rom_name;
+  }
+
+  // OpenROM - 16 characters "OYYMMDDCC       "
+  lcopy(0x20010L, (long)c65_rom_name+4, 16);
+  if ((c65_rom_name[4] == 'O') && (c65_rom_name[11] == '2') && (c65_rom_name[12] == '0') && (c65_rom_name[13] == ' ')) {
+    c65_rom_name[0] = 'O';
+    c65_rom_name[1] = 'P';
+    c65_rom_name[2] = 'E';
+    c65_rom_name[3] = 'N';
+    c65_rom_name[4] = ' ';
     c65_rom_name[11] = 0;
     return c65_rom_name;
   }
@@ -1205,6 +1216,10 @@ int main(int argc, char** argv)
 
           draw_freeze_menu();
         } break;
+
+        case 0x1f: // HELP MEGAINFO
+          mega65_dos_exechelper("MEGAINFO.M65");
+          break;
 
         case 'R':
         case 'r': // Switch ROMs

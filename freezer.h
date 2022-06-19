@@ -34,6 +34,7 @@ unsigned short get_freeze_slot_count(void);
 void do_audio_mixer(void);
 void do_sprite_editor(void);
 void do_rom_loader(void);
+void do_megainfo(void);
 
 struct m65_dirent {
   uint32_t d_ino;
