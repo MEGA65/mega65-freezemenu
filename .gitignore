@@ -4,6 +4,7 @@
 *.o
 *.map
 *.list
+*.lbl
 *.M65
 ascii.h
 ascii8x8.bin
