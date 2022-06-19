@@ -107,17 +107,20 @@ char *format_date(unsigned short ts) {
   return buffer;
 }
 
-void output_fpga_version(unsigned char y, unsigned char off, char *prefix) {
+void output_fpga_version(unsigned char y, unsigned char off, unsigned char msbmask, unsigned char reverse, char *prefix) {
   unsigned char plen = strlen(prefix) + 1;
 
   write_text(0, y, 1, prefix);
   write_text(plen, y, 1, "VERSION:");
 
-  snprintf(buffer, 79, "%02X%02X%02X%02X", version_buffer[off+5], version_buffer[off+4], version_buffer[off+3], version_buffer[off+2]);
+  if (reverse)
+    snprintf(buffer, 79, "%02X%02X%02X%02X", version_buffer[off+2], version_buffer[off+3], version_buffer[off+4], version_buffer[off+5]);
+  else
+    snprintf(buffer, 79, "%02X%02X%02X%02X", version_buffer[off+5], version_buffer[off+4], version_buffer[off+3], version_buffer[off+2]);
   write_text(16, y, 7, buffer);
 
-  wval = (((unsigned short)version_buffer[off+1]) << 8) + (unsigned short)version_buffer[off+0];
-  snprintf(buffer, 79, "%04X", wval);
+  wval = (((unsigned short)(version_buffer[off+1]&msbmask)) << 8) + (unsigned short)version_buffer[off];
+  //snprintf(buffer, 79, "%04X", wval);
   write_text(26, y, 7, format_date(wval));
 }
 
@@ -335,9 +338,9 @@ void draw_screen(void)
   output_mega_model(16, 3, 7, version_buffer[0]);
 
   // output fpga versions
-  output_fpga_version(5, 7, "XILINX"); // uses version buffer
-  output_fpga_version(6, 13, "MAX10"); // uses version buffer
-  output_fpga_version(7, 1, "KEYBD");  // uses version buffer
+  output_fpga_version(5, 7,  0xff, 0, "XILINX"); // uses version buffer
+  output_fpga_version(6, 13, 0x3f, 1, "MAX10");  // uses version buffer
+  output_fpga_version(7, 1,  0xff, 0, "KEYBD");  // uses version buffer
 
   // hyppo/hdos
   write_text(0, 9, 1, "HYPPO/HDOS:");
