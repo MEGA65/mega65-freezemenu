@@ -10,6 +10,19 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+// these are the SD Card Essentials we expect
+static char SDessentials[][13] = {
+  "FREEZER.M65",
+  "MEGAINFO.M65",
+  "ONBOARD.M65",
+  "MONITOR.M65",
+  "MAKEDISK.M65",
+  "ROMLOAD.M65",
+  "AUDIOMIX.M65",
+  "SPRITED.M65",
+  ""
+};
+
 void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char *t)
 {
   unsigned char ofs = 0, x, c;
@@ -24,7 +37,7 @@ void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char *
   }
 }
 
-static char buffer[256], numval[32];
+static char buffer[256], numval[32], isNTSC = 0;
 static unsigned short wval, wval2;
 static unsigned char version_buffer[256];
 static unsigned char code_buf[512];
@@ -106,7 +119,7 @@ char *format_date(unsigned short ts) {
   return buffer;
 }
 
-void output_fpga_version(unsigned char y, unsigned char off, unsigned char msbmask, unsigned char reverse, char *prefix) {
+void output_fpga_version(unsigned char x, unsigned char y, unsigned char off, unsigned char msbmask, unsigned char reverse, char *prefix) {
   unsigned char plen = strlen(prefix) + 1;
 
   write_text(0, y, 1, prefix);
@@ -116,11 +129,11 @@ void output_fpga_version(unsigned char y, unsigned char off, unsigned char msbma
     snprintf(buffer, 79, "%02X%02X%02X%02X", version_buffer[off+2], version_buffer[off+3], version_buffer[off+4], version_buffer[off+5]);
   else
     snprintf(buffer, 79, "%02X%02X%02X%02X", version_buffer[off+5], version_buffer[off+4], version_buffer[off+3], version_buffer[off+2]);
-  write_text(16, y, 7, buffer);
+  write_text(x, y, 7, buffer);
 
   wval = (((unsigned short)(version_buffer[off+1]&msbmask)) << 8) + (unsigned short)version_buffer[off];
   //snprintf(buffer, 79, "%04X", wval);
-  write_text(26, y, 7, format_date(wval));
+  write_text(x + 10, y, 7, format_date(wval));
 }
 
 char *get_rom_version(void) {
@@ -286,12 +299,17 @@ char *get_hyppo_version(void) {
   return buffer;
 }
 
-void output_util_version(unsigned char y, unsigned char colour, long addr) {
+void output_util_version(unsigned char x, unsigned char y, unsigned char colour, long addr) {
   unsigned short i, j=0;
+
+  if (addr == 0) {
+    write_text(x, y, 10, "NOT FOUND");
+    return;
+  }
 
   lcopy(addr, (long)code_buf, 512);
 
-  strncpy(buffer, "UNKNOWN VERSION", 64);
+  strncpy(buffer, "  UNKNOWN VERSION", 64);
   for (i=0; i<512; i++) {
     if (code_buf[i]==0x56 && code_buf[i+1]==0x3a) {
       i += 2;
@@ -302,20 +320,63 @@ void output_util_version(unsigned char y, unsigned char colour, long addr) {
     }
   }
 
-  wval = strlen(buffer);
-  wval2 = 0;
-  if (wval > 48) {
-    wval2 = wval-48;
-    wval = 48;
+  // strips the 20 from the start of the string, and cuts on the left side
+  wval = strlen(buffer)-2;
+  wval2 = 2;
+  if (wval > 42) {
+    wval2 = wval-40; // add the two
+    wval = 42;
   }
-  write_text(49-wval, y, colour, buffer+wval2);
+  write_text(x, y, colour, buffer+wval2);
+}
+
+static unsigned char tod_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 }, rtc_buf[8] = { 0,0,0,0,0,0,0,0 };
+unsigned short get_rtcstats() {
+  short offset, pa, pb;
+
+  if (tod_init == 1) {
+    lcopy(0xffd7110, (long)rtc_buf, 4);
+    lcopy(0xffd3c08, (long)tod_buf, 4);
+    tod_init = 0;
+  }
+  lcopy(0xffd7110, (long)rtc_buf+4, 4);
+  lcopy(0xffd3c08, (long)tod_buf+4, 4);
+
+  // only looking at seconds here
+  pa = ((tod_buf[1]>>4)&0x7)*10 + (tod_buf[1]&0xf) + (((tod_buf[2]>>4)&0x7)*10 + (tod_buf[2]&0xf))*60;
+  pb = ((tod_buf[5]>>4)&0x7)*10 + (tod_buf[5]&0xf) + (((tod_buf[6]>>4)&0x7)*10 + (tod_buf[6]&0xf))*60;
+  offset = pb-pa;
+  if (offset<0) {
+    tod_init = 1;
+    offset = 0;
+  }
+
+  return offset;
+}
+
+void update_rtc(unsigned short ticks) {
+  short offset, pa, pb, diff;
+
+  pa = ((rtc_buf[0]>>4)&0x7)*10 + (rtc_buf[0]&0xf) + (((rtc_buf[1]>>4)&0x7)*10 + (rtc_buf[1]&0xf))*60;
+  pb = ((rtc_buf[4]>>4)&0x7)*10 + (rtc_buf[4]&0xf) + (((rtc_buf[5]>>4)&0x7)*10 + (rtc_buf[5]&0xf))*60;
+  offset = pb-pa;
+  if (offset<0) {
+    tod_init = 1;
+    return;
+  }
+  if (offset>ticks)
+    diff = offset-ticks;
+  else
+    diff = ticks-offset;
+
+  POKE(0xD020U, PEEK(0xd020u)+1);
+  snprintf(buffer, 44, "RTC %02X:%02X TOD %02X:%02X ELAPSED %04X DIFF %04X", rtc_buf[5], rtc_buf[4], tod_buf[6], tod_buf[5], ticks, diff);
+  write_text(0, 24, 12, buffer);
 }
 
 void draw_screen(void)
 {
-  unsigned char dir;
-  struct m65_dirent *dirent;
-  unsigned char len, row;
+  unsigned char row, col, i;
 
   // clear screen
   lfill(SCREEN_ADDRESS, 0x20,2000);
@@ -323,59 +384,71 @@ void draw_screen(void)
   // write header
   write_text(0, 0, 1, "MEGA65 INFORMATION");
   write_text(0, 1, 1, "cccccccccccccccccc");
-  write_text(17, 24, 1, "F3/ESC/RUNSTOP TO EXIT");
+  write_text(57, 24, 1, "F3/ESC/RUNSTOP TO EXIT");
 
   // get FPGA information
   lcopy(0xFFD3629L, (long)version_buffer, 32);
 
   // write model
   write_text(0, 3, 1, "MEGA65 MODEL:");
-  output_mega_model(16, 3, 7, version_buffer[0]);
+  output_mega_model(15, 3, 7, version_buffer[0]);
 
   // output fpga versions
-  output_fpga_version(5, 7,  0xff, 0, "XILINX"); // uses version buffer
-  output_fpga_version(6, 13, 0x3f, 1, "MAX10");  // uses version buffer
-  output_fpga_version(7, 1,  0xff, 0, "KEYBD");  // uses version buffer
+  output_fpga_version(15, 5, 7,  0xff, 0, "XILINX"); // uses version buffer
+  output_fpga_version(15, 6, 13, 0x3f, 1, "MAX10");  // uses version buffer
+  output_fpga_version(15, 7, 1,  0xff, 0, "KEYBD");  // uses version buffer
 
   // hyppo/hdos
   write_text(0, 9, 1, "HYPPO/HDOS:");
-  write_text(16, 9, 7, get_hyppo_version());
+  write_text(15, 9, 7, get_hyppo_version());
 
   // ROM version
   write_text(0, 10, 1, "ROM VERSION:");
-  write_text(16, 10, 7, get_rom_version());
+  write_text(15, 10, 7, get_rom_version());
 
   // Utility versions (need to load file to parse...)
-  dir = opendir();
-  dirent = readdir(dir);
-  row = 12;
-  while ((dirent = readdir(dir)) != NULL) {
-    if ((unsigned short)dirent == 0xffffU) break;
-    len = strlen(dirent->d_name);
-    if (dirent->d_name[len-4] == '.' && dirent->d_name[len-3] == 'M' && dirent->d_name[len-2] == '6' && dirent->d_name[len-1] == '5') {
-      if (!strcmp(dirent->d_name,"BANNER.M65") || !strcmp(dirent->d_name, "C64THUMB.M65") || !strcmp(dirent->d_name, "C65THUMB.M65"))
-        continue;
-      read_file_from_sdcard(dirent->d_name, 0x40000L);
-      dirent->d_name[len]=':';
-      dirent->d_name[len+1]='\0';
-      write_text(0,row,1, dirent->d_name);
-      output_util_version(row, 7, 0x40000L);
-      row++;
+  row = 12; col = 0;
+  for (i=0; SDessentials[i][0] != 0; i++) {
+    read_file_from_sdcard(SDessentials[i], 0x40000L);
+    strcpy(buffer, SDessentials[i]);
+    strcat(buffer, ":");
+    write_text(col, row, 1, buffer);
+    if (PEEK(0xd021U)>6) {
+      POKE(0xd021U, 6);
+      output_util_version(col + 14, row, 7, 0L);
+    } else {
+      output_util_version(col + 14, row, 7, 0x40000L);
     }
+    if (!col) col=40;
+    else { col=0; row++;}
   }
-  closedir(dir);
 
 }
 
 void do_megainfo(void)
 {
   unsigned char x;
+  unsigned short s1=0, s2=-1;
 
+  isNTSC = freeze_peek(0xFFD306fL) & 0x80;
+  get_rtcstats();
   draw_screen();
+
+  // clear keybuffer
+  while ((x=PEEK(0xD610U))) POKE(0xD610U, x);
 
   while (1) {
     x = PEEK(0xD610U);
-    POKE(0xD610U,x);
+
+    // get clock stats
+    s1 = get_rtcstats();
+    if (s1!=s2) { // only update if changed
+      update_rtc(s1);
+      s2=s1;
+    }
+
+    if (x==0) continue;
+    POKE(0xD610U, x);
 
     switch (x) {
       case 0xF3: // F3
