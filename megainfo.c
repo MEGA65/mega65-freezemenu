@@ -144,8 +144,6 @@ unsigned char ascii_to_screencode(char c)
   return c;
 }
 
-static unsigned short i;
-
 unsigned char detect_cpu_speed(void)
 {
   if (freeze_peek(0xffd367dL) & 0x10)

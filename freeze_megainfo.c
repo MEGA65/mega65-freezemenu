@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "freezer.h"
+#include "infohelper.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
@@ -267,20 +268,22 @@ char *get_rom_version(void) {
   return buffer;
 }
 
-char cdecl hyppo_getversion(unsigned char *buffer);
-char cdecl hyppo_opendir(void);
-char cdecl hyppo_readdir(void);
-char cdecl hyppo_closedir(void);
-
 static unsigned char hyppo_version[4] = { 0xff, 0xff, 0xff, 0xff };
 
-void get_hyppo_version(void) {
+char *get_hyppo_version(void) {
   
-  POKE(0xD020, PEEK(0xD020) + 1);
   hyppo_getversion(hyppo_version);
-  POKE(0xD020, PEEK(0xD020) + 1);
 
-  snprintf(buffer, 40, "%02X.%02X / %02X.%02X", hyppo_version[0], hyppo_version[1], hyppo_version[2], hyppo_version[3]);
+  if (buffer[0] == buffer[1] && buffer[1] == buffer[2] && buffer[2] == buffer[3] && buffer[0] == 0xff)
+    strcpy(buffer, "?.? / ?.?");
+  else {
+    itoa(hyppo_version[0], numval, 10); strcpy(buffer, numval); strcat(buffer, ".");
+    itoa(hyppo_version[1], numval, 10); strcat(buffer, numval); strcat(buffer, " / ");
+    itoa(hyppo_version[2], numval, 10); strcat(buffer, numval); strcat(buffer, ".");
+    itoa(hyppo_version[3], numval, 10); strcat(buffer, numval);
+  }
+
+  return buffer;
 }
 
 void output_util_version(unsigned char y, unsigned char colour, long addr) {
@@ -310,8 +313,9 @@ void output_util_version(unsigned char y, unsigned char colour, long addr) {
 
 void draw_screen(void)
 {
-  char *fname = (unsigned char*)0x0400;
-  unsigned char len, row=11;
+  unsigned char dir;
+  struct m65_dirent *dirent;
+  unsigned char len, row;
 
   // clear screen
   lfill(SCREEN_ADDRESS, 0x20,2000);
@@ -345,23 +349,24 @@ void draw_screen(void)
   write_text(16, 10, 7, get_rom_version());
 
   // Utility versions (need to load file to parse...)
-  if (hyppo_opendir())
-    return;
-
-  while (!hyppo_readdir()) {
-    len = strlen(fname);
-    if (fname[len-4] == '.' && fname[len-3] == 'M' && fname[len-2] == '6' && fname[len-1] == '5') {
-      if (!strcmp(fname,"BANNER.M65") || !strcmp(fname, "C64THUMB.M65") || !strcmp(fname, "C65THUMB.M65"))
+  dir = opendir();
+  dirent = readdir(dir);
+  row = 12;
+  while ((dirent = readdir(dir)) != NULL) {
+    if ((unsigned short)dirent == 0xffffU) break;
+    len = strlen(dirent->d_name);
+    if (dirent->d_name[len-4] == '.' && dirent->d_name[len-3] == 'M' && dirent->d_name[len-2] == '6' && dirent->d_name[len-1] == '5') {
+      if (!strcmp(dirent->d_name,"BANNER.M65") || !strcmp(dirent->d_name, "C64THUMB.M65") || !strcmp(dirent->d_name, "C65THUMB.M65"))
         continue;
-      read_file_from_sdcard(fname, 0x40000L);
-      fname[len]=':';
-      fname[len+1]='\0';
-      write_text(0,row,1, fname);
+      read_file_from_sdcard(dirent->d_name, 0x40000L);
+      dirent->d_name[len]=':';
+      dirent->d_name[len+1]='\0';
+      write_text(0,row,1, dirent->d_name);
       output_util_version(row, 7, 0x40000L);
       row++;
     }
   }
-  hyppo_closedir();
+  closedir(dir);
 
 }
 
