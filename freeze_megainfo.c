@@ -37,7 +37,8 @@ void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char *
   }
 }
 
-static char buffer[256], numval[32], isNTSC = 0;
+static char rtcDEBUG = 1;
+static char buffer[256], numval[32], isNTSC = 0, hasRTC = 0;
 static unsigned short wval, wval2;
 static unsigned char version_buffer[256];
 static unsigned char code_buf[512];
@@ -49,9 +50,11 @@ void output_mega_model(unsigned char x, unsigned char y, unsigned char colour, u
       break;
     case 2:
       strncpy(buffer, "MEGA65 R2", 80);
+      hasRTC = 1;
       break;
     case 3:
       strncpy(buffer, "MEGA65 R3", 80);
+      hasRTC = 1;
       break;
     case 33:
       strncpy(buffer, "MEGAPHONE R1 PROTOTYPE", 80);
@@ -363,6 +366,11 @@ void update_rtc(unsigned char x, unsigned char y, unsigned short ticks) {
   short rtc_ticks, pa, pb, diff;
   unsigned char colour;
 
+  if (!hasRTC) {
+    write_text(x, y, 12, "NOT INSTALLED");
+    return;
+  }
+
   pa = ((rtc_buf[0]>>4)&0x7)*10 + (rtc_buf[0]&0xf) + (((rtc_buf[1]>>4)&0x7)*10 + (rtc_buf[1]&0xf))*60;
   pb = ((rtc_buf[4]>>4)&0x7)*10 + (rtc_buf[4]&0xf) + (((rtc_buf[5]>>4)&0x7)*10 + (rtc_buf[5]&0xf))*60;
   rtc_ticks = pb-pa;
@@ -382,26 +390,33 @@ void update_rtc(unsigned char x, unsigned char y, unsigned short ticks) {
       rtcTicking = 1;
       strcpy(buffer, "TICKING    ");
       colour = 7;
+      // NTSC is allowed more drift, as the TOD runs to fast!
+      if ((isNTSC && diff > 4) || (!isNTSC && diff > 1)) {
+        rtcDiff = diff;
+        strcpy(buffer, "SLOW TICK  ");
+        colour = 8;
+      }
     } else {
       strcpy(buffer, "NOT TICKING");
       colour = 10;
-    }
-    // NTSC is allowed more drift, as the TOD runs to fast!
-    if ((isNTSC && diff > 4) || (!isNTSC && diff > 1)) {
-      rtcDiff = diff;
-      strcpy(buffer, "SLOW TICK  ");
-      colour = 8;
     }
     write_text(x, y, colour, buffer);
   }
 
   if (!rtcCheck) {
     snprintf(buffer, 10, "%02X:%02X:%02X", rtc_buf[6]&0x3f, rtc_buf[5]&0x7f, rtc_buf[4]);
-    write_text(x+13, y, 12, buffer);
+    write_text(x+14, y, 12, buffer);
   }
 
-  snprintf(buffer, 47, "RTC %02X:%02X TOD %02X:%02X ELAPSED %04X DIFF %04X %02X", rtc_buf[5]&0x7f, rtc_buf[4], tod_buf[6]&0x7f, tod_buf[5], ticks, diff, isNTSC);
-  write_text(0, 24, 12, buffer);
+  // DEBUG output in the bottom line
+  if (rtcDEBUG) {
+    snprintf(buffer, 50, "RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X", rtc_buf[5]&0x7f, rtc_buf[4], rtc_ticks, tod_buf[6]&0x7f, tod_buf[5], ticks, diff);
+    write_text(0, 24, 12, buffer);
+    if (isNTSC)
+      write_text(40, 24, 12, "NTSC");
+    else
+      write_text(strlen(buffer)+1, 24, 12, "PAL");
+  }
 }
 
 unsigned char get_ext_rtc_status() {
@@ -514,6 +529,11 @@ void do_megainfo(void)
     POKE(0xD610U, x);
 
     switch (x) {
+      case 0xF1: // F1
+        rtcDEBUG = 1 - rtcDEBUG;
+        if (!rtcDEBUG)
+          write_text(0, 24, 1, "                                               ");
+        break;
       case 0xF3: // F3
       case 0x1b: // ESC
       case 0x03: // RUN-STOP
