@@ -339,6 +339,7 @@ void output_util_version(unsigned char x, unsigned char y, unsigned char colour,
 
 static unsigned char tod_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 }, rtc_buf[8] = { 0,0,0,0,0,0,0,0 };
 static unsigned char rtcCheck = 1, rtcTicking = 0, rtcDiff = 0;
+static unsigned short tod_drift = 0;
 unsigned short get_rtcstats() {
   short offset, pa, pb;
 
@@ -357,8 +358,9 @@ unsigned short get_rtcstats() {
   if (offset<0) {
     tod_init = 1;
     offset = 0;
+    tod_drift = 0;
   }
-
+  
   return offset;
 }
 
@@ -370,6 +372,10 @@ void update_rtc(unsigned char x, unsigned char y, unsigned short ticks) {
     write_text(x, y, 12, "NOT INSTALLED");
     return;
   }
+
+  // fix NTSC ticks - not for 0 ticks, or we get an overflow!
+  if (isNTSC && ticks > 0 && ticks%6 == 0) tod_drift++;
+  ticks -= tod_drift;
 
   pa = ((rtc_buf[0]>>4)&0x7)*10 + (rtc_buf[0]&0xf) + (((rtc_buf[1]>>4)&0x7)*10 + (rtc_buf[1]&0xf))*60;
   pb = ((rtc_buf[4]>>4)&0x7)*10 + (rtc_buf[4]&0xf) + (((rtc_buf[5]>>4)&0x7)*10 + (rtc_buf[5]&0xf))*60;
@@ -383,18 +389,18 @@ void update_rtc(unsigned char x, unsigned char y, unsigned short ticks) {
   else
     diff = ticks-rtc_ticks;
 
-  // we wait 10 seconds to see if we have ticks
+  // we wait 20 seconds to see if we have ticks
   if (rtcCheck && ticks>20) {
     rtcCheck = 0;
     if (rtc_ticks > 2) {
       rtcTicking = 1;
-      strcpy(buffer, "TICKING    ");
-      colour = 7;
-      // NTSC is allowed more drift, as the TOD runs to fast!
-      if ((isNTSC && diff > 4) || (!isNTSC && diff > 1)) {
-        rtcDiff = diff;
+      rtcDiff = diff;
+      if ((isNTSC && diff > 2) || (!isNTSC && diff > 1)) {
         strcpy(buffer, "SLOW TICK  ");
         colour = 8;
+      } else {
+        strcpy(buffer, "TICKING    ");
+        colour = 7;
       }
     } else {
       strcpy(buffer, "NOT TICKING");
