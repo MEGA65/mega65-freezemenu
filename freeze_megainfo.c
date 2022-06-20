@@ -268,6 +268,10 @@ char *get_rom_version(void) {
 }
 
 char cdecl hyppo_getversion(unsigned char *buffer);
+char cdecl hyppo_opendir(void);
+char cdecl hyppo_readdir(void);
+char cdecl hyppo_closedir(void);
+
 static unsigned char hyppo_version[4] = { 0xff, 0xff, 0xff, 0xff };
 
 void get_hyppo_version(void) {
@@ -279,7 +283,7 @@ void get_hyppo_version(void) {
   snprintf(buffer, 40, "%02X.%02X / %02X.%02X", hyppo_version[0], hyppo_version[1], hyppo_version[2], hyppo_version[3]);
 }
 
-void output_util_version(unsigned char y, unsigned char col, long addr) {
+void output_util_version(unsigned char y, unsigned char colour, long addr) {
   unsigned short i, j=0;
 
   lcopy(addr, (long)code_buf, 512);
@@ -297,15 +301,18 @@ void output_util_version(unsigned char y, unsigned char col, long addr) {
 
   wval = strlen(buffer);
   wval2 = 0;
-  if (wval > 38) {
-    wval2 = wval-38;
-    wval = 38;
+  if (wval > 48) {
+    wval2 = wval-48;
+    wval = 48;
   }
-  write_text(39-wval, y, col, buffer+wval2);
+  write_text(49-wval, y, colour, buffer+wval2);
 }
 
 void draw_screen(void)
 {
+  char *fname = (unsigned char*)0x0400;
+  unsigned char len, row=11;
+
   // clear screen
   lfill(SCREEN_ADDRESS, 0x20,2000);
 
@@ -338,12 +345,24 @@ void draw_screen(void)
   write_text(16, 10, 7, get_rom_version());
 
   // Utility versions (need to load file to parse...)
-  read_file_from_sdcard("FREEZER.M65", 0x40000L);
-  write_text(0, 11, 1, "FREEZER VERSION:");
-  output_util_version(12, 7, 0x40000L);
-  
-  write_text(0, 13, 1, "MEGAINFO VERSION:");
-  output_util_version(14, 7, 0x801L); // we are running MEGAINFO, so we can look at the loaded code
+  if (hyppo_opendir())
+    return;
+
+  while (!hyppo_readdir()) {
+    len = strlen(fname);
+    if (fname[len-4] == '.' && fname[len-3] == 'M' && fname[len-2] == '6' && fname[len-1] == '5') {
+      if (!strcmp(fname,"BANNER.M65") || !strcmp(fname, "C64THUMB.M65") || !strcmp(fname, "C65THUMB.M65"))
+        continue;
+      read_file_from_sdcard(fname, 0x40000L);
+      fname[len]=':';
+      fname[len+1]='\0';
+      write_text(0,row,1, fname);
+      output_util_version(row, 7, 0x40000L);
+      row++;
+    }
+  }
+  hyppo_closedir();
+
 }
 
 void do_megainfo(void)
