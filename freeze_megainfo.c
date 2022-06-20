@@ -302,17 +302,18 @@ char *get_hyppo_version(void) {
 void output_util_version(unsigned char x, unsigned char y, unsigned char colour, long addr) {
   unsigned short i, j=0;
 
+  // addr 0 means file not found
   if (addr == 0) {
-    write_text(x, y, 10, "NOT FOUND");
+    write_text(x, y, 10, "FILE NOT FOUND");
     return;
   }
 
   lcopy(addr, (long)code_buf, 512);
 
-  strncpy(buffer, "  UNKNOWN VERSION", 64);
+  strncpy(buffer, "UNKNOWN VERSION", 64);
   for (i=0; i<512; i++) {
     if (code_buf[i]==0x56 && code_buf[i+1]==0x3a) {
-      i += 2;
+      i += 4; // skip v:20
       while (j<64 && code_buf[i])
         buffer[j++] = code_buf[i++];
       buffer[j] = 0;
@@ -321,10 +322,10 @@ void output_util_version(unsigned char x, unsigned char y, unsigned char colour,
   }
 
   // strips the 20 from the start of the string, and cuts on the left side
-  wval = strlen(buffer)-2;
-  wval2 = 2;
+  wval = strlen(buffer);
+  wval2 = 0;
   if (wval > 42) {
-    wval2 = wval-40; // add the two
+    wval2 = wval-42;
     wval = 42;
   }
   write_text(x, y, colour, buffer+wval2);
@@ -394,7 +395,7 @@ void draw_screen(void)
   output_mega_model(15, 3, 7, version_buffer[0]);
 
   // output fpga versions
-  output_fpga_version(15, 5, 7,  0xff, 0, "XILINX"); // uses version buffer
+  output_fpga_version(15, 5, 7,  0xff, 0, "ARTIX");  // uses version buffer
   output_fpga_version(15, 6, 13, 0x3f, 1, "MAX10");  // uses version buffer
   output_fpga_version(15, 7, 1,  0xff, 0, "KEYBD");  // uses version buffer
 
@@ -415,7 +416,7 @@ void draw_screen(void)
     write_text(col, row, 1, buffer);
     if (PEEK(0xd021U)>6) {
       POKE(0xd021U, 6);
-      output_util_version(col + 14, row, 7, 0L);
+      output_util_version(col + 14, row, 7, 0L); // not found
     } else {
       output_util_version(col + 14, row, 7, 0x40000L);
     }
