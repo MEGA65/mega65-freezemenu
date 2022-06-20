@@ -9,7 +9,7 @@
 	.export _read_file_from_sdcard
 	.export _get_freeze_slot_count
 	.export _opendir, _readdir, _closedir, _closeall
-	.autoimport	on  ;; needed this for jsr incsp2
+	.autoimport	on  ;; needed this for jsr incsp2, incsp6
 	
 	.include "zeropage.inc"
 	
@@ -343,6 +343,11 @@ _read_file_from_sdcard:
 	STA $D640		
 	NOP
 	;; XXX Check for error (carry would be clear)
+  bcs rdcnt
+  inc $d021 ;; increment background colour if problem reading the file
+
+rdcnt:
+  jsr incsp6
 
 	LDZ #$00
 	
