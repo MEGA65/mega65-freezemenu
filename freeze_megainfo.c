@@ -18,10 +18,8 @@ void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char *
       c -= 0x40;
     else if ((c >= 'a') && (c <= 'z'))
       c -= 0x20;
-    lpoke(SCREEN_ADDRESS + y1 * 80 + x * 2 + 0, c);
-    lpoke(SCREEN_ADDRESS + y1 * 80 + x * 2 + 1, 0);
-    lpoke(COLOUR_RAM_ADDRESS + y1 * 80 + x * 2 + 0, 0x00);
-    lpoke(COLOUR_RAM_ADDRESS + y1 * 80 + x * 2 + 1, colour);
+    lpoke(SCREEN_ADDRESS + y1 * 80 + x , c);
+    lpoke(COLOUR_RAM_ADDRESS + y1 * 80 + x, colour);
   }
 }
 
@@ -309,11 +307,7 @@ void output_util_version(unsigned char y, unsigned char col, long addr) {
 void draw_screen(void)
 {
   // clear screen
-  lpoke(SCREEN_ADDRESS, 0x20);
-  lpoke(SCREEN_ADDRESS + 1, 0x00);
-  lpoke(SCREEN_ADDRESS + 2, 0x20);
-  lpoke(SCREEN_ADDRESS + 3, 0x00);
-  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 2000 - 4);
+  lfill(SCREEN_ADDRESS, 0x20,2000);
 
   // write header
   write_text(0, 0, 1, "MEGA65 INFORMATION");
