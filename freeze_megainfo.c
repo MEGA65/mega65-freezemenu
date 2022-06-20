@@ -274,7 +274,7 @@ char *get_hyppo_version(void) {
   
   hyppo_getversion(hyppo_version);
 
-  if (buffer[0] == buffer[1] && buffer[1] == buffer[2] && buffer[2] == buffer[3] && buffer[0] == 0xff)
+  if (hyppo_version[0] == hyppo_version[1] && hyppo_version[1] == hyppo_version[2] && hyppo_version[2] == hyppo_version[3] && hyppo_version[0] == 0xff)
     strcpy(buffer, "?.? / ?.?");
   else {
     itoa(hyppo_version[0], numval, 10); strcpy(buffer, numval); strcat(buffer, ".");
@@ -339,10 +339,7 @@ void draw_screen(void)
 
   // hyppo/hdos
   write_text(0, 9, 1, "HYPPO/HDOS:");
-  // flip commenting on the next two lines to enable get_hyppo_version
-  //get_hyppo_version();       // does not work...
-  strcpy(buffer, "?.? / ?.?"); // workaround
-  write_text(16, 9, 7, buffer);
+  write_text(16, 9, 7, get_hyppo_version());
 
   // ROM version
   write_text(0, 10, 1, "ROM VERSION:");
