@@ -287,7 +287,10 @@ char *get_hyppo_version(void) {
   
   hyppo_getversion(hyppo_version);
 
-  if (hyppo_version[0] == hyppo_version[1] && hyppo_version[1] == hyppo_version[2] && hyppo_version[2] == hyppo_version[3] && hyppo_version[0] == 0xff)
+  if (hyppo_version[0] == hyppo_version[1] &&
+      hyppo_version[1] == hyppo_version[2] &&
+      hyppo_version[2] == hyppo_version[3] &&
+      hyppo_version[0] == 0xff)
     strcpy(buffer, "?.? / ?.?");
   else {
     itoa(hyppo_version[0], numval, 10); strcpy(buffer, numval); strcat(buffer, ".");
@@ -321,7 +324,7 @@ void output_util_version(unsigned char x, unsigned char y, unsigned char colour,
     }
   }
 
-  // strips the 20 from the start of the string, and cuts on the left side
+  // cuts on the left side, we always want the rightmost part with the commit hash
   wval = strlen(buffer);
   wval2 = 0;
   if (wval > 42) {
@@ -332,6 +335,7 @@ void output_util_version(unsigned char x, unsigned char y, unsigned char colour,
 }
 
 static unsigned char tod_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 }, rtc_buf[8] = { 0,0,0,0,0,0,0,0 };
+static unsigned char rtcCheck = 1, rtcTicking = 0, rtcDiff = 0;
 unsigned short get_rtcstats() {
   short offset, pa, pb;
 
@@ -355,24 +359,73 @@ unsigned short get_rtcstats() {
   return offset;
 }
 
-void update_rtc(unsigned short ticks) {
-  short offset, pa, pb, diff;
+void update_rtc(unsigned char x, unsigned char y, unsigned short ticks) {
+  short rtc_ticks, pa, pb, diff;
+  unsigned char colour;
 
   pa = ((rtc_buf[0]>>4)&0x7)*10 + (rtc_buf[0]&0xf) + (((rtc_buf[1]>>4)&0x7)*10 + (rtc_buf[1]&0xf))*60;
   pb = ((rtc_buf[4]>>4)&0x7)*10 + (rtc_buf[4]&0xf) + (((rtc_buf[5]>>4)&0x7)*10 + (rtc_buf[5]&0xf))*60;
-  offset = pb-pa;
-  if (offset<0) {
+  rtc_ticks = pb-pa;
+  if (rtc_ticks<0) {
     tod_init = 1;
     return;
   }
-  if (offset>ticks)
-    diff = offset-ticks;
+  if (rtc_ticks>ticks)
+    diff = rtc_ticks-ticks;
   else
-    diff = ticks-offset;
+    diff = ticks-rtc_ticks;
 
-  POKE(0xD020U, PEEK(0xd020u)+1);
-  snprintf(buffer, 44, "RTC %02X:%02X TOD %02X:%02X ELAPSED %04X DIFF %04X", rtc_buf[5], rtc_buf[4], tod_buf[6], tod_buf[5], ticks, diff);
+  // we wait 10 seconds to see if we have ticks
+  if (rtcCheck && ticks>20) {
+    rtcCheck = 0;
+    if (rtc_ticks > 2) {
+      rtcTicking = 1;
+      strcpy(buffer, "TICKING    ");
+      colour = 7;
+    } else {
+      strcpy(buffer, "NOT TICKING");
+      colour = 10;
+    }
+    // NTSC is allowed more drift, as the TOD runs to fast!
+    if ((isNTSC && diff > 4) || (!isNTSC && diff > 1)) {
+      rtcDiff = diff;
+      strcpy(buffer, "SLOW TICK  ");
+      colour = 8;
+    }
+    write_text(x, y, colour, buffer);
+  }
+
+  if (!rtcCheck) {
+    snprintf(buffer, 10, "%02X:%02X:%02X", rtc_buf[6]&0x3f, rtc_buf[5]&0x7f, rtc_buf[4]);
+    write_text(x+13, y, 12, buffer);
+  }
+
+  snprintf(buffer, 47, "RTC %02X:%02X TOD %02X:%02X ELAPSED %04X DIFF %04X %02X", rtc_buf[5]&0x7f, rtc_buf[4], tod_buf[6]&0x7f, tod_buf[5], ticks, diff, isNTSC);
   write_text(0, 24, 12, buffer);
+}
+
+unsigned char get_ext_rtc_status() {
+  if (lpeek(0xffd7400) == 0xff) return 0; // not installed
+  // where does this come from?
+  if (lpeek(0xffd74fd) & 0x80) return 2; // active
+  return 1; // inactive
+}
+
+void update_ext_rtc(unsigned char x, unsigned char y, unsigned char status) {
+  switch (status) {
+    case 0:
+      write_text(x, y, 12, "NOT INSTALLED");
+      break;
+    case 1:
+      write_text(x, y, 10, "INACTIVE     ");
+      break;
+    case 2:
+      write_text(x, y, 7, "ACTIVE       ");
+      break;
+    default:
+      write_text(x, y, 12, "UNKNOWN      ");
+      break;
+  }
 }
 
 void draw_screen(void)
@@ -385,7 +438,7 @@ void draw_screen(void)
   // write header
   write_text(0, 0, 1, "MEGA65 INFORMATION");
   write_text(0, 1, 1, "cccccccccccccccccc");
-  write_text(57, 24, 1, "F3/ESC/RUNSTOP TO EXIT");
+  write_text(56, 24, 1, "F3/ESC/RUNSTOP TO EXIT");
 
   // get FPGA information
   lcopy(0xFFD3629L, (long)version_buffer, 32);
@@ -398,6 +451,13 @@ void draw_screen(void)
   output_fpga_version(15, 5, 7,  0xff, 0, "ARTIX");  // uses version buffer
   output_fpga_version(15, 6, 13, 0x3f, 1, "MAX10");  // uses version buffer
   output_fpga_version(15, 7, 1,  0xff, 0, "KEYBD");  // uses version buffer
+
+  // RTC
+  write_text(40, 5, 1, "INTERNAL RTC:");
+  write_text(54, 5, 7, "CHECKING");
+  write_text(40, 6, 1, "EXTERNAL RTC:");
+  write_text(54, 6, 7, "CHECKING");
+  update_ext_rtc(54, 6, get_ext_rtc_status());
 
   // hyppo/hdos
   write_text(0, 9, 1, "HYPPO/HDOS:");
@@ -431,7 +491,9 @@ void do_megainfo(void)
   unsigned char x;
   unsigned short s1=0, s2=-1;
 
-  isNTSC = freeze_peek(0xFFD306fL) & 0x80;
+  // in NTSC mode the TOD clock ticks 60 times in 50 seconds
+  // detect NTSC mode to compensate for this
+  isNTSC = (lpeek(0xFFD306fL) & 0x80) == 0x80;
   get_rtcstats();
   draw_screen();
 
@@ -444,7 +506,7 @@ void do_megainfo(void)
     // get clock stats
     s1 = get_rtcstats();
     if (s1!=s2) { // only update if changed
-      update_rtc(s1);
+      update_rtc(54, 5, s1);
       s2=s1;
     }
 
