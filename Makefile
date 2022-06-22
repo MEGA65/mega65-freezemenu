@@ -2,12 +2,12 @@
 ifdef USE_LOCAL_CC65
 	# use locally installed binary (requires cc65 to be in the $PATH)
 	CC65=	cc65
-	CA65= ca65
+	CA65=	ca65
 	CL65=	cl65
 else
 	# use the binary built from the submodule
 	CC65=	cc65/bin/cc65
-	CA65= ca65
+	CA65=	ca65
 	CL65=	cc65/bin/cl65
 endif
 
@@ -100,7 +100,7 @@ MIASSFILES=	megainfo.s \
 		fdisk_hal_mega65.s \
 		charset.s \
 		helper.s \
-		hyppocalls.s
+		infohelper.s
 
 LIBCASSFILES=	../mega65-libc/cc65/src/conio.s \
 		../mega65-libc/cc65/src/mouse.s
