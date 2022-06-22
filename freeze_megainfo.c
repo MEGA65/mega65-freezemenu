@@ -414,7 +414,6 @@ unsigned char get_rtc_stats(unsigned char reinit) {
     if (hasExtRTC)
       lcopy(0xffd7400l, (long)extrtc_buf, 7);
     clock_init = 0;
-    tod_drift = 0;
     tod_ov = 0;
     rtc_ov = 0;
     extrtc_ov = 0;
