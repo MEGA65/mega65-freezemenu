@@ -383,7 +383,7 @@ char *format_util_version(long addr) {
  */
 static unsigned char clock_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 };
 static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
-static unsigned short tod_drift = 0, tod_ov = 0, rtc_ov = 0, extrtc_ov = 0;
+static unsigned short tod_ov = 0, rtc_ov = 0, extrtc_ov = 0;
 static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0, extrtc_ticks = 0;
 static unsigned char extrtc_check = 1, extrtc_ticking = 0, extrtc_diff = 0, extrtc_buf[14] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
 
@@ -404,6 +404,11 @@ unsigned char get_rtc_stats(unsigned char reinit) {
   short pa, pb;
 
   if (clock_init==1 || reinit==1) {
+    // fix TOD frequency
+    if (lpeek(0xffd306fl)&0x80) // is NTSC, clear 0Hz bit
+      lpoke(0xffd3c0el, lpeek(0xffd3c0el)&0x7f);
+    else // is PAL, set 50Hz bit
+      lpoke(0xffd3c0el, lpeek(0xffd3c0el)|0x80);
     lcopy(0xffd7110l, (long)rtc_buf, 6);
     lcopy(0xffd3c08l, (long)tod_buf, 4);
     if (hasExtRTC)
@@ -433,13 +438,9 @@ unsigned char get_rtc_stats(unsigned char reinit) {
   }
   
   if (tod_ticks == tod_last) return 0;
-
   // tod_ticks changed, update rtc
 
   tod_last = tod_ticks;
-
-  if (isNTSC && tod_ticks > 0 && tod_ticks%6 == 0) tod_drift++;
-  tod_ticks -= tod_drift;
 
   // handle internal RTC
   if (hasRTC) {
@@ -614,11 +615,11 @@ void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, u
   switch (mode) {
     case 1:
       sprintf(buffer, "IRTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X",
-               rtc_buf[7]&0x7f, rtc_buf[6], rtc_ticks, tod_buf[6]&0x7f, tod_buf[5], rtc_ticks, rtc_diff);
+               rtc_buf[7]&0x7f, rtc_buf[6], rtc_ticks, tod_buf[6]&0x7f, tod_buf[5], tod_ticks, rtc_diff);
       break;
     case 2:
       sprintf(buffer, "ERTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X",
-               extrtc_buf[8]&0x7f, extrtc_buf[9], extrtc_ticks, tod_buf[6]&0x7f, tod_buf[5], extrtc_ticks, extrtc_diff);
+               extrtc_buf[8]&0x7f, extrtc_buf[9], extrtc_ticks, tod_buf[6]&0x7f, tod_buf[5], tod_ticks, extrtc_diff);
       break;
     default:
       strcpy(buffer, "                                                     ");
