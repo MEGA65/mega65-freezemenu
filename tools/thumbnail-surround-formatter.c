@@ -105,9 +105,11 @@ int initialise_palette(struct tile_set* ts)
     int r = (c64_palette[i * 4 + 0] << 4) | (c64_palette[i * 4 + 0] >> 4);
     int g = (c64_palette[i * 4 + 1] << 4) | (c64_palette[i * 4 + 1] >> 4);
     int b = (c64_palette[i * 4 + 2] << 4) | (c64_palette[i * 4 + 2] >> 4);
+    r&=0xff; g&=0xff; b&=0xff;
     ts->colours[i].r = r;
     ts->colours[i].g = g;
     ts->colours[i].b = b;
+    fprintf(stderr,"C64 colour #%d = %02x%02X%02x\n",i,r,g,b);
   }
 
   // RGB cube
