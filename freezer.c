@@ -596,27 +596,28 @@ void draw_freeze_menu(void)
         break;
     if (i == 16)
       lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
+  }
 
-    // Show name of current mounted disk image
-    if (process_descriptor.d81_image0_namelen) {
-      for (i = 0; i < process_descriptor.d81_image0_namelen; i++)
-        if (!process_descriptor.d81_image0_name[i])
-          break;
-      if (i == process_descriptor.d81_image0_namelen) {
-        topetsciiupper(process_descriptor.d81_image0_name, process_descriptor.d81_image0_namelen);
-        lcopy((unsigned long)process_descriptor.d81_image0_name, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
-            process_descriptor.d81_image0_namelen < 19 ? process_descriptor.d81_image0_namelen : 19);
-      }
+  // Show name of current mounted disk image
+  if (process_descriptor.d81_image0_namelen) {
+    for (i = 0; i < process_descriptor.d81_image0_namelen; i++)
+      if (!process_descriptor.d81_image0_name[i])
+        break;
+    if (i == process_descriptor.d81_image0_namelen) {
+      topetsciiupper(process_descriptor.d81_image0_name, process_descriptor.d81_image0_namelen);
+      lcopy((unsigned long)process_descriptor.d81_image0_name, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
+          process_descriptor.d81_image0_namelen < 19 ? process_descriptor.d81_image0_namelen : 19);
     }
-    if (process_descriptor.d81_image1_namelen) {
-      for (i = 0; i < process_descriptor.d81_image1_namelen; i++)
-        if (!process_descriptor.d81_image1_name[i])
-          break;
-      if (i == process_descriptor.d81_image1_namelen) {
-        topetsciiupper(process_descriptor.d81_image1_name, process_descriptor.d81_image1_namelen);
-        lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
-            process_descriptor.d81_image1_namelen < 19 ? process_descriptor.d81_image1_namelen : 19);
-      }
+  }
+
+  if (process_descriptor.d81_image1_namelen) {
+    for (i = 0; i < process_descriptor.d81_image1_namelen; i++)
+      if (!process_descriptor.d81_image1_name[i])
+        break;
+    if (i == process_descriptor.d81_image1_namelen) {
+      topetsciiupper(process_descriptor.d81_image1_name, process_descriptor.d81_image1_namelen);
+      lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
+          process_descriptor.d81_image1_namelen < 19 ? process_descriptor.d81_image1_namelen : 19);
     }
   }
 
