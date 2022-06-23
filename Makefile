@@ -198,6 +198,10 @@ MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) $(LIBCASSFILES)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES) $(LIBCASSFILES)
 
+M65THUMB.M65:	assets/thumbnail-surround-m65.png tools/thumbnail-surround-formatter
+	$(warning ======== Making: $@)
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-m65.png M65THUMB.M65 2>/dev/null
+
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(info ======== Making: $@)
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 2>/dev/null
