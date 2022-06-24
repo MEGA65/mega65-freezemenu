@@ -30,7 +30,7 @@ static char SDessentials[][13] = {
  */
 #define BUFFER_LENGTH 254
 #define BUFFER_COLOUR 255
-static char buffer[BUFFER_LENGTH+2], tempstr32[32], isNTSC = 0, hasRTC = 0, hasExtRTC = 0;
+static char buffer[BUFFER_LENGTH+2], tempstr32[32], isNTSC = 0, hasRTC = 0;
 static unsigned char version_buffer[256];
 
 /*
@@ -382,10 +382,10 @@ char *format_util_version(long addr) {
  * RTC Globals
  */
 static unsigned char clock_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 };
+static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0;
 static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
 static unsigned short tod_ov = 0, rtc_ov = 0, extrtc_ov = 0;
-static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0, extrtc_ticks = 0;
-static unsigned char extrtc_check = 1, extrtc_ticking = 0, extrtc_diff = 0, extrtc_buf[14] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0;
 
 /*
  * get_rtc_stats(reinit) -> uchar
@@ -403,25 +403,40 @@ static unsigned char extrtc_check = 1, extrtc_ticking = 0, extrtc_diff = 0, extr
 unsigned char get_rtc_stats(unsigned char reinit) {
   short pa, pb;
 
-  if (clock_init==1 || reinit==1) {
-    // fix TOD frequency
-    if (lpeek(0xffd306fl)&0x80) // is NTSC, clear 0Hz bit
-      lpoke(0xffd3c0el, lpeek(0xffd3c0el)&0x7f);
-    else // is PAL, set 50Hz bit
-      lpoke(0xffd3c0el, lpeek(0xffd3c0el)|0x80);
+  // fetch external RTC state
+  if (lpeek(0xffd7400) == 0xff) { // external not installed
+    if (hasRTC)
+      rtc_state = 1;
+    else
+      rtc_state = 0;
+  } else {
+    if (lpeek(0xffd74fd) & 0x80)
+      rtc_state = 3; // external installed & active
+    else
+      rtc_state = 2; // external installed but inactive
+  }
+
+  // clock changed, reinit
+  if (rtc_state != rtc_last_state) {
+    clock_init = 1;
+    rtc_last_state = rtc_state;
+    // if clock is active, give it a few seconds to settle
+    if (rtc_state & 1)
+      rtc_settle = 3;
+  }
+
+  if (clock_init || reinit) {
     lcopy(0xffd7110l, (long)rtc_buf, 6);
     lcopy(0xffd3c08l, (long)tod_buf, 4);
-    if (hasExtRTC)
-      lcopy(0xffd7400l, (long)extrtc_buf, 7);
     clock_init = 0;
     tod_ov = 0;
     rtc_ov = 0;
-    extrtc_ov = 0;
+    rtc_check = 1;
+    rtc_ticking = 0;
+    rtc_diff = 0;
   }
   lcopy(0xffd7110l, (long)rtc_buf+6, 6);
   lcopy(0xffd3c08l, (long)tod_buf+4, 4);
-  if (hasExtRTC)
-    lcopy(0xffd7400l, (long)extrtc_buf+7, 7);
 
   // only looking at seconds here, derived from minutes + seconds
   pa = ((tod_buf[1]>>4)&0x7)*10 + (tod_buf[1]&0xf) + (((tod_buf[2]>>4)&0x7)*10 + (tod_buf[2]&0xf))*60;
@@ -439,10 +454,17 @@ unsigned char get_rtc_stats(unsigned char reinit) {
   if (tod_ticks == tod_last) return 0;
   // tod_ticks changed, update rtc
 
+  // external rtc needs a moment to settle
+  if (rtc_settle>0) {
+    rtc_settle--;
+    clock_init = 1;
+    return 0;
+  }
+
   tod_last = tod_ticks;
 
-  // handle internal RTC
-  if (hasRTC) {
+  // handle RTC
+  if (rtc_state & 1) {
     pa = ((rtc_buf[0]>>4)&0x7)*10 + (rtc_buf[0]&0xf) + (((rtc_buf[1]>>4)&0x7)*10 + (rtc_buf[1]&0xf))*60;
     pb = ((rtc_buf[6]>>4)&0x7)*10 + (rtc_buf[6]&0xf) + (((rtc_buf[7]>>4)&0x7)*10 + (rtc_buf[7]&0xf))*60;
     rtc_ticks = pb-pa;
@@ -451,6 +473,7 @@ unsigned char get_rtc_stats(unsigned char reinit) {
       rtc_ov++;
       if (rtc_ov>1) {
         clock_init = 1;
+        return 0;
       }
     }
 
@@ -460,48 +483,7 @@ unsigned char get_rtc_stats(unsigned char reinit) {
       rtc_diff = tod_ticks-rtc_ticks;
   }
 
-  // handle External Grove RTC
-  if (hasExtRTC == 2) {
-    pa = ((extrtc_buf[0]>>4)&0x7)*10 + (extrtc_buf[0]&0xf) + (((extrtc_buf[1]>>4)&0x7)*10 + (extrtc_buf[1]&0xf))*60;
-    pb = ((extrtc_buf[7]>>4)&0x7)*10 + (extrtc_buf[7]&0xf) + (((extrtc_buf[8]>>4)&0x7)*10 + (extrtc_buf[8]&0xf))*60;
-    extrtc_ticks = pb-pa;
-    if (extrtc_ticks<0) {
-      extrtc_ticks += 3600;   // we can work with one hour overflow
-      extrtc_ov++;
-      if (extrtc_ov>1) {
-        clock_init = 1;
-      }
-    }
-
-    if (extrtc_ticks>tod_ticks)
-      extrtc_diff = extrtc_ticks-tod_ticks;
-    else
-      extrtc_diff = tod_ticks-extrtc_ticks;
-  }
-
-  if (clock_init == 1) return 0;
-
   return 1;
-}
-
-/*
- * get_extrtc_status -> uchar
- *
- *   returns: external rtc status code
- *            0 = not installed
- *            1 = inactive
- *            2 = active
- *
- * checks if the external Grove RTC is present and if it is
- * active or inactive.
- */
-unsigned char get_extrtc_status() {
-  if (lpeek(0xffd7400) == 0xff) // not installed
-    return 0;
-  // where does this come from?
-  if (lpeek(0xffd74fd) & 0x80) // active
-    return 2;
-  return 1; // inactive
 }
 
 /*
@@ -517,16 +499,19 @@ unsigned char get_extrtc_status() {
 void format_extrtc_status(unsigned char status) {
   switch (status) {
     case 0:
-      strcpy(buffer, "\12NOT INSTALLED");
+      strcpy(buffer, "\10NO RTC AVAILABLE  ");
       break;
     case 1:
-      strcpy(buffer, "\10INACTIVE     ");
+      strcpy(buffer, "\7INTERNAL          ");
       break;
     case 2:
-      strcpy(buffer, "\7ACTIVE       ");
+      strcpy(buffer, "\10EXTERNAL, INACTIVE");
+      break;
+    case 3:
+      strcpy(buffer, "\7EXTERNAL, ACTIVE  ");
       break;
     default:
-      strcpy(buffer, "\11UNKNOWN      ");
+      strcpy(buffer, "\11UNKNOWN           ");
       break;
   }
 }
@@ -539,73 +524,41 @@ void format_extrtc_status(unsigned char status) {
  *
  * write rtc status to screen
  */
-void display_rtc_status(unsigned char x, unsigned char y, unsigned char clock) {
+void display_rtc_status(unsigned char x, unsigned char y) {
   unsigned char colour;
 
-  if (clock == 0) {
-    if (!hasRTC)
-      write_text(x, y, 12, "NOT INSTALLED");
-    else {
-      if (rtc_check) {
-        // we wait 20 seconds to see if we have ticks
-        if (tod_ticks>20) {
-          rtc_check = 0;
-          if (rtc_ticks > 2) {
-            rtc_ticking = 1;
-            if ((isNTSC && rtc_diff > 2) || (!isNTSC && rtc_diff > 1)) {
-              strcpy(buffer, "SLOW TICK    ");
-              colour = 8;
-            } else {
-              strcpy(buffer, "TICKING      ");
-              colour = 7;
-            }
-          } else {
-            strcpy(buffer, "NOT TICKING  ");
-            colour = 10;
-          }
-          write_text(x, y, colour, buffer);
-        } else
-          write_text(x, y, 7, "CHECKING");
-      }
-      if (!rtc_check) {
-        sprintf(buffer, "20%02X-%02X-%02X %02X:%02X:%02X",
-                rtc_buf[11], rtc_buf[10]&0x1f, rtc_buf[9]&0x3f, rtc_buf[8]&0x3f, rtc_buf[7]&0x7f, rtc_buf[6]);
-        write_text(x, y+1, 12, buffer);
-      }
-    }
-  } else if (clock == 1) {
-    if (hasExtRTC<2) {
-      format_extrtc_status(hasExtRTC);
-      write_text(x, y, buffer[0], buffer+1);
-    } else {
-      if (extrtc_check) {
-        // we wait 20 seconds to see if we have ticks
-        if (tod_ticks>20) {
-          extrtc_check = 0;
-          if (extrtc_ticks > 2) {
-            extrtc_ticking = 1;
-            if ((isNTSC && extrtc_diff > 2) || (!isNTSC && extrtc_diff > 1)) {
-              strcpy(buffer, "SLOW TICK    ");
-              colour = 8;
-            } else {
-              strcpy(buffer, "TICKING      ");
-              colour = 7;
-            }
-          } else {
-            strcpy(buffer, "NOT TICKING  ");
-            colour = 10;
-          }
-          write_text(x, y, colour, buffer);
-        } else
-          write_text(x, y, 7, "CHECKING");
+  // write out rtc state
+  format_extrtc_status(rtc_state);
+  write_text(x, y, buffer[0], buffer+1);
 
-      }
-      if (!rtc_check) {
-        sprintf(buffer, "20%02X-%02X-%02X %02X:%02X:%02X",
-                extrtc_buf[13], extrtc_buf[12]&0x1f, extrtc_buf[11]&0x3f, extrtc_buf[9]&0x3f, extrtc_buf[8]&0x7f, extrtc_buf[7]);
-        write_text(x, y+1, 12, buffer);
-      }
+  if (rtc_state & 0x1) { // 1 and 3 are active
+    if (rtc_check) {
+      // we wait 20 seconds to see if we have ticks
+      if (tod_ticks>20) {
+        rtc_check = 0;
+        if (rtc_ticks > 2) {
+          rtc_ticking = 1;
+          if (rtc_diff > 1) {
+            strcpy(buffer, "SLOW TICK    ");
+            colour = 8;
+          } else {
+            strcpy(buffer, "TICKING      ");
+            colour = 7;
+          }
+        } else {
+          strcpy(buffer, "NOT TICKING  ");
+          colour = 10;
+        }
+        write_text(x, y+1, colour, buffer);
+      } else
+        write_text(x, y+1, 7, "CHECKING");
     }
+    if (!rtc_check) {
+      sprintf(buffer, "20%02X-%02X-%02X %02X:%02X:%02X",
+              rtc_buf[11], rtc_buf[10]&0x1f, rtc_buf[9]&0x3f, rtc_buf[8]&0x3f, rtc_buf[7]&0x7f, rtc_buf[6]);
+      write_text(x, y+2, 12, buffer);
+    } else
+      write_text(x, y+2, 12, "                    ");
   }
 }
 
@@ -613,12 +566,12 @@ void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, u
   // DEBUG output in the bottom line
   switch (mode) {
     case 1:
-      sprintf(buffer, "IRTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X",
-               rtc_buf[7]&0x7f, rtc_buf[6], rtc_ticks, tod_buf[6]&0x7f, tod_buf[5], tod_ticks, rtc_diff);
-      break;
-    case 2:
-      sprintf(buffer, "ERTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X",
-               extrtc_buf[8]&0x7f, extrtc_buf[9], extrtc_ticks, tod_buf[6]&0x7f, tod_buf[5], tod_ticks, extrtc_diff);
+      sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X",
+              rtc_buf[7]&0x7f, rtc_buf[6], rtc_ticks, tod_buf[6]&0x7f, tod_buf[5], tod_ticks, rtc_diff);
+      if (rtc_state==1)
+        buffer[0] = 'I';
+      else if (rtc_state==2 || rtc_state==3)
+        buffer[0] = 'E';
       break;
     default:
       strcpy(buffer, "                                                     ");
@@ -670,8 +623,7 @@ void draw_screen(void)
   write_text(25, 7, 7, format_datestamp(1, 0xff));
 
   // RTC (labels only, rest is done in mainloop)
-  write_text(40, 5, 1, "INTERNAL RTC:");
-  write_text(40, 7, 1, "EXTERNAL RTC:");
+  write_text(40, 5, 1, "RTC STATUS:");
 
   // HYPPO/HDOS Version
   write_text(0, 9, 1, "HYPPO/HDOS:");
@@ -709,10 +661,13 @@ void draw_screen(void)
  * initialize basic structures and screen
  */
 void init_megainfo() {
-  // in NTSC mode the TOD clock ticks 60 times in 50 seconds
-  // detect NTSC mode to compensate for this
   isNTSC = (lpeek(0xFFD306fL) & 0x80) == 0x80;
-  hasExtRTC = get_extrtc_status();
+  // fix TOD frequency
+  if (isNTSC)
+    lpoke(0xffd3c0el, lpeek(0xffd3c0el)&0x7f);
+  else // is PAL, set 50Hz bit
+    lpoke(0xffd3c0el, lpeek(0xffd3c0el)|0x80);
+
   get_rtc_stats(1); // initialise rtc data cache
   draw_screen();
 }
@@ -735,8 +690,7 @@ void do_megainfo()
 
     // update clocks
     if (get_rtc_stats(0)) {
-      display_rtc_status(54, 5, 0);
-      display_rtc_status(54, 7, 1);
+      display_rtc_status(54, 5);
       display_rtc_debug(0, 24, 12, rtcDEBUG);
     }
 
@@ -745,8 +699,7 @@ void do_megainfo()
 
     switch (x) {
       case 0xF1: // F1 - Toggle DEBUG
-        rtcDEBUG++;
-        if (rtcDEBUG==3) rtcDEBUG = 0;
+        rtcDEBUG = 1 - rtcDEBUG;
         display_rtc_debug(0, 24, 12, rtcDEBUG);
         break;
       case 0xF5: // F5 - REFRESH
