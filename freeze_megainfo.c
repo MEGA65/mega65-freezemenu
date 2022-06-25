@@ -31,7 +31,7 @@ static char SDessentials[][13] = {
 #define BUFFER_LENGTH 254
 #define BUFFER_COLOUR 255
 static char buffer[BUFFER_LENGTH+2], tempstr32[32], isNTSC = 0, hasRTC = 0;
-static unsigned char version_buffer[256];
+static unsigned char code_buffer[512], ymd[3];
 
 /*
  * write_text(x, y, colour, text)
@@ -50,6 +50,33 @@ void write_text(unsigned char x, unsigned char y, unsigned char colour, char *te
       c -= 0x40;
     else if ((c >= 'a') && (c <= 'z'))
       c -= 0x20;
+    else if (c == '~') // ~ become pi
+      c = 94;
+    lpoke(SCREEN_ADDRESS + y * 80 + x + i, c);
+    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, colour);
+  }
+}
+
+/*
+ * write_text_upper(x, y, colour, text)
+ *
+ *   x, y: screen position
+ *   colour: colour top write in
+ *   text: zero terminated string
+ *
+ * writes text to the screen using colour. converts to screencode,
+ * and all lower is displayed as upper
+ */
+void write_text_upper(unsigned char x, unsigned char y, unsigned char colour, char *text) {
+  unsigned char i, c;
+  for (i = 0; text[i]; i++) {
+    c = text[i]&0x7f;
+    if ((c >= 'A') && (c <= 'Z'))
+      c -= 0x40;
+    else if ((c >= 'a') && (c <= 'z'))
+      c -= 0x60;
+    else if (c == '~') // ~ become pi
+      c = 94;
     lpoke(SCREEN_ADDRESS + y * 80 + x + i, c);
     lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, colour);
   }
@@ -58,14 +85,14 @@ void write_text(unsigned char x, unsigned char y, unsigned char colour, char *te
 /*
  * copy_hw_version()
  *
- *   globals: version_buffer
+ *   globals: code_buffer
  *
  * extracts hardware and FPGA version from $FFD3629 by
- * copying 32 bytes to global version_buffer, to make access
+ * copying 32 bytes to global code_buffer, to make access
  * faster (lpeek is a dma_copy!)
  */
 void copy_hw_version() {
-  lcopy(0xFFD3629L, (long)version_buffer, 32);
+  lcopy(0xFFD3629L, (long)code_buffer, 32);
 }
 
 /*
@@ -74,12 +101,12 @@ void copy_hw_version() {
  *   returns: string (tempstr32 or static)
  *   globals: buffer
  *
- * translate version_buffer[0] to model string
+ * translate code_buffer[0] to model string
  *
- * get_hw_version must have been called to fill version_buffer
+ * get_hw_version must have been called to fill code_buffer
  */
 char *format_mega_model() {
-  switch (version_buffer[0]) {
+  switch (code_buffer[0]) {
     case 1:
       return "MEGA65 R1";
     case 2:
@@ -103,7 +130,7 @@ char *format_mega_model() {
     case 255:
       return "HARDWARE NOT SPECIFIED";
     default:
-      snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X", version_buffer[0]);
+      snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X", code_buffer[0]);
       return tempstr32;
   }
 }
@@ -115,18 +142,19 @@ char *format_mega_model() {
  *   msbmask: mask msb byte (neeeded for MAX10, 0x3f)
  *
  *   returns: string (buffer)
- *   globals: tempstr32, buffer
+ *   globals: tempstr32, buffer, ymd
  *
  * formats a FPGA datestamp (days since 2020-01-01, years full 366 days)
  * to a string YYYY-MM-DD.
+ * stores year (without century), month, day as uchar in ymd[3]
  *
- * get_hw_version must have been called to fill version_buffer
+ * get_hw_version must have been called to fill code_buffer
  */
 char *format_datestamp(unsigned char offset, unsigned char msbmask) {
   unsigned char m=1;
   unsigned short y=2020, ds;
 
-  ds = (((unsigned short)(version_buffer[offset+1]&msbmask)) << 8) + (unsigned short)version_buffer[offset];
+  ds = (((unsigned short)(code_buffer[offset+1]&msbmask)) << 8) + (unsigned short)code_buffer[offset];
 
   // first remove years. years are always full 366 days!
   while (ds>366) {
@@ -161,6 +189,11 @@ char *format_datestamp(unsigned char offset, unsigned char msbmask) {
     strcat(buffer, "-0");
   itoa(ds, tempstr32, 10); strcat(buffer, tempstr32);
 
+  // save date for external use
+  ymd[0] = (unsigned char)(y-2000);
+  ymd[1] = m;
+  ymd[2] = ds;
+
   return buffer;
 }
 
@@ -175,13 +208,13 @@ char *format_datestamp(unsigned char offset, unsigned char msbmask) {
  *
  * formats a FPGA commit hash to a 8 character hex number
  *
- * get_hw_version must have been called to fill version_buffer
+ * get_hw_version must have been called to fill code_buffer
  */
 char *format_fpga_hash(unsigned char offset, unsigned char reverse) {
   if (reverse)
-    sprintf(buffer, "%02X%02X%02X%02X", version_buffer[offset+2], version_buffer[offset+3], version_buffer[offset+4], version_buffer[offset+5]);
+    sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset+2], code_buffer[offset+3], code_buffer[offset+4], code_buffer[offset+5]);
   else
-    sprintf(buffer, "%02X%02X%02X%02X", version_buffer[offset+5], version_buffer[offset+4], version_buffer[offset+3], version_buffer[offset+2]);
+    sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset+5], code_buffer[offset+4], code_buffer[offset+3], code_buffer[offset+2]);
 
   return buffer;
 }
@@ -341,41 +374,146 @@ char *format_hyppo_version(void) {
 }
 
 /*
- * format_util_version(addr) -> char *
+ * format_util_version(addr, date) -> uchar
  *
  *   addr: start address in memory
  *
- *   returns: string (buffer)
+ *   returns: 0 if ok, 1 if older or missing
  *   globals: buffer
  *
  * search the next 256 bytes from start address for a version string
  * starting with 'v:20' and returns the next characters until a zero byte
+ * compares to date (which should by artix ymd) and returns 0 if equal or newer
  */
-char *format_util_version(long addr) {
-  static unsigned char code_buf[512];
+unsigned char format_util_version(long addr, unsigned char *date) {
   unsigned short i, j=0;
+  unsigned char temp, result = 0, p;
 
-  lcopy(addr, (long)code_buf, 512);
+  lcopy(addr, (long)code_buffer, 512);
 
   strncpy(buffer, "UNKNOWN VERSION", 64);
   for (i=0; i<512; i++) {
-    if (code_buf[i]==0x56 && code_buf[i+1]==0x3a && code_buf[i+2]==0x32 && code_buf[i+3]==0x30) {
+    if (code_buffer[i]==0x56 && code_buffer[i+1]==0x3a && code_buffer[i+2]==0x32 && code_buffer[i+3]==0x30) {
       i += 4; // skip v:20
-      while (j<64 && code_buf[i])
-        buffer[j++] = code_buf[i++];
+      while (j<64 && code_buffer[i])
+        buffer[j++] = code_buffer[i++];
       buffer[j] = 0;
       break;
     }
   }
 
+  // parse date, starts at first char
+  for (p=0; p<3; p++) {
+    if (buffer[p*2]>='0' && buffer[p*2]<='9' && buffer[p*2+1]>='0' && buffer[p*2+1]<='9') {
+      temp = (buffer[p*2]-'0')*10 + buffer[p*2+1]-'0';
+      /*
+      snprintf(tempstr32, 5, "%02X", temp);
+      write_text(10+p*3, 20, 12, tempstr32);
+      snprintf(tempstr32, 5, "%02X", date[p]);
+      write_text(10+p*3, 21, 12, tempstr32);
+      */
+      if (temp>date[p]) {
+        result = 0;
+        break;
+      } else if (temp<date[p]) {
+        result = 1;
+        break;
+      }
+    } else
+      result = 1;
+  }
+
   // cuts on the left side, we always want the rightmost part with the commit hash
   i = strlen(buffer);
-  if (i > 42)
-    j = i-42;
-  else
-    j = 0;
+  if (i > 25) {
+    i -= 25;
+    for (j=0; j<25; j++)
+      buffer[j] = buffer[i+j];
+    buffer[j] = 0;
+  }
 
-  return buffer + 0;
+  return result;
+}
+
+/*
+ * format_hickup_version(addr, date) -> uchar
+ *
+ *   addr: start address in memory
+ *   date: uchar[3] with date
+ *
+ *   returns: 1 on old version, 0 on actual or newer version
+ *   globals: buffer
+ *
+ * search for GIT: in 40000 upwards
+ * tries to parse date and compare to date[3]
+ */
+unsigned char format_hickup_version(long addr, unsigned char *date) {
+  unsigned short p, i, j=0;
+  char *needle = "GIT: ";
+  char *needle2 = ",20";
+#define NEEDLE_LEN 5
+#define NEEDLE2_LEN 3
+  unsigned char version_fail = 1, finished = 0, cmp_idx = 0, temp;
+
+  for (p=0; p<64 && !finished; p++) {
+    lcopy(addr + 512l*p, (long)code_buffer, 512);
+    for (i=0; i<512; i++) {
+      // looking for needle in the haystack
+      if (cmp_idx<NEEDLE_LEN) {
+        if (needle[cmp_idx] == code_buffer[i]) {
+          cmp_idx++;
+        } else
+          cmp_idx = 0;
+      } else {
+        buffer[j++] = code_buffer[i];
+        if (code_buffer[i]==0) {
+          finished = 1;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!finished) {
+    strcpy(buffer, "VERSION NOT FOUND");
+    return 1;
+  }
+
+  // limit to 38 chars
+  buffer[38] = 0;
+  i = strlen(buffer);
+
+  // try to parse date
+  cmp_idx = 0;
+  for (j=0; j<i; j++) {
+    if (cmp_idx<NEEDLE2_LEN) {
+      if (needle2[cmp_idx] == buffer[j]) {
+        cmp_idx++;
+      } else
+        cmp_idx = 0;
+    } else {
+      for (p=0; p<3; p++) {
+        if (buffer[j+p*2]>='0' && buffer[j+p*2]<='9' && buffer[j+p*2+1]>='0' && buffer[j+p*2+1]<='9') {
+          temp = (buffer[j+p*2]-'0')*10 + buffer[j+p*2+1]-'0';
+          /*
+          snprintf(tempstr32, 5, "%02X", temp);
+          write_text(p*3, 20, 12, tempstr32);
+          snprintf(tempstr32, 5, "%02X", date[p]);
+          write_text(p*3, 21, 12, tempstr32);
+          */
+          if (temp>date[p])
+            return 0;
+          else if (temp<date[p])
+            return 1;
+        } else
+          return 1;
+      }
+    }
+  }
+
+  if (cmp_idx<NEEDLE2_LEN) return 2;
+
+  return 0;
 }
 
 /*
@@ -384,7 +522,7 @@ char *format_util_version(long addr) {
 static unsigned char clock_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 };
 static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0;
 static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
-static unsigned short tod_ov = 0, rtc_ov = 0, extrtc_ov = 0;
+static unsigned short tod_ov = 0, rtc_ov = 0;
 static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0;
 
 /*
@@ -592,7 +730,7 @@ void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, u
  */
 void draw_screen(void)
 {
-  unsigned char row, col, i;
+  unsigned char row, col, i, fail, artix_ymd[3];
 
   // clear screen
   lfill(SCREEN_ADDRESS, 0x20,2000);
@@ -615,6 +753,10 @@ void draw_screen(void)
   write_text(0, 5, 1, "ARTIX VERSION:");
   write_text(15, 5, 7, format_fpga_hash(7, 0));
   write_text(25, 5, 7, format_datestamp(7, 0xff));
+  // save artix date for hickup date check
+  artix_ymd[0] = ymd[0];
+  artix_ymd[1] = ymd[1];
+  artix_ymd[2] = ymd[2];
   write_text(0, 6, 1, "MAX10 VERSION:");
   write_text(15, 6, 7, format_fpga_hash(13, 1));
   write_text(25, 6, 7, format_datestamp(13, 0x3f));
@@ -628,6 +770,17 @@ void draw_screen(void)
   // HYPPO/HDOS Version
   write_text(0, 9, 1, "HYPPO/HDOS:");
   write_text(15, 9, 7, format_hyppo_version());
+
+  // check for HICKUP
+  write_text(40, 9, 1, "HICKUP.M65 VERSION:");
+  read_file_from_sdcard("HICKUP.M65", 0x40000L);
+  if (PEEK(0xd021U)>6) { // not found increments background, stupid!
+    POKE(0xd021U, 6); // restore blue!
+    write_text(41, 10, 7, "NO HICKUP FOUND");
+  } else {
+    fail = format_hickup_version(0x40000L, artix_ymd);
+    write_text_upper(41, 10, 7+fail*3, buffer);
+  }
 
   // ROM version
   write_text(0, 10, 1, "ROM VERSION:");
@@ -643,8 +796,10 @@ void draw_screen(void)
     if (PEEK(0xd021U)>6) { // not found increments background, stupid!
       POKE(0xd021U, 6); // restore blue!
       write_text(col + 14, row, 10, "FILE NOT FOUND");
-    } else
-      write_text(col + 14, row, 7, format_util_version(0x40000L));
+    } else {
+      fail = format_util_version(0x40000L, artix_ymd);
+      write_text_upper(col + 14, row, 7+fail*3, buffer);
+    }
     if (!col)
       col=40;
     else {
