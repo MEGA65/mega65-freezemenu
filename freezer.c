@@ -654,7 +654,14 @@ void draw_freeze_menu(void)
         snail = 0;
 #endif
       }
-      else {
+      else if (detect_rom()[1] == 'M') {
+        read_file_from_sdcard("M65THUMB.M65", 0x052000L);
+        if (PEEK(0xD021U)>6) { // fallback
+          POKE(0xD021U,6);
+          read_file_from_sdcard("C65THUMB.M65", 0x052000L);
+        }
+        snail = 0;
+      } else {
         read_file_from_sdcard("C65THUMB.M65", 0x052000L);
         snail = 0;
       }
