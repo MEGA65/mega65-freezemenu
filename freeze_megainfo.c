@@ -772,14 +772,18 @@ void draw_screen(void)
   write_text(15, 9, 7, format_hyppo_version());
 
   // check for HICKUP
-  write_text(40, 9, 1, "HICKUP.M65 VERSION:");
+  write_text(40, 9, 1, "HYPPO STATUS:");
   read_file_from_sdcard("HICKUP.M65", 0x40000L);
   if (PEEK(0xd021U)>6) { // not found increments background, stupid!
     POKE(0xd021U, 6); // restore blue!
-    write_text(41, 10, 7, "NO HICKUP FOUND");
+    write_text(54, 9, 7, "NORMAL");
   } else {
     fail = format_hickup_version(0x40000L, artix_ymd);
     write_text_upper(41, 10, 7+fail*3, buffer);
+    if (fail)
+      write_text(54, 9, 10, "OUT OF DATE HICKUP.M65");
+    else
+      write_text(54, 9, 10, "LOCKED BY HICKUP.M65");
   }
 
   // ROM version
@@ -832,7 +836,7 @@ void init_megainfo() {
  */
 void do_megainfo()
 {
-  unsigned char x, rtcDEBUG = 1;
+  unsigned char x, rtcDEBUG = 0;
 
   init_megainfo();
 
