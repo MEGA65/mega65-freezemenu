@@ -520,7 +520,7 @@ unsigned char format_hickup_version(long addr, unsigned char *date) {
  * RTC Globals
  */
 static unsigned char clock_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 };
-static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0;
+static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0, no_extrtc=0;
 static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
 static unsigned short tod_ov = 0, rtc_ov = 0;
 static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0;
@@ -542,7 +542,7 @@ unsigned char get_rtc_stats(unsigned char reinit) {
   short pa, pb;
 
   // fetch external RTC state
-  if (lpeek(0xffd7400) == 0xff) { // external not installed
+  if (no_extrtc || lpeek(0xffd7400) == 0xff) { // external not installed
     if (hasRTC)
       rtc_state = 1;
     else
@@ -627,11 +627,11 @@ unsigned char get_rtc_stats(unsigned char reinit) {
 /*
  * format_extrtc_status(status)
  *
- *   status: status code from get_extrtc_status
+ *   status: status code from get_rtc_stats
  *
  *   globals: buffer
  *
- * formats hasExtRTC as a string in buffer+1
+ * formats status as a string in buffer+1
  * sets buffer+0 to the colour code 0-15
  */
 void format_extrtc_status(unsigned char status) {
@@ -677,19 +677,22 @@ void display_rtc_status(unsigned char x, unsigned char y) {
         if (rtc_ticks > 2) {
           rtc_ticking = 1;
           if (rtc_diff > 1) {
-            strcpy(buffer, "SLOW TICK    ");
-            colour = 8;
+            if (no_extrtc && isNTSC)
+              strcpy(buffer, "SLOW TICK, SLOW CIA TOD!");
+            else
+              strcpy(buffer, "SLOW TICK               ");
+            colour = 10;
           } else {
-            strcpy(buffer, "TICKING      ");
+            strcpy(buffer, "TICKING                 ");
             colour = 7;
           }
         } else {
-          strcpy(buffer, "NOT TICKING  ");
+          strcpy(buffer, "NOT TICKING             ");
           colour = 10;
         }
         write_text(x, y+1, colour, buffer);
       } else
-        write_text(x, y+1, 7, "CHECKING");
+        write_text(x, y+1, 7, "CHECKING                ");
     }
     if (!rtc_check) {
       sprintf(buffer, "20%02X-%02X-%02X %02X:%02X:%02X",
@@ -748,6 +751,11 @@ void draw_screen(void)
   // write model
   write_text(0, 3, 1, "MEGA65 MODEL:");
   write_text(15, 3, 7, format_mega_model());
+  write_text(40, 3, 1, "SCREEN MODE:");
+  if (isNTSC)
+    write_text(54, 3, 7, "NTSC");
+  else
+    write_text(54, 3, 7, "PAL");
 
   // output fpga versions
   write_text(0, 5, 1, "ARTIX VERSION:");
@@ -757,6 +765,11 @@ void draw_screen(void)
   artix_ymd[0] = ymd[0];
   artix_ymd[1] = ymd[1];
   artix_ymd[2] = ymd[2];
+  if (ymd[0]<22 || (ymd[0]==22 && (ymd[1]<6 || (ymd[1]==6 && ymd[2]<23)))) {
+    no_extrtc = 1;
+    write_text(19, 1, 10, "UPDATE CORE FOR EXTERNAL RTC SUPPORT!");
+  }
+
   write_text(0, 6, 1, "MAX10 VERSION:");
   write_text(15, 6, 7, format_fpga_hash(13, 1));
   write_text(25, 6, 7, format_datestamp(13, 0x3f));
