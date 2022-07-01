@@ -42,7 +42,7 @@ static unsigned char code_buffer[512], ymd[3];
  *
  * writes text to the screen using colour. converts to screencode (upper)
  */
-void write_text(unsigned char x, unsigned char y, unsigned char colour, char *text) {
+void write_text(unsigned char x, unsigned char y, unsigned short colour, char *text) {
   unsigned char i, c;
   for (i = 0; text[i]; i++) {
     c = text[i];
@@ -52,8 +52,10 @@ void write_text(unsigned char x, unsigned char y, unsigned char colour, char *te
       c -= 0x20;
     else if (c == '~') // ~ become pi
       c = 94;
+    if (colour&0x100 && c<128)
+      c |= 0x80;
     lpoke(SCREEN_ADDRESS + y * 80 + x + i, c);
-    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, colour);
+    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, (unsigned char)(colour&0xff));
   }
 }
 
@@ -67,7 +69,7 @@ void write_text(unsigned char x, unsigned char y, unsigned char colour, char *te
  * writes text to the screen using colour. converts to screencode,
  * and all lower is displayed as upper
  */
-void write_text_upper(unsigned char x, unsigned char y, unsigned char colour, char *text) {
+void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, char *text) {
   unsigned char i, c;
   for (i = 0; text[i]; i++) {
     c = text[i]&0x7f;
@@ -77,8 +79,10 @@ void write_text_upper(unsigned char x, unsigned char y, unsigned char colour, ch
       c -= 0x60;
     else if (c == '~') // ~ become pi
       c = 94;
+    if (colour&0x100 && c<128)
+      c |= 0x80;
     lpoke(SCREEN_ADDRESS + y * 80 + x + i, c);
-    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, colour);
+    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, (unsigned char)(colour&0xff));
   }
 }
 
@@ -767,7 +771,7 @@ void draw_screen(void)
   artix_ymd[2] = ymd[2];
   if (ymd[0]<22 || (ymd[0]==22 && (ymd[1]<6 || (ymd[1]==6 && ymd[2]<23)))) {
     no_extrtc = 1;
-    write_text(19, 1, 10, "UPDATE CORE FOR EXTERNAL RTC SUPPORT!");
+    write_text(19, 1, 256+24, "UPDATE CORE FOR EXTERNAL RTC SUPPORT!");
   }
 
   write_text(0, 6, 1, "MAX10 VERSION:");
