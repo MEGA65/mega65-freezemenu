@@ -70,13 +70,13 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.6       "
                              "                                        "
 
                              "                     (0) INTERNAL DRIVE:"
-#define DRIVE0_NUM_OFFSET (20 * 40 + 37)
-                             "                         (8) DEVICE #   "
+#define DRIVE0_NUM_OFFSET (20 * 40 + 35)
+                             "                         (8) UNIT #     "
 #define D81_IMAGE0_NAME_OFFSET (21 * 40 + 22)
                              "                                        "
                              "                     (1) EXTERNAL 1565: "
-#define DRIVE1_NUM_OFFSET (23 * 40 + 37)
-                             "                         (9) DEVICE #   "
+#define DRIVE1_NUM_OFFSET (23 * 40 + 35)
+                             "                         (9) UNIT #     "
 #define D81_IMAGE1_NAME_OFFSET (24 * 40 + 22)
                              "                                        "
                              "\0";
