@@ -66,10 +66,10 @@ char* detect_rom(void)
     return mega65_rom_name;
   }
 
-
   // OpenROM - 16 characters "OYYMMDDCC       "
   lcopy(0x20010L, (long)mega65_rom_name + 4, 16);
-  if ((mega65_rom_name[4] == 'O') && (mega65_rom_name[11] == '2') && (mega65_rom_name[12] == '0') && (mega65_rom_name[13] == ' ')) {
+  if ((mega65_rom_name[4] == 'O') && (mega65_rom_name[11] == '2') && (mega65_rom_name[12] == '0')
+      && (mega65_rom_name[13] == ' ')) {
     mega65_rom_name[0] = 'O';
     mega65_rom_name[1] = 'P';
     mega65_rom_name[2] = 'E';
