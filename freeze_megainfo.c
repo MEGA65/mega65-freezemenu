@@ -833,11 +833,8 @@ void draw_screen(void)
 
   // check for HICKUP
   write_text(40, 9, 1, "HYPPO STATUS:");
-  read_file_from_sdcard("HICKUP.M65", 0x40000L);
-  if (PEEK(0xd021U) > 6) { // not found increments background, stupid!
-    POKE(0xd021U, 6);      // restore blue!
+  if (read_file_from_sdcard("HICKUP.M65", 0x40000L))
     write_text(54, 9, 7, "NORMAL");
-  }
   else {
     fail = format_hickup_version(0x40000L, artix_ymd);
     write_text_upper(41, 10, 7 + fail * 3, buffer);
