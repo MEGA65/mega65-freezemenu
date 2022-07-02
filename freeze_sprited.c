@@ -516,6 +516,7 @@ static void DrawLine(PAINTFUNC pfun)
   clearattr();
 }
 
+/*
 static void DrawCircle(PAINTFUNC pfun)
 {
   RECT rc;
@@ -551,6 +552,7 @@ static void DrawCircle(PAINTFUNC pfun)
   //     }
   // }
 }
+*/
 
 static void DrawBox(PAINTFUNC pfun)
 {
@@ -576,10 +578,12 @@ static void DrawBox(PAINTFUNC pfun)
   clearattr();
 }
 
+#pragma warn (unused-param, push, off)
 static void DrawNothing(PAINTFUNC pfun)
 {
   return;
 }
+#pragma warn (unused-param, pop)
 
 void SetDrawTool(BYTE dt)
 {
@@ -1061,15 +1065,19 @@ static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
   g_state.redrawFlags |= REDRAW_SB_COORD;
 }
 
+#pragma warn (unused-param, push, off)
 static BYTE SaveRawData(const BYTE name[16], char deviceNumber)
 {
   return 0;
 }
+#pragma warn (unused-param, pop)
 
+#pragma warn (unused-param, push, off)
 static BYTE LoadRawData(const BYTE name[16])
 {
   return 0;
 }
+#pragma warn (unused-param, pop)
 
 static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 {
@@ -1188,7 +1196,6 @@ static void SetBackground()
 static void MainLoop()
 {
   static BYTE editColorCounter = 0;
-  FILEOPTIONS fileOpt;
   unsigned char buf[64];
   unsigned char key = 0, keymod = 0;
   BYTE redrawStatusBar = FALSE;

@@ -1,3 +1,5 @@
+#ifndef __FDISK_MEMORY_H__
+#define __FDISK_MEMORY_H__
 
 void m65_io_enable(void);
 unsigned char lpeek(long address);
@@ -7,3 +9,5 @@ void lcopy_safe(unsigned long src, unsigned long dst, unsigned int count);
 void lfill(long destination_address, unsigned char value, unsigned int count);
 #define POKE(X, Y) (*(unsigned char*)(X)) = Y
 #define PEEK(X) (*(unsigned char*)(X))
+
+#endif /* __FDISK_MEMORY_H__ */

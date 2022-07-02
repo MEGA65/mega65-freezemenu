@@ -13,6 +13,7 @@ fdisk*.s
 freeze_*.s
 frozen_*.s
 freezer.s
+freezer_common.s
 audiomix.s
 makedisk.s
 monitor.s

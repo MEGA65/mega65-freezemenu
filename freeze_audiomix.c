@@ -222,7 +222,7 @@ void val_to_db(unsigned int val)
 unsigned char msg[11];
 void draw_db_bar(unsigned char line, unsigned int val)
 {
-  unsigned int bar_addr = audio_menu_simple + line * 40 + 11;
+  unsigned int bar_addr = (unsigned int)audio_menu_simple + line * 40 + 11;
   // Work out the approximate db value of the signal
   val_to_db(val);
 
@@ -455,9 +455,6 @@ unsigned char db_bar_lowlight[80];
 
 void draw_simple_mixer(void)
 {
-  uint16_t offset;
-  uint8_t colour;
-
   // Update the volume bars and dB levels
   // display it after, so that we have no flicker
 
@@ -535,12 +532,12 @@ void draw_simple_mixer(void)
   for (i = 6; i < 21; i++) {
     if (i == select_column) {
       // Highligh colouring
-      lcopy(db_bar_highlight, COLOUR_RAM_ADDRESS + i * 80, 80);
+      lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + i * 80, 80);
     }
     else {
       // Normal colouring
       if (i < 12 || i > 14)
-        lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + i * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + i * 80, 80);
     }
   }
 }
@@ -615,17 +612,17 @@ void test_audio(unsigned char advanced_view)
       case 0:
       case 2:
       case 4:
-        lcopy(db_bar_highlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy(db_bar_highlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
-        lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-        lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
         break;
       case 1:
       case 3:
-        lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
-        lcopy(db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-        lcopy(db_bar_highlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
         break;
       }
     }
@@ -658,10 +655,10 @@ void test_audio(unsigned char advanced_view)
       lpoke(0xff80001L + i, lpeek(0xff80001L + i) & 0x0f);
   }
   else {
-    lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-    lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
-    lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-    lcopy(db_bar_lowlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
+    lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
+    lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+    lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
+    lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
   }
   // Silence SIDs gradually to avoid pops
   for (frames = 15; frames <= 0; frames--) {

@@ -1,3 +1,6 @@
+#ifndef __FREEZER_H__
+#define __FREEZER_H__
+
 #include <sys/types.h>
 #include <ctype.h>
 #include <stdint.h>
@@ -91,3 +94,5 @@ struct process_descriptor_t {
   // Pad out to whole sector size, so we can load it easily
   char padding[256];
 };
+
+#endif /* __FREEZER_H__ */

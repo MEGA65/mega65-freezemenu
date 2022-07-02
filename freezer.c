@@ -7,57 +7,32 @@
 #include <string.h>
 
 #include "freezer.h"
+#include "freezer_common.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
-#include "ascii.h"
 
-signed char swipe_dir = 0;
-
-// Used to quickly return from functions if a navigation key has been pressed
-// (used to avoid delays when navigating through the list of freeze slots
-#define NAVIGATION_KEY_CHECK()                                                                                              \
-  {                                                                                                                         \
-    if (((PEEK(0xD610U) & 0x7f) == 0x11) || ((PEEK(0xD610U) & 0x7f) == 0x1D))                                               \
-      return;                                                                                                               \
-  }
-
-uint8_t sector_buffer[512];
-
-unsigned short slot_number = 0;
-
-void clear_sector_buffer(void)
-{
-#ifndef __CC65__DONTUSE
-  int i;
-  for (i = 0; i < 512; i++)
-    sector_buffer[i] = 0;
-#else
-  lfill((uint32_t)sector_buffer, 0, 512);
-#endif
-}
-
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.6       "
+unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.7       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
-                             " cccccccccccccccccccccccccccccccccccccc "
-#define LOAD_RESUME_OFFSET (3 * 40 + 4)
-                             " F3-LOAD     F5-RESET   F7-SAVE TO SLOT "
-                             " cccccccccccccccccccccccccccccccccccccc "
+                             "cccccccccccccccccccccccccccccccccccccccc"
+#define LOAD_RESUME_OFFSET (3 * 40 + 3)
+                             "F3-LOAD   F5-RESET F7-SAVE HELP-MEGAINFO"
+                             "cccccccccccccccccccccccccccccccccccccccc"
 #define CPU_MODE_OFFSET (5 * 40 + 13)
 #define JOY_SWAP_OFFSET (5 * 40 + 36)
                              " (C)PU MODE:   4510  (J)OY SWAP:    YES "
-#define ROM_NAME_OFFSET (6 * 40 + 8)
+#define CPU_FREQ_OFFSET (6 * 40 + 13)
 #define CART_ENABLE_OFFSET (6 * 40 + 36)
-                             " (R)OM:  C65 911101  CAR(T) ENABLE: YES "
-#define CPU_FREQ_OFFSET (7 * 40 + 13)
+                             " CPU (F)REQ: 40 MHZ  CAR(T) ENABLE: YES "
+#define ROM_NAME_OFFSET (7 * 40 + 8)
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
-                             " CPU (F)REQ: 40 MHZ  (V)IDEO:    NTSC60 "
-                             " cccccccccccccccccccccccccccccccccccccc "
+                             " (R)OM:  C65 911101  (V)IDEO:    NTSC60 "
+                             "cccccccccccccccccccccccccccccccccccccccc"
                              " M - MONITOR                            "
                              " A - AUDIO & VOLUME                     "
                              " S - SPRITE EDITOR                      "
-                             " cccccccccccccccccccccccccccccccccccccc "
+                             "cccccccccccccccccccccccccccccccccccccccc"
                              "                                        "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
                              "                                        "
@@ -83,52 +58,17 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.6       "
 
 static unsigned short i;
 char* deadly_haiku[3] = { "Error consumes all", "As sand erodes rock and stone", "Now also your mind" };
-
-// clang-format off
-unsigned char c64_palette[64]={
-  0x00, 0x00, 0x00, 0x00,
-  0xff, 0xff, 0xff, 0x00,
-  0xba, 0x13, 0x62, 0x00,
-  0x66, 0xad, 0xff, 0x00,
-  0xbb, 0xf3, 0x8b, 0x00,
-  0x55, 0xec, 0x85, 0x00,
-  0xd1, 0xe0, 0x79, 0x00,
-  0xae, 0x5f, 0xc7, 0x00,
-  0x9b, 0x47, 0x81, 0x00,
-  0x87, 0x37, 0x00, 0x00,
-  0xdd, 0x39, 0x78, 0x00,
-  0xb5, 0xb5, 0xb5, 0x00,
-  0xb8, 0xb8, 0xb8, 0x00,
-  0x0b, 0x4f, 0xca, 0x00,
-  0xaa, 0xd9, 0xfe, 0x00,
-  0x8b, 0x8b, 0x8b, 0x00
-};
-// clang-format on
-
-unsigned char colour_table[256];
+#ifdef WITH_TOUCH
+signed char swipe_dir = 0;
+#endif
 
 void topetsciiupper(char* str, int len);
 
-void set_palette(void)
-{
-  // First set the 16 C64 colours
-  unsigned char c;
-  POKE(0xD070U, 0xFF);
-  for (c = 0; c < 16; c++) {
-    POKE(0xD100U + c, c64_palette[c * 4 + 0]);
-    POKE(0xD200U + c, c64_palette[c * 4 + 1]);
-    POKE(0xD300U + c, c64_palette[c * 4 + 2]);
-  }
+unsigned char colour_table[256];
 
-  // Then prepare a colour cube in the rest of the palette
-  for (c = 0x10; c; c++) {
-    // 3 bits for red
-    POKE(0xD100U + c, (c >> 4) & 0xe);
-    // 3 bits for green
-    POKE(0xD200U + c, (c >> 1) & 0xe);
-    // 2 bits for blue
-    POKE(0xD300U + c, (c << 2) & 0xf);
-  }
+void make_colour_lookup(void)
+{
+  unsigned char c;
 
   // Make colour lookup table
   c = 0;
@@ -153,28 +93,7 @@ void set_palette(void)
   colour_table[0x9e] = 0x0d; // lt.green
   colour_table[0x93] = 0x0e; // lt.blue
   colour_table[0xb6] = 0x0f; // grey3
-
-// We should also map colour cube colours 0x00 -- 0x0f to
-// somewhere sensible.
-// 0x00 = black, so can stay
-#if 0
-  colour_table[0x01] = 0x06;  // dim blue -> blue
-  // colour_table[0x02] = 0x06;  // medium dim blue -> blue
-  // colour_table[0x03] = 0x06;  // bright blue -> blue
-  colour_table[0x04] = 0x00;  // dim green + no blue
-  colour_table[0x05] = 0x25;  
-  colour_table[0x06] = 0x26;  
-  colour_table[0x07] = 0x27;  
-  colour_table[0x08] = 0x28;  
-  colour_table[0x09] = 0x29;  
-  colour_table[0x0A] = 0x2a;  
-  colour_table[0x0B] = 0x2b;  
-  colour_table[0x0C] = 0x2c;  
-  colour_table[0x0D] = 0x2d;  
-  colour_table[0x0E] = 0x2e;  
-  colour_table[0x0F] = 0x2f;
-#endif
-};
+}
 
 // clang-format off
 unsigned char viciv_regs[0x80] = {
@@ -222,15 +141,9 @@ void setup_menu_screen(void)
   lfill(0xff80000U, 1, 2000);
 }
 
-unsigned char ascii_to_screencode(char c)
-{
-  if (c >= 0x60)
-    return c - 0x60;
-  return c;
-}
-
 void screen_of_death(char* msg)
 {
+  // TODO: This is broken, obviously...
 #if 0
   POKE(0,0x41);
   POKE(0xD02FU,0x47); POKE(0xD02FU,0x53);
@@ -266,19 +179,6 @@ void screen_of_death(char* msg)
     continue;
 }
 
-unsigned char detect_cpu_speed(void)
-{
-  if (freeze_peek(0xffd367dL) & 0x10)
-    return 40;
-  if (freeze_peek(0xffd3054L) & 0x40)
-    return 40;
-  if (freeze_peek(0xffd3031L) & 0x40)
-    return 3;
-  if (freeze_peek(0xffd0030L) & 0x01)
-    return 2;
-  return 1;
-}
-
 void next_cpu_speed(void)
 {
   switch (detect_cpu_speed()) {
@@ -304,101 +204,6 @@ void next_cpu_speed(void)
     freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     break;
   }
-}
-
-char c65_rom_name[12];
-char* detect_rom(void)
-{
-  // Check for C65 ROM via version string
-  lcopy(0x20016L, (long)c65_rom_name + 4, 7);
-  if ((c65_rom_name[4] == 'V') && (c65_rom_name[5] == '9')) {
-    c65_rom_name[0] = ' ';
-    c65_rom_name[1] = 'C';
-    c65_rom_name[2] = '6';
-    c65_rom_name[3] = '5';
-    c65_rom_name[4] = ' ';
-    c65_rom_name[11] = 0;
-    if (c65_rom_name[6] >= '2')
-      c65_rom_name[1] = 'M';
-    return c65_rom_name;
-  }
-
-  // OpenROM - 16 characters "OYYMMDDCC       "
-  lcopy(0x20010L, (long)c65_rom_name + 4, 16);
-  if ((c65_rom_name[4] == 'O') && (c65_rom_name[11] == '2') && (c65_rom_name[12] == '0') && (c65_rom_name[13] == ' ')) {
-    c65_rom_name[0] = 'O';
-    c65_rom_name[1] = 'P';
-    c65_rom_name[2] = 'E';
-    c65_rom_name[3] = 'N';
-    c65_rom_name[4] = ' ';
-    c65_rom_name[11] = 0;
-    return c65_rom_name;
-  }
-
-  if (freeze_peek(0x2e47dL) == 'J') {
-    // Probably jiffy dos
-    if (freeze_peek(0x2e535L) == 0x06)
-      return "sx64 jiffy ";
-    else
-      return "c64 jiffy  ";
-  }
-
-  // Else guess using detection routines from detect_roms.c
-  // These were built using a combination of the ROMs from zimmers.net/pub/c64/firmware,
-  // the RetroReplay ROM collection, and the JiffyDOS ROMs
-  if (freeze_peek(0x2e449L) == 0x2e)
-    return "C64GS      ";
-  if (freeze_peek(0x2e119L) == 0xc9)
-    return "C64 REV1   ";
-  if (freeze_peek(0x2e67dL) == 0xb0)
-    return "C64 REV2 JP";
-  if (freeze_peek(0x2ebaeL) == 0x5b)
-    return "C64 REV3 DK";
-  if (freeze_peek(0x2e0efL) == 0x28)
-    return "C64 SCAND  ";
-  if (freeze_peek(0x2ebf3L) == 0x40)
-    return "C64 SWEDEN ";
-  if (freeze_peek(0x2e461L) == 0x20)
-    return "CYCLONE 1.0";
-  if (freeze_peek(0x2e4a4L) == 0x41)
-    return "DOLPHIN 1.0";
-  if (freeze_peek(0x2e47fL) == 0x52)
-    return "DOLPHIN 2AU";
-  if (freeze_peek(0x2eed7L) == 0x2c)
-    return "DOLPHIN 2P1";
-  if (freeze_peek(0x2e7d2L) == 0x6b)
-    return "DOLPHIN 2P2";
-  if (freeze_peek(0x2e4a6L) == 0x32)
-    return "DOLPHIN 2P3";
-  if (freeze_peek(0x2e0f9L) == 0xaa)
-    return "DOLPHIN 3.0";
-  if (freeze_peek(0x2e462L) == 0x45)
-    return "DOSROM V1.2";
-  if (freeze_peek(0x2e472L) == 0x20)
-    return "MERCRY3 PAL";
-  if (freeze_peek(0x2e16dL) == 0x84)
-    return "MERCRY NTSC";
-  if (freeze_peek(0x2e42dL) == 0x4c)
-    return "PET 4064   ";
-  if (freeze_peek(0x2e1d9L) == 0xa6)
-    return "SX64 CROACH";
-  if (freeze_peek(0x2eba9L) == 0x2d)
-    return "SX64 SCAND ";
-  if (freeze_peek(0x2e476L) == 0x2a)
-    return "TRBOACS 2.6";
-  if (freeze_peek(0x2e535L) == 0x07)
-    return "TRBOACS 3P1";
-  if (freeze_peek(0x2e176L) == 0x8d)
-    return "TRBOASC 3P2";
-  if (freeze_peek(0x2e42aL) == 0x72)
-    return "TRBOPROC US";
-  if (freeze_peek(0x2e4acL) == 0x81)
-    return "C64C 251913";
-  if (freeze_peek(0x2e479L) == 0x2a)
-    return "C64 REV2   ";
-  if (freeze_peek(0x2e535L) == 0x06)
-    return "SX64 REV4  ";
-  return "UNKNOWN ROM";
 }
 
 unsigned char thumbnail_buffer[4096];
@@ -861,6 +666,7 @@ int main(int argc, char** argv)
   POKE(0xD478U, 0);
 
   set_palette();
+  make_colour_lookup();
 
   // assure we're viewing the sdcard's sector buffer (and not the floppy disk buffer)
   origD689 = PEEK(0xD689);
