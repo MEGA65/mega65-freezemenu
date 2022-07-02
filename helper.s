@@ -19,7 +19,7 @@
 	
   ;; fall-back to FREEZER.M65 if other .M65 file can't be loaded
 _freezer_m65:
-  .asciiz "freezer.m65"
+	.asciiz "freezer.m65"
 
 _mega65_dos_exechelper:
 	;; char mega65_dos_exechelper(char *image_name);
@@ -73,26 +73,26 @@ _mega65_dos_exechelper:
 	jsr $0340
 
   ;; un-successful? Then try loading freezer instead
-  ldz #$00
+	ldz #$00
 @loop0:
-  ldx #$00
+	ldx #$00
 @loop1:
-  ldy #$00
+	ldy #$00
 @loop2:
-  iny
-  bne @loop2
-  inc $d020   ;; colour-cycle the border to indicate missing file
-  inx
-  bne @loop1
-  inz
-  cpz #60
-  bne @loop0
-  
-  lda #<_freezer_m65
-  sta ptr1
-  lda #>_freezer_m65
-  sta ptr1+1
-  bra @NameCopy
+	iny
+	bne @loop2
+	inc $d020   ;; colour-cycle the border to indicate missing file
+	inx
+	bne @loop1
+	inz
+	cpz #60
+	bne @loop0
+
+	lda #<_freezer_m65
+	sta ptr1
+	lda #>_freezer_m65
+	sta ptr1+1
+	bra @NameCopy
 	
 	;; as this is effectively like exec() on unix, it can only return an error
 	LDA #$01
@@ -212,7 +212,7 @@ _mega65_dos_chdir:
 
 @direntNotFound:
 	
-  jsr incsp2  ; remove the char* arg from the stack
+	jsr incsp2  ; remove the char* arg from the stack
 
 	;; return inverted carry flag, so result of 0 = success
 	PHP
@@ -343,11 +343,11 @@ _read_file_from_sdcard:
 	STA $D640		
 	NOP
 	;; XXX Check for error (carry would be clear)
-  bcs rdcnt
-  inc $d021 ;; increment background colour if problem reading the file
+	bcs rdcnt
+	inc $d021 ;; increment background colour if problem reading the file
 
 rdcnt:
-  jsr incsp6
+	jsr incsp6
 
 	LDZ #$00
 	

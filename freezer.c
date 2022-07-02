@@ -186,7 +186,7 @@ unsigned char viciv_regs[0x80] = {
   0x0C, 0x83, 0x00, 0x81, 0x05, 0x00, 0x00, 0x00, 0x50, 0x00, 0x78, 0x01, 0x50, 0xC0, 0x28, 0x00, 
   0x00, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0x00, 0x90, 0x00, 0x00, 0xF8, 0x07, 0x00, 0x00,
   0xFF, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, 0x81, 0x18, 0xC2, 0x00, 0x00, 0x7F };
-  // clang-format on
+// clang-format on
 
 void setup_menu_screen(void)
 {
@@ -307,9 +307,10 @@ void next_cpu_speed(void)
 }
 
 char c65_rom_name[12];
-char *detect_rom(void) {
+char* detect_rom(void)
+{
   // Check for C65 ROM via version string
-  lcopy(0x20016L, (long)c65_rom_name+4, 7);
+  lcopy(0x20016L, (long)c65_rom_name + 4, 7);
   if ((c65_rom_name[4] == 'V') && (c65_rom_name[5] == '9')) {
     c65_rom_name[0] = ' ';
     c65_rom_name[1] = 'C';
@@ -317,12 +318,13 @@ char *detect_rom(void) {
     c65_rom_name[3] = '5';
     c65_rom_name[4] = ' ';
     c65_rom_name[11] = 0;
-    if (c65_rom_name[6] >= '2') c65_rom_name[1] = 'M';
+    if (c65_rom_name[6] >= '2')
+      c65_rom_name[1] = 'M';
     return c65_rom_name;
   }
 
   // OpenROM - 16 characters "OYYMMDDCC       "
-  lcopy(0x20010L, (long)c65_rom_name+4, 16);
+  lcopy(0x20010L, (long)c65_rom_name + 4, 16);
   if ((c65_rom_name[4] == 'O') && (c65_rom_name[11] == '2') && (c65_rom_name[12] == '0') && (c65_rom_name[13] == ' ')) {
     c65_rom_name[0] = 'O';
     c65_rom_name[1] = 'P';
@@ -656,12 +658,13 @@ void draw_freeze_menu(void)
       }
       else if (detect_rom()[1] == 'M') {
         read_file_from_sdcard("M65THUMB.M65", 0x052000L);
-        if (PEEK(0xD021U)>6) { // fallback
-          POKE(0xD021U,6);
+        if (PEEK(0xD021U) > 6) { // fallback
+          POKE(0xD021U, 6);
           read_file_from_sdcard("C65THUMB.M65", 0x052000L);
         }
         snail = 0;
-      } else {
+      }
+      else {
         read_file_from_sdcard("C65THUMB.M65", 0x052000L);
         snail = 0;
       }

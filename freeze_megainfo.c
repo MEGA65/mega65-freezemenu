@@ -13,6 +13,7 @@
 /*
  * Constants
  */
+// clang-format off
 static char SDessentials[][13] = {
   "FREEZER.M65",
   "MEGAINFO.M65",
@@ -24,13 +25,14 @@ static char SDessentials[][13] = {
   "SPRITED.M65",
   ""
 };
+// clang-format on
 
 /*
  * Global Variables
  */
 #define BUFFER_LENGTH 254
 #define BUFFER_COLOUR 255
-static char buffer[BUFFER_LENGTH+2], tempstr32[32], isNTSC = 0, hasRTC = 0;
+static char buffer[BUFFER_LENGTH + 2], tempstr32[32], isNTSC = 0, hasRTC = 0;
 static unsigned char code_buffer[512], ymd[3];
 
 /*
@@ -42,7 +44,8 @@ static unsigned char code_buffer[512], ymd[3];
  *
  * writes text to the screen using colour. converts to screencode (upper)
  */
-void write_text(unsigned char x, unsigned char y, unsigned short colour, char *text) {
+void write_text(unsigned char x, unsigned char y, unsigned short colour, char* text)
+{
   unsigned char i, c;
   for (i = 0; text[i]; i++) {
     c = text[i];
@@ -52,10 +55,10 @@ void write_text(unsigned char x, unsigned char y, unsigned short colour, char *t
       c -= 0x20;
     else if (c == '~') // ~ become pi
       c = 94;
-    if (colour&0x100 && c<128)
+    if (colour & 0x100 && c < 128)
       c |= 0x80;
     lpoke(SCREEN_ADDRESS + y * 80 + x + i, c);
-    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, (unsigned char)(colour&0xff));
+    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, (unsigned char)(colour & 0xff));
   }
 }
 
@@ -69,20 +72,21 @@ void write_text(unsigned char x, unsigned char y, unsigned short colour, char *t
  * writes text to the screen using colour. converts to screencode,
  * and all lower is displayed as upper
  */
-void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, char *text) {
+void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, char* text)
+{
   unsigned char i, c;
   for (i = 0; text[i]; i++) {
-    c = text[i]&0x7f;
+    c = text[i] & 0x7f;
     if ((c >= 'A') && (c <= 'Z'))
       c -= 0x40;
     else if ((c >= 'a') && (c <= 'z'))
       c -= 0x60;
     else if (c == '~') // ~ become pi
       c = 94;
-    if (colour&0x100 && c<128)
+    if (colour & 0x100 && c < 128)
       c |= 0x80;
     lpoke(SCREEN_ADDRESS + y * 80 + x + i, c);
-    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, (unsigned char)(colour&0xff));
+    lpoke(COLOUR_RAM_ADDRESS + y * 80 + x + i, (unsigned char)(colour & 0xff));
   }
 }
 
@@ -95,7 +99,8 @@ void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, c
  * copying 32 bytes to global code_buffer, to make access
  * faster (lpeek is a dma_copy!)
  */
-void copy_hw_version() {
+void copy_hw_version()
+{
   lcopy(0xFFD3629L, (long)code_buffer, 32);
 }
 
@@ -109,33 +114,34 @@ void copy_hw_version() {
  *
  * get_hw_version must have been called to fill code_buffer
  */
-char *format_mega_model() {
+char* format_mega_model()
+{
   switch (code_buffer[0]) {
-    case 1:
-      return "MEGA65 R1";
-    case 2:
-      hasRTC = 1;
-      return "MEGA65 R2";
-    case 3:
-      hasRTC = 1;
-      return "MEGA65 R3";
-    case 33:
-      return "MEGAPHONE R1 PROTOTYPE";
-    case 64:
-      return "NEXYS 4 PSRAM";
-    case 65:
-      return "NEXYS 4 DDR (NO WIDGET)";
-    case 66:
-      return "NEXYS 4 DDR (WIDGET)";
-    case 253:
-      return "QMTECH WUKONG BOARD";
-    case 254:
-      return "SIMULATED MEGA65";
-    case 255:
-      return "HARDWARE NOT SPECIFIED";
-    default:
-      snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X", code_buffer[0]);
-      return tempstr32;
+  case 1:
+    return "MEGA65 R1";
+  case 2:
+    hasRTC = 1;
+    return "MEGA65 R2";
+  case 3:
+    hasRTC = 1;
+    return "MEGA65 R3";
+  case 33:
+    return "MEGAPHONE R1 PROTOTYPE";
+  case 64:
+    return "NEXYS 4 PSRAM";
+  case 65:
+    return "NEXYS 4 DDR (NO WIDGET)";
+  case 66:
+    return "NEXYS 4 DDR (WIDGET)";
+  case 253:
+    return "QMTECH WUKONG BOARD";
+  case 254:
+    return "SIMULATED MEGA65";
+  case 255:
+    return "HARDWARE NOT SPECIFIED";
+  default:
+    snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X", code_buffer[0]);
+    return tempstr32;
   }
 }
 
@@ -154,19 +160,21 @@ char *format_mega_model() {
  *
  * get_hw_version must have been called to fill code_buffer
  */
-char *format_datestamp(unsigned char offset, unsigned char msbmask) {
-  unsigned char m=1;
-  unsigned short y=2020, ds;
+char* format_datestamp(unsigned char offset, unsigned char msbmask)
+{
+  unsigned char m = 1;
+  unsigned short y = 2020, ds;
 
-  ds = (((unsigned short)(code_buffer[offset+1]&msbmask)) << 8) + (unsigned short)code_buffer[offset];
+  ds = (((unsigned short)(code_buffer[offset + 1] & msbmask)) << 8) + (unsigned short)code_buffer[offset];
 
   // first remove years. years are always full 366 days!
-  while (ds>366) {
+  while (ds > 366) {
     y++;
-    ds-=366;
+    ds -= 366;
   }
 
   // then find out month and day, years divideable by 4 are jump years (no 100 or 400 in sight!)
+  // clang-format off
   if (m==1 && ds>31) { m++; ds -= 31; }
   if (m==2 && !(y&3) && ds>29) { m++; ds-=29; }
   if (m==2 && (y&3) && ds>28) { m++; ds-=28; }
@@ -179,22 +187,26 @@ char *format_datestamp(unsigned char offset, unsigned char msbmask) {
   if (m==9 && ds>31) { m++; ds-=31;}
   if (m==10 && ds>30) { m++; ds-=30;}
   if (m==11 && ds>31) { m++; ds-=31;}
+  // clang-format on
 
   // snprintf can't do %d!
-  itoa(y, tempstr32, 10); strcpy(buffer, tempstr32);
-  if (m>9)
+  itoa(y, tempstr32, 10);
+  strcpy(buffer, tempstr32);
+  if (m > 9)
     strcat(buffer, "-");
   else
     strcat(buffer, "-0");
-  itoa(m, tempstr32, 10); strcat(buffer, tempstr32);
-  if (ds>9)
+  itoa(m, tempstr32, 10);
+  strcat(buffer, tempstr32);
+  if (ds > 9)
     strcat(buffer, "-");
   else
     strcat(buffer, "-0");
-  itoa(ds, tempstr32, 10); strcat(buffer, tempstr32);
+  itoa(ds, tempstr32, 10);
+  strcat(buffer, tempstr32);
 
   // save date for external use
-  ymd[0] = (unsigned char)(y-2000);
+  ymd[0] = (unsigned char)(y - 2000);
   ymd[1] = m;
   ymd[2] = ds;
 
@@ -214,11 +226,14 @@ char *format_datestamp(unsigned char offset, unsigned char msbmask) {
  *
  * get_hw_version must have been called to fill code_buffer
  */
-char *format_fpga_hash(unsigned char offset, unsigned char reverse) {
+char* format_fpga_hash(unsigned char offset, unsigned char reverse)
+{
   if (reverse)
-    sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset+2], code_buffer[offset+3], code_buffer[offset+4], code_buffer[offset+5]);
+    sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset + 2], code_buffer[offset + 3], code_buffer[offset + 4],
+        code_buffer[offset + 5]);
   else
-    sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset+5], code_buffer[offset+4], code_buffer[offset+3], code_buffer[offset+2]);
+    sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset + 5], code_buffer[offset + 4], code_buffer[offset + 3],
+        code_buffer[offset + 2]);
 
   return buffer;
 }
@@ -231,9 +246,10 @@ char *format_fpga_hash(unsigned char offset, unsigned char reverse) {
  *
  * formats the ROM version. Tries to detect C64 ROMS.
  */
-char *format_rom_version(void) {
+char* format_rom_version(void)
+{
   // Check for C65 ROM via version string
-  lcopy(0x20016L, (long)buffer+4, 7);
+  lcopy(0x20016L, (long)buffer + 4, 7);
   if ((buffer[4] == 'V') && (buffer[5] == '9')) {
     if (buffer[6] >= '2')
       buffer[0] = 'M';
@@ -247,7 +263,7 @@ char *format_rom_version(void) {
   }
 
   // OpenROM - 16 characters "OYYMMDDCC       "
-  lcopy(0x20010L, (long)buffer+4, 16);
+  lcopy(0x20010L, (long)buffer + 4, 16);
   if ((buffer[4] == 'O') && (buffer[11] == '2') && (buffer[12] == '0') && (buffer[13] == ' ')) {
     buffer[0] = 'O';
     buffer[1] = 'P';
@@ -356,22 +372,28 @@ char *format_rom_version(void) {
  *
  * fetches and formats hyppo and hdos version as a string '?.? / ?.?'
  */
-char *format_hyppo_version(void) {
+char* format_hyppo_version(void)
+{
   unsigned char hyppo_version[4] = { 0xff, 0xff, 0xff, 0xff };
 
   // hypervisor call, external
   hyppo_getversion(hyppo_version);
 
-  if (hyppo_version[0] == hyppo_version[1] &&
-      hyppo_version[1] == hyppo_version[2] &&
-      hyppo_version[2] == hyppo_version[3] &&
-      hyppo_version[0] == 0xff)
+  if (hyppo_version[0] == hyppo_version[1] && hyppo_version[1] == hyppo_version[2] && hyppo_version[2] == hyppo_version[3]
+      && hyppo_version[0] == 0xff)
     strcpy(buffer, "?.? / ?.?");
   else {
-    itoa(hyppo_version[0], tempstr32, 10); strcpy(buffer, tempstr32); strcat(buffer, ".");
-    itoa(hyppo_version[1], tempstr32, 10); strcat(buffer, tempstr32); strcat(buffer, " / ");
-    itoa(hyppo_version[2], tempstr32, 10); strcat(buffer, tempstr32); strcat(buffer, ".");
-    itoa(hyppo_version[3], tempstr32, 10); strcat(buffer, tempstr32);
+    itoa(hyppo_version[0], tempstr32, 10);
+    strcpy(buffer, tempstr32);
+    strcat(buffer, ".");
+    itoa(hyppo_version[1], tempstr32, 10);
+    strcat(buffer, tempstr32);
+    strcat(buffer, " / ");
+    itoa(hyppo_version[2], tempstr32, 10);
+    strcat(buffer, tempstr32);
+    strcat(buffer, ".");
+    itoa(hyppo_version[3], tempstr32, 10);
+    strcat(buffer, tempstr32);
   }
 
   return buffer;
@@ -389,17 +411,18 @@ char *format_hyppo_version(void) {
  * starting with 'v:20' and returns the next characters until a zero byte
  * compares to date (which should by artix ymd) and returns 0 if equal or newer
  */
-unsigned char format_util_version(long addr, unsigned char *date) {
-  unsigned short i, j=0;
+unsigned char format_util_version(long addr, unsigned char* date)
+{
+  unsigned short i, j = 0;
   unsigned char temp, result = 0, p;
 
   lcopy(addr, (long)code_buffer, 512);
 
   strncpy(buffer, "UNKNOWN VERSION", 64);
-  for (i=0; i<512; i++) {
-    if (code_buffer[i]==0x56 && code_buffer[i+1]==0x3a && code_buffer[i+2]==0x32 && code_buffer[i+3]==0x30) {
+  for (i = 0; i < 512; i++) {
+    if (code_buffer[i] == 0x56 && code_buffer[i + 1] == 0x3a && code_buffer[i + 2] == 0x32 && code_buffer[i + 3] == 0x30) {
       i += 4; // skip v:20
-      while (j<64 && code_buffer[i])
+      while (j < 64 && code_buffer[i])
         buffer[j++] = code_buffer[i++];
       buffer[j] = 0;
       break;
@@ -407,23 +430,25 @@ unsigned char format_util_version(long addr, unsigned char *date) {
   }
 
   // parse date, starts at first char
-  for (p=0; p<3; p++) {
-    if (buffer[p*2]>='0' && buffer[p*2]<='9' && buffer[p*2+1]>='0' && buffer[p*2+1]<='9') {
-      temp = (buffer[p*2]-'0')*10 + buffer[p*2+1]-'0';
+  for (p = 0; p < 3; p++) {
+    if (buffer[p * 2] >= '0' && buffer[p * 2] <= '9' && buffer[p * 2 + 1] >= '0' && buffer[p * 2 + 1] <= '9') {
+      temp = (buffer[p * 2] - '0') * 10 + buffer[p * 2 + 1] - '0';
       /*
       snprintf(tempstr32, 5, "%02X", temp);
       write_text(10+p*3, 20, 12, tempstr32);
       snprintf(tempstr32, 5, "%02X", date[p]);
       write_text(10+p*3, 21, 12, tempstr32);
       */
-      if (temp>date[p]) {
+      if (temp > date[p]) {
         result = 0;
         break;
-      } else if (temp<date[p]) {
+      }
+      else if (temp < date[p]) {
         result = 1;
         break;
       }
-    } else
+    }
+    else
       result = 1;
   }
 
@@ -431,8 +456,8 @@ unsigned char format_util_version(long addr, unsigned char *date) {
   i = strlen(buffer);
   if (i > 25) {
     i -= 25;
-    for (j=0; j<25; j++)
-      buffer[j] = buffer[i+j];
+    for (j = 0; j < 25; j++)
+      buffer[j] = buffer[i + j];
     buffer[j] = 0;
   }
 
@@ -451,26 +476,29 @@ unsigned char format_util_version(long addr, unsigned char *date) {
  * search for GIT: in 40000 upwards
  * tries to parse date and compare to date[3]
  */
-unsigned char format_hickup_version(long addr, unsigned char *date) {
-  unsigned short p, i, j=0;
-  char *needle = "GIT: ";
-  char *needle2 = ",20";
+unsigned char format_hickup_version(long addr, unsigned char* date)
+{
+  unsigned short p, i, j = 0;
+  char* needle = "GIT: ";
+  char* needle2 = ",20";
 #define NEEDLE_LEN 5
 #define NEEDLE2_LEN 3
   unsigned char version_fail = 1, finished = 0, cmp_idx = 0, temp;
 
-  for (p=0; p<64 && !finished; p++) {
-    lcopy(addr + 512l*p, (long)code_buffer, 512);
-    for (i=0; i<512; i++) {
+  for (p = 0; p < 64 && !finished; p++) {
+    lcopy(addr + 512l * p, (long)code_buffer, 512);
+    for (i = 0; i < 512; i++) {
       // looking for needle in the haystack
-      if (cmp_idx<NEEDLE_LEN) {
+      if (cmp_idx < NEEDLE_LEN) {
         if (needle[cmp_idx] == code_buffer[i]) {
           cmp_idx++;
-        } else
+        }
+        else
           cmp_idx = 0;
-      } else {
+      }
+      else {
         buffer[j++] = code_buffer[i];
-        if (code_buffer[i]==0) {
+        if (code_buffer[i] == 0) {
           finished = 1;
           break;
         }
@@ -489,33 +517,38 @@ unsigned char format_hickup_version(long addr, unsigned char *date) {
 
   // try to parse date
   cmp_idx = 0;
-  for (j=0; j<i; j++) {
-    if (cmp_idx<NEEDLE2_LEN) {
+  for (j = 0; j < i; j++) {
+    if (cmp_idx < NEEDLE2_LEN) {
       if (needle2[cmp_idx] == buffer[j]) {
         cmp_idx++;
-      } else
+      }
+      else
         cmp_idx = 0;
-    } else {
-      for (p=0; p<3; p++) {
-        if (buffer[j+p*2]>='0' && buffer[j+p*2]<='9' && buffer[j+p*2+1]>='0' && buffer[j+p*2+1]<='9') {
-          temp = (buffer[j+p*2]-'0')*10 + buffer[j+p*2+1]-'0';
+    }
+    else {
+      for (p = 0; p < 3; p++) {
+        if (buffer[j + p * 2] >= '0' && buffer[j + p * 2] <= '9' && buffer[j + p * 2 + 1] >= '0'
+            && buffer[j + p * 2 + 1] <= '9') {
+          temp = (buffer[j + p * 2] - '0') * 10 + buffer[j + p * 2 + 1] - '0';
           /*
           snprintf(tempstr32, 5, "%02X", temp);
           write_text(p*3, 20, 12, tempstr32);
           snprintf(tempstr32, 5, "%02X", date[p]);
           write_text(p*3, 21, 12, tempstr32);
           */
-          if (temp>date[p])
+          if (temp > date[p])
             return 0;
-          else if (temp<date[p])
+          else if (temp < date[p])
             return 1;
-        } else
+        }
+        else
           return 1;
       }
     }
   }
 
-  if (cmp_idx<NEEDLE2_LEN) return 2;
+  if (cmp_idx < NEEDLE2_LEN)
+    return 2;
 
   return 0;
 }
@@ -523,9 +556,9 @@ unsigned char format_hickup_version(long addr, unsigned char *date) {
 /*
  * RTC Globals
  */
-static unsigned char clock_init = 1, tod_buf[8] = { 0,0,0,0,0,0,0,0 };
-static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0, no_extrtc=0;
-static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0,0,0,0,0,0,0,0,0,0,0,0 };
+static unsigned char clock_init = 1, tod_buf[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0, no_extrtc = 0;
+static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 static unsigned short tod_ov = 0, rtc_ov = 0;
 static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0;
 
@@ -542,7 +575,8 @@ static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0;
  * if tod ticks have changed, also updates all RTCs
  * returns 0 if tod seconds have not changed, otherwise 1
  */
-unsigned char get_rtc_stats(unsigned char reinit) {
+unsigned char get_rtc_stats(unsigned char reinit)
+{
   short pa, pb;
 
   // fetch external RTC state
@@ -551,7 +585,8 @@ unsigned char get_rtc_stats(unsigned char reinit) {
       rtc_state = 1;
     else
       rtc_state = 0;
-  } else {
+  }
+  else {
     if (lpeek(0xffd74fd) & 0x80)
       rtc_state = 3; // external installed & active
     else
@@ -577,27 +612,28 @@ unsigned char get_rtc_stats(unsigned char reinit) {
     rtc_ticking = 0;
     rtc_diff = 0;
   }
-  lcopy(0xffd7110l, (long)rtc_buf+6, 6);
-  lcopy(0xffd3c08l, (long)tod_buf+4, 4);
+  lcopy(0xffd7110l, (long)rtc_buf + 6, 6);
+  lcopy(0xffd3c08l, (long)tod_buf + 4, 4);
 
   // only looking at seconds here, derived from minutes + seconds
-  pa = ((tod_buf[1]>>4)&0x7)*10 + (tod_buf[1]&0xf) + (((tod_buf[2]>>4)&0x7)*10 + (tod_buf[2]&0xf))*60;
-  pb = ((tod_buf[5]>>4)&0x7)*10 + (tod_buf[5]&0xf) + (((tod_buf[6]>>4)&0x7)*10 + (tod_buf[6]&0xf))*60;
-  tod_ticks = pb-pa;
-  if (tod_ticks<0) {
+  pa = ((tod_buf[1] >> 4) & 0x7) * 10 + (tod_buf[1] & 0xf) + (((tod_buf[2] >> 4) & 0x7) * 10 + (tod_buf[2] & 0xf)) * 60;
+  pb = ((tod_buf[5] >> 4) & 0x7) * 10 + (tod_buf[5] & 0xf) + (((tod_buf[6] >> 4) & 0x7) * 10 + (tod_buf[6] & 0xf)) * 60;
+  tod_ticks = pb - pa;
+  if (tod_ticks < 0) {
     tod_ticks += 3600; // we can work with one hour overflow
     tod_ov++;
-    if (tod_ov>1) { // after that we reinitialise (who lets this run for hours?)
+    if (tod_ov > 1) { // after that we reinitialise (who lets this run for hours?)
       clock_init = 1;
       tod_ticks = 0;
     }
   }
-  
-  if (tod_ticks == tod_last) return 0;
+
+  if (tod_ticks == tod_last)
+    return 0;
   // tod_ticks changed, update rtc
 
   // external rtc needs a moment to settle
-  if (rtc_settle>0) {
+  if (rtc_settle > 0) {
     rtc_settle--;
     clock_init = 1;
     return 0;
@@ -607,22 +643,22 @@ unsigned char get_rtc_stats(unsigned char reinit) {
 
   // handle RTC
   if (rtc_state & 1) {
-    pa = ((rtc_buf[0]>>4)&0x7)*10 + (rtc_buf[0]&0xf) + (((rtc_buf[1]>>4)&0x7)*10 + (rtc_buf[1]&0xf))*60;
-    pb = ((rtc_buf[6]>>4)&0x7)*10 + (rtc_buf[6]&0xf) + (((rtc_buf[7]>>4)&0x7)*10 + (rtc_buf[7]&0xf))*60;
-    rtc_ticks = pb-pa;
-    if (rtc_ticks<0) {
-      rtc_ticks += 3600;   // we can work with one hour overflow
+    pa = ((rtc_buf[0] >> 4) & 0x7) * 10 + (rtc_buf[0] & 0xf) + (((rtc_buf[1] >> 4) & 0x7) * 10 + (rtc_buf[1] & 0xf)) * 60;
+    pb = ((rtc_buf[6] >> 4) & 0x7) * 10 + (rtc_buf[6] & 0xf) + (((rtc_buf[7] >> 4) & 0x7) * 10 + (rtc_buf[7] & 0xf)) * 60;
+    rtc_ticks = pb - pa;
+    if (rtc_ticks < 0) {
+      rtc_ticks += 3600; // we can work with one hour overflow
       rtc_ov++;
-      if (rtc_ov>1) {
+      if (rtc_ov > 1) {
         clock_init = 1;
         return 0;
       }
     }
 
-    if (rtc_ticks>tod_ticks)
-      rtc_diff = rtc_ticks-tod_ticks;
+    if (rtc_ticks > tod_ticks)
+      rtc_diff = rtc_ticks - tod_ticks;
     else
-      rtc_diff = tod_ticks-rtc_ticks;
+      rtc_diff = tod_ticks - rtc_ticks;
   }
 
   return 1;
@@ -638,23 +674,24 @@ unsigned char get_rtc_stats(unsigned char reinit) {
  * formats status as a string in buffer+1
  * sets buffer+0 to the colour code 0-15
  */
-void format_extrtc_status(unsigned char status) {
+void format_extrtc_status(unsigned char status)
+{
   switch (status) {
-    case 0:
-      strcpy(buffer, "\10NO RTC AVAILABLE  ");
-      break;
-    case 1:
-      strcpy(buffer, "\7INTERNAL          ");
-      break;
-    case 2:
-      strcpy(buffer, "\10EXTERNAL, INACTIVE");
-      break;
-    case 3:
-      strcpy(buffer, "\7EXTERNAL, ACTIVE  ");
-      break;
-    default:
-      strcpy(buffer, "\11UNKNOWN           ");
-      break;
+  case 0:
+    strcpy(buffer, "\10NO RTC AVAILABLE  ");
+    break;
+  case 1:
+    strcpy(buffer, "\7INTERNAL          ");
+    break;
+  case 2:
+    strcpy(buffer, "\10EXTERNAL, INACTIVE");
+    break;
+  case 3:
+    strcpy(buffer, "\7EXTERNAL, ACTIVE  ");
+    break;
+  default:
+    strcpy(buffer, "\11UNKNOWN           ");
+    break;
   }
 }
 
@@ -666,17 +703,18 @@ void format_extrtc_status(unsigned char status) {
  *
  * write rtc status to screen
  */
-void display_rtc_status(unsigned char x, unsigned char y) {
+void display_rtc_status(unsigned char x, unsigned char y)
+{
   unsigned char colour;
 
   // write out rtc state
   format_extrtc_status(rtc_state);
-  write_text(x, y, buffer[0], buffer+1);
+  write_text(x, y, buffer[0], buffer + 1);
 
   if (rtc_state & 0x1) { // 1 and 3 are active
     if (rtc_check) {
       // we wait 20 seconds to see if we have ticks
-      if (tod_ticks>20) {
+      if (tod_ticks > 20) {
         rtc_check = 0;
         if (rtc_ticks > 2) {
           rtc_ticking = 1;
@@ -686,47 +724,52 @@ void display_rtc_status(unsigned char x, unsigned char y) {
             else
               strcpy(buffer, "SLOW TICK               ");
             colour = 10;
-          } else {
+          }
+          else {
             strcpy(buffer, "TICKING                 ");
             colour = 7;
           }
-        } else {
+        }
+        else {
           strcpy(buffer, "NOT TICKING             ");
           colour = 10;
         }
-        write_text(x, y+1, colour, buffer);
-      } else
-        write_text(x, y+1, 7, "CHECKING                ");
+        write_text(x, y + 1, colour, buffer);
+      }
+      else
+        write_text(x, y + 1, 7, "CHECKING                ");
     }
     if (!rtc_check) {
-      sprintf(buffer, "20%02X-%02X-%02X %02X:%02X:%02X",
-              rtc_buf[11], rtc_buf[10]&0x1f, rtc_buf[9]&0x3f, rtc_buf[8]&0x3f, rtc_buf[7]&0x7f, rtc_buf[6]);
-      write_text(x, y+2, 12, buffer);
-    } else
-      write_text(x, y+2, 12, "                    ");
+      sprintf(buffer, "20%02X-%02X-%02X %02X:%02X:%02X", rtc_buf[11], rtc_buf[10] & 0x1f, rtc_buf[9] & 0x3f,
+          rtc_buf[8] & 0x3f, rtc_buf[7] & 0x7f, rtc_buf[6]);
+      write_text(x, y + 2, 12, buffer);
+    }
+    else
+      write_text(x, y + 2, 12, "                    ");
   }
 }
 
-void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, unsigned char mode) {
+void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, unsigned char mode)
+{
   // DEBUG output in the bottom line
   switch (mode) {
-    case 1:
-      sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X",
-              rtc_buf[7]&0x7f, rtc_buf[6], rtc_ticks, tod_buf[6]&0x7f, tod_buf[5], tod_ticks, rtc_diff);
-      if (rtc_state==1)
-        buffer[0] = 'I';
-      else if (rtc_state==2 || rtc_state==3)
-        buffer[0] = 'E';
-      break;
-    default:
-      strcpy(buffer, "                                                     ");
+  case 1:
+    sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X", rtc_buf[7] & 0x7f, rtc_buf[6], rtc_ticks,
+        tod_buf[6] & 0x7f, tod_buf[5], tod_ticks, rtc_diff);
+    if (rtc_state == 1)
+      buffer[0] = 'I';
+    else if (rtc_state == 2 || rtc_state == 3)
+      buffer[0] = 'E';
+    break;
+  default:
+    strcpy(buffer, "                                                     ");
   }
   write_text(x, y, colour, buffer);
-  if (mode>0) {
+  if (mode > 0) {
     if (isNTSC)
-      write_text(strlen(buffer)+1, y, colour, "NTSC");
+      write_text(strlen(buffer) + 1, y, colour, "NTSC");
     else
-      write_text(strlen(buffer)+1, y, colour, "PAL ");
+      write_text(strlen(buffer) + 1, y, colour, "PAL ");
   }
 }
 
@@ -740,7 +783,7 @@ void draw_screen(void)
   unsigned char row, col, i, fail, artix_ymd[3];
 
   // clear screen
-  lfill(SCREEN_ADDRESS, 0x20,2000);
+  lfill(SCREEN_ADDRESS, 0x20, 2000);
 
   // write header
   write_text(0, 0, 1, "MEGA65 INFORMATION");
@@ -769,9 +812,9 @@ void draw_screen(void)
   artix_ymd[0] = ymd[0];
   artix_ymd[1] = ymd[1];
   artix_ymd[2] = ymd[2];
-  if (ymd[0]<22 || (ymd[0]==22 && (ymd[1]<6 || (ymd[1]==6 && ymd[2]<23)))) {
+  if (ymd[0] < 22 || (ymd[0] == 22 && (ymd[1] < 6 || (ymd[1] == 6 && ymd[2] < 23)))) {
     no_extrtc = 1;
-    write_text(19, 1, 256+24, "UPDATE CORE FOR EXTERNAL RTC SUPPORT!");
+    write_text(19, 1, 256 + 24, "UPDATE CORE FOR EXTERNAL RTC SUPPORT!");
   }
 
   write_text(0, 6, 1, "MAX10 VERSION:");
@@ -791,12 +834,13 @@ void draw_screen(void)
   // check for HICKUP
   write_text(40, 9, 1, "HYPPO STATUS:");
   read_file_from_sdcard("HICKUP.M65", 0x40000L);
-  if (PEEK(0xd021U)>6) { // not found increments background, stupid!
-    POKE(0xd021U, 6); // restore blue!
+  if (PEEK(0xd021U) > 6) { // not found increments background, stupid!
+    POKE(0xd021U, 6);      // restore blue!
     write_text(54, 9, 7, "NORMAL");
-  } else {
+  }
+  else {
     fail = format_hickup_version(0x40000L, artix_ymd);
-    write_text_upper(41, 10, 7+fail*3, buffer);
+    write_text_upper(41, 10, 7 + fail * 3, buffer);
     if (fail)
       write_text(54, 9, 10, "OUT OF DATE HICKUP.M65");
     else
@@ -808,27 +852,28 @@ void draw_screen(void)
   write_text(15, 10, 7, format_rom_version());
 
   // Utility versions (need to load file to parse...)
-  row = 12; col = 0;
-  for (i=0; SDessentials[i][0] != 0; i++) {
+  row = 12;
+  col = 0;
+  for (i = 0; SDessentials[i][0] != 0; i++) {
     read_file_from_sdcard(SDessentials[i], 0x40000L);
     strcpy(buffer, SDessentials[i]);
     strcat(buffer, ":");
     write_text(col, row, 1, buffer);
-    if (PEEK(0xd021U)>6) { // not found increments background, stupid!
-      POKE(0xd021U, 6); // restore blue!
+    if (PEEK(0xd021U) > 6) { // not found increments background, stupid!
+      POKE(0xd021U, 6);      // restore blue!
       write_text(col + 14, row, 10, "FILE NOT FOUND");
-    } else {
+    }
+    else {
       fail = format_util_version(0x40000L, artix_ymd);
-      write_text_upper(col + 14, row, 7+fail*3, buffer);
+      write_text_upper(col + 14, row, 7 + fail * 3, buffer);
     }
     if (!col)
-      col=40;
+      col = 40;
     else {
-      col=0;
+      col = 0;
       row++;
     }
   }
-
 }
 
 /*
@@ -836,13 +881,14 @@ void draw_screen(void)
  *
  * initialize basic structures and screen
  */
-void init_megainfo() {
+void init_megainfo()
+{
   isNTSC = (lpeek(0xFFD306fL) & 0x80) == 0x80;
   // fix TOD frequency
   if (isNTSC)
-    lpoke(0xffd3c0el, lpeek(0xffd3c0el)&0x7f);
+    lpoke(0xffd3c0el, lpeek(0xffd3c0el) & 0x7f);
   else // is PAL, set 50Hz bit
-    lpoke(0xffd3c0el, lpeek(0xffd3c0el)|0x80);
+    lpoke(0xffd3c0el, lpeek(0xffd3c0el) | 0x80);
 
   get_rtc_stats(1); // initialise rtc data cache
   draw_screen();
@@ -858,7 +904,8 @@ void do_megainfo()
   init_megainfo();
 
   // clear keybuffer
-  while ((x = PEEK(0xD610U))) POKE(0xD610U, x);
+  while ((x = PEEK(0xD610U)))
+    POKE(0xD610U, x);
 
   // mainloop
   while (1) {
@@ -870,21 +917,22 @@ void do_megainfo()
       display_rtc_debug(0, 24, 12, rtcDEBUG);
     }
 
-    if (x==0) continue;
+    if (x == 0)
+      continue;
     POKE(0xD610U, x);
 
     switch (x) {
-      case 0xF1: // F1 - Toggle DEBUG
-        rtcDEBUG = 1 - rtcDEBUG;
-        display_rtc_debug(0, 24, 12, rtcDEBUG);
-        break;
-      case 0xF5: // F5 - REFRESH
-        init_megainfo();
-        break;
-      case 0xF3: // F3
-      case 0x1b: // ESC
-      case 0x03: // RUN-STOP
-        return; // EXIT!
+    case 0xF1: // F1 - Toggle DEBUG
+      rtcDEBUG = 1 - rtcDEBUG;
+      display_rtc_debug(0, 24, 12, rtcDEBUG);
+      break;
+    case 0xF5: // F5 - REFRESH
+      init_megainfo();
+      break;
+    case 0xF3: // F3
+    case 0x1b: // ESC
+    case 0x03: // RUN-STOP
+      return;  // EXIT!
     }
   }
 

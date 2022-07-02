@@ -625,7 +625,7 @@ void do_make_disk_image(unsigned char isD65)
 
   // Copy filename into diskname before it gets extended by the filename extension
   strcpy(diskname, filename);
-  
+
   filename[filename_len++] = '.';
   filename[filename_len++] = 0x44;
   if (isD65) {

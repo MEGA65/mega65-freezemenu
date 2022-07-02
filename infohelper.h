@@ -2,4 +2,4 @@
 #include <ctype.h>
 #include <stdint.h>
 
-char cdecl hyppo_getversion(unsigned char *buffer);
+char cdecl hyppo_getversion(unsigned char* buffer);

@@ -222,11 +222,15 @@ format:
 
 clean: cleangen
 	rm -f $(FILES) \
-	*.o *.map *.list \
+	*.o *.map *.list *.lbl \
+	freezer.s \
 	freeze_*.s \
 	frozen_*.s \
+	fdisk_*.s \
+	megainfo.s \
+	version.s \
 	audiomix.s makedisk.s monitor.s romload.s sprited.s \
-	asciih \
+	tools/asciih \
 	tools/pngprepare \
 	tools/thumbnail-surround-formatter
 

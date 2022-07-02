@@ -245,25 +245,25 @@ unsigned long fat32_allocate_cluster(unsigned long cluster)
   unsigned short i;
 
   // Find free cluster
-  for(fat_sector_num=0;fat_sector_num < (fat2_sector-fat1_sector); fat_sector_num++) {
-    sdcard_readsector(fat1_sector+fat_sector_num);
-    for(i=0;i<512;i+=4) {
+  for (fat_sector_num = 0; fat_sector_num < (fat2_sector - fat1_sector); fat_sector_num++) {
+    sdcard_readsector(fat1_sector + fat_sector_num);
+    for (i = 0; i < 512; i += 4) {
       if (*(unsigned long*)&sector_buffer[i] == 0)
         break;
     }
-    if (i<512) {
+    if (i < 512) {
       // Found new free cluster, so place end-of-chain marker on it
-      new_cluster=fat_sector_num*128+(i>>2);
-      *(unsigned long *)&sector_buffer[i]=0x0fffffff;
-      sdcard_writesector(fat1_sector+fat_sector_num,0);
-      sdcard_writesector(fat2_sector+fat_sector_num,0);
+      new_cluster = fat_sector_num * 128 + (i >> 2);
+      *(unsigned long*)&sector_buffer[i] = 0x0fffffff;
+      sdcard_writesector(fat1_sector + fat_sector_num, 0);
+      sdcard_writesector(fat2_sector + fat_sector_num, 0);
 
       // chain old cluster to new cluster
-      fat_sector_num=cluster/128;
-      sdcard_readsector(fat1_sector+fat_sector_num);
-      *(unsigned long *)&sector_buffer[(cluster&127)<<2] = new_cluster;
-      sdcard_writesector(fat1_sector+fat_sector_num,0);
-      sdcard_writesector(fat2_sector+fat_sector_num,0);
+      fat_sector_num = cluster / 128;
+      sdcard_readsector(fat1_sector + fat_sector_num);
+      *(unsigned long*)&sector_buffer[(cluster & 127) << 2] = new_cluster;
+      sdcard_writesector(fat1_sector + fat_sector_num, 0);
+      sdcard_writesector(fat2_sector + fat_sector_num, 0);
       return new_cluster;
     }
   }

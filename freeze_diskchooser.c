@@ -180,7 +180,7 @@ void draw_directory_contents(void)
 
   // For D64 files, directory sector is at T18/S0
   i = strlen(disk_name_return);
-  if (disk_name_return[i-2] == '6' && disk_name_return[i-1] == '4')
+  if (disk_name_return[i - 2] == '6' && disk_name_return[i - 1] == '4')
     dir_track = 17;
 
   // Try to mount it, with border black while working
@@ -376,9 +376,8 @@ void scan_directory(unsigned char drive_id)
       }
     }
     else if (x > 4) {
-      ptr = &dirent->d_name[x-4];
-      if ((!strcmp(ptr, ".D81")) || (!strcmp(ptr, ".d81"))
-          || (!strcmp(ptr, ".D64")) || (!strcmp(ptr, ".d64"))
+      ptr = &dirent->d_name[x - 4];
+      if ((!strcmp(ptr, ".D81")) || (!strcmp(ptr, ".d81")) || (!strcmp(ptr, ".D64")) || (!strcmp(ptr, ".d64"))
           || (!strcmp(ptr, ".D65")) || (!strcmp(ptr, ".d65"))) {
         // File is a disk image
         lfill(0x40000L + (file_count * 64), ' ', 64);

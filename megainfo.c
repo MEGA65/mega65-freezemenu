@@ -103,7 +103,6 @@ void set_palette(void)
   colour_table[0x9e] = 0x0d; // lt.green
   colour_table[0x93] = 0x0e; // lt.blue
   colour_table[0xb6] = 0x0f; // grey3
-
 };
 
 void setup_menu_screen(void)
