@@ -118,10 +118,12 @@ void setup_menu_screen(void)
   if (viciv_regs[0x6f] & 0x80) {
     viciv_regs[0x48] = 0x2a;
     viciv_regs[0x4E] = 0x2a;
+    viciv_regs[0x72] = 0x18; // SPRYADJ
   }
   else {
     viciv_regs[0x48] = 0x69;
     viciv_regs[0x4E] = 0x69;
+    viciv_regs[0x72] = 0x00; // SPRYADJ
   }
 
   lcopy((long)viciv_regs, 0xffd3000L, 47);
