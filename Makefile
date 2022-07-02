@@ -140,6 +140,16 @@ MAKE_VERSION= \
 	echo "  .asciiz \"v:`./gitversion.sh`\"" >> version.s ; \
 	fi
 
+# $9000 (screen) - $07ff
+MAX_SIZE=34817
+CHECKSIZE=\
+	@if [ $$(stat -L -c %s $@) -gt $(MAX_SIZE) ]; then \
+    		echo "!!!!!!!! $@ is greater than $(MAX_SIZE)"; \
+    		exit 1; \
+	else \
+    		echo "======== $@ size is ok"; \
+    		exit 0; \
+	fi
 
 $(CC65):
 	$(info ======== Making: $@)
@@ -175,36 +185,43 @@ FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 version.s $(ASSFILES)
+	$(CHECKSIZE)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 version.s $(AMASSFILES)
+	$(CHECKSIZE)
 
 MONITOR.M65:	$(MONASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l monitor.list -m monitor.map -o MONITOR.M65 version.s $(MONASSFILES)
+	$(CHECKSIZE)
 
 MAKEDISK.M65:	$(MDASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 version.s $(MDASSFILES)
+	$(CHECKSIZE)
 
 SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 version.s $(SEASSFILES) $(LIBCASSFILES)
+	$(CHECKSIZE)
 
 ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES) $(LIBCASSFILES)
+	$(CHECKSIZE)
 
 MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES) $(LIBCASSFILES)
+	$(CHECKSIZE)
 
 M65THUMB.M65:	assets/thumbnail-surround-m65.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
