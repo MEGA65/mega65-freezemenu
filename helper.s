@@ -148,17 +148,20 @@ _mega65_dos_attachd81:
 	lda #$2E     		; dos_setname Hypervisor trap
 	STA $D640		; Do hypervisor trap
 	NOP			; Wasted instruction slot required following hyper trap instruction
-	;; XXX Check for error (carry would be clear)
+	bcc @attachError
 
 	;; Try to attach it
 	LDA #$40
 	STA $D640
 	NOP
 
-  jsr incsp2  ; remove the char* arg from the stack
+@attachError:
+	;; save flags
+	PHP
+
+	JSR incsp2  ; remove the char* arg from the stack
 	
 	;; return inverted carry flag, so result of 0 = success
-	PHP
 	PLA
 	AND #$01
 	EOR #$01
@@ -197,7 +200,7 @@ _mega65_dos_chdir:
 	lda #$2E     		; dos_setname Hypervisor trap
 	STA $D640		; Do hypervisor trap
 	NOP			; Wasted instruction slot required following hyper trap instruction
-	;; XXX Check for error (carry would be clear)
+	bcc @direntNotFound
 
 	;; Find the file
 	LDA #$34
@@ -211,12 +214,12 @@ _mega65_dos_chdir:
 	NOP
 
 @direntNotFound:
+	;; store flags
+	PHP
 	
 	jsr incsp2  ; remove the char* arg from the stack
 
 	;; return inverted carry flag, so result of 0 = success
-	PHP
-
 	PLA
 	AND #$01
 	EOR #$01
@@ -285,7 +288,7 @@ _find_freeze_slot_start_sector:
 
 _read_file_from_sdcard:
 
-	;;  read_file_from_sdcard(char *filename,uint32_t load_address);
+	;; char read_file_from_sdcard(char *filename,uint32_t load_address);
 
 	;; Hypervisor requires copy area to be page aligned, so
 	;; we have to copy the name we want to load to somewhere on a page boundary
@@ -321,7 +324,7 @@ _read_file_from_sdcard:
 	lda #$2E     		; dos_setname Hypervisor trap
 	STA $D640		; Do hypervisor trap
 	NOP			; Wasted instruction slot required following hyper trap instruction
-	;; XXX Check for error (carry would be clear)
+	bcc @readfileError
 
 	;; Get Load address into $00ZZYYXX
 	ldy #2
@@ -342,13 +345,18 @@ _read_file_from_sdcard:
 	LDA #$36
 	STA $D640		
 	NOP
-	;; XXX Check for error (carry would be clear)
-	bcs rdcnt
-	inc $d021 ;; increment background colour if problem reading the file
 
-rdcnt:
+@readfileError:
+	;; store flags
+	PHP
+
 	jsr incsp6
 
+	;; return inverted carry flag, so result of 0 = success
+	PLA
+	AND #$01
+	EOR #$01
+	LDX #$00
 	LDZ #$00
 	
 	RTS

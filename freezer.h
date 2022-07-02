@@ -5,13 +5,12 @@
 #define WITH_AUDIOMIXER
 // #define WITH_TOUCH
 
-char cdecl mega65_dos_chdirroot(void);
 char cdecl mega65_dos_chdir(unsigned char* dirname);
 char cdecl mega65_dos_attachd81(char* image_name);
 char cdecl mega65_dos_exechelper(char* filename);
 void fetch_freeze_region_list_from_hypervisor(unsigned short);
 unsigned char fastcall find_freeze_slot_start_sector(unsigned short);
-void cdecl read_file_from_sdcard(char* filename, uint32_t load_address);
+char cdecl read_file_from_sdcard(char* filename, uint32_t load_address);
 void unfreeze_slot(unsigned short);
 unsigned char opendir(void);
 struct m65_dirent* readdir(unsigned char);

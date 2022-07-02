@@ -26,7 +26,7 @@ _hyppo_getversion:
         ;; call hyppo get version
 	lda #$00     		; hyppo_getversion Hypervisor trap
 	sta $D640		; Do hypervisor trap
-	clv
+	clv	
 
 	;; Copy Result
         phy
@@ -41,15 +41,9 @@ _hyppo_getversion:
         iny
         tza
         sta (ptr1),y
-	ldz #$00		; to fix C which might expect 0
 
 	jsr incsp2  ; remove the char* arg from the stack
 
-	;; return inverted carry flag, so result of 0 = success
-	php
-	pla
-	and #$01
-	eor #$01
-	ldx #$00
+	ldz #0
 
 	rts
