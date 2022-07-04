@@ -455,7 +455,7 @@ void draw_freeze_menu(void)
     uint32_t screen_data_start;
     unsigned short* tile_num;
     unsigned short tile_offset;
-    if (detect_rom()[3] == '5') {
+    if (detect_rom()[2] == '5') {
       if (detect_cpu_speed() == 1) {
 #ifdef WITH_GUS
         read_file_from_sdcard("GUSTHUMB.M65", 0x052000L);
@@ -465,7 +465,7 @@ void draw_freeze_menu(void)
         snail = 0;
 #endif
       }
-      else if (detect_rom()[1] == 'M') {
+      else if (detect_rom()[0] == 'M') {
         if (read_file_from_sdcard("M65THUMB.M65", 0x052000L))
           read_file_from_sdcard("C65THUMB.M65", 0x052000L);
         snail = 0;
