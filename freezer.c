@@ -13,7 +13,7 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.7       "
+unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.9       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40 + 3)
@@ -33,27 +33,27 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.7       "
                              " A - AUDIO & VOLUME                     "
                              " S - SPRITE EDITOR                      "
                              "cccccccccccccccccccccccccccccccccccccccc"
-                             "                                        "
+                             "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
-                             "                                        "
-                             "                                        "
+                             "~~~~~~~~~~~~~~~~~~~~                    "
+                             "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_ID_OFFSET (16 * 40 + 34)
 #define SLOT_NUMBER_OFFSET (17 * 40 + 34)
-                             "                     TASK ID:           "
+                             "~~~~~~~~~~~~~~~~~~~~ TASK ID:           "
 #define FREEZE_SLOT_OFFSET (17 * 40 + 20)
-                             "                     FREEZE SLOT:       "
-                             "                                        "
+                             "~~~~~~~~~~~~~~~~~~~~ FREEZE SLOT:       "
+                             "~~~~~~~~~~~~~~~~~~~~                    "
 
-                             "                     (0) INTERNAL DRIVE:"
+                             "~~~~~~~~~~~~~~~~~~~~ (0) INTERNAL DRIVE:"
 #define DRIVE0_NUM_OFFSET (20 * 40 + 35)
-                             "                         (8) UNIT #     "
+                             "~~~~~~~~~~~~~~~~~~~~     (8) UNIT #     "
 #define D81_IMAGE0_NAME_OFFSET (21 * 40 + 22)
-                             "                                        "
-                             "                     (1) EXTERNAL 1565: "
+                             "~~~~~~~~~~~~~~~~~~~~                    "
+                             "~~~~~~~~~~~~~~~~~~~~ (1) EXTERNAL 1565: "
 #define DRIVE1_NUM_OFFSET (23 * 40 + 35)
-                             "                         (9) UNIT #     "
+                             "~~~~~~~~~~~~~~~~~~~~     (9) UNIT #     "
 #define D81_IMAGE1_NAME_OFFSET (24 * 40 + 22)
-                             "                                        "
+                             "~~~~~~~~~~~~~~~~~~~~                    "
                              "\0";
 
 static unsigned short i;
@@ -183,13 +183,13 @@ void screen_of_death(char* msg)
     continue;
 }
 
-void next_cpu_speed(void)
+unsigned char next_cpu_speed(void)
 {
   switch (detect_cpu_speed()) {
   case 1:
     // Make it 2MHz
     freeze_poke(0xffd0030L, 1);
-    break;
+    return 1;
   case 2:
     // Make it 3.5MHz
     freeze_poke(0xffd0030L, 0);
@@ -206,8 +206,9 @@ void next_cpu_speed(void)
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
-    break;
+    return 1;
   }
+  return 0;
 }
 
 unsigned char thumbnail_buffer[4096];
@@ -304,75 +305,89 @@ void predraw_freeze_menu(void)
   lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 2000 - 4);
 }
 
-void draw_freeze_menu(void)
+static unsigned char last_thumb_frame = 255;
+#define F_GUS 0
+#define F_C64 1
+#define F_C65 2
+#define F_M65 3
+char thumb_frame_name[][13] = {
+  "GUSTHUMB.M65",
+  "C64THUMB.M65",
+  "C65THUMB.M65",
+  "M65THUMB.M65",
+};
+
+#define UPDATE_TOP     0x01
+#define UPDATE_ROM     0x02
+#define UPDATE_FREQ    0x04
+#define UPDATE_PROCESS 0x08
+#define UPDATE_DISK    0x10
+#define UPDATE_THUMB   0x80
+
+void draw_freeze_menu(unsigned char part)
 {
   unsigned char x, y;
   // Wait until we are in vertical blank area before redrawing, so that we don't have flicker
 
   // Update messages based on the settings we allow to be easily changed
 
-  if (slot_number) {
-    lcopy((unsigned long)"LOAD  ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 6);
-    lcopy((unsigned long)" FREEZE SLOT:      ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
-    // Display slot ID as decimal
-    screen_decimal((unsigned long)&freeze_menu[SLOT_NUMBER_OFFSET], slot_number);
+  if (part & UPDATE_TOP) {
+
+    if (slot_number) {
+      lcopy((unsigned long)"LOAD  ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 6);
+      lcopy((unsigned long)" FREEZE SLOT:      ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
+      // Display slot ID as decimal
+      screen_decimal((unsigned long)&freeze_menu[SLOT_NUMBER_OFFSET], slot_number);
+    }
+    else {
+      lcopy((unsigned long)"RESUME", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 6);
+
+      // Display "- PAUSED STATE -"
+      lcopy((unsigned long)" - PAUSED STATE -   ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
+    }
+
+    // CPU MODE
+    if (freeze_peek(0xffd367dL) & 0x20)
+      lcopy((unsigned long)"  4502", (unsigned long)&freeze_menu[CPU_MODE_OFFSET], 6);
+    else
+      lcopy((unsigned long)"  AUTO", (unsigned long)&freeze_menu[CPU_MODE_OFFSET], 6);
+
+    // Joystick 1/2 swap
+    lcopy((unsigned long)((PEEK(0xd612L) & 0x20) ? "YES" : " NO"), (unsigned long)&freeze_menu[JOY_SWAP_OFFSET], 3);
+
+    // Cartridge enable
+    lcopy(
+        (unsigned long)((freeze_peek(0xffd367dL) & 0x01) ? "YES" : " NO"), (unsigned long)&freeze_menu[CART_ENABLE_OFFSET], 3);
+
+    if (freeze_peek(0xffd306fL) & 0x80) // NTSC60
+      lcopy((unsigned long)"NTSC60", (unsigned long)&freeze_menu[VIDEO_MODE_OFFSET], 6);
+    else // PAL50
+      lcopy((unsigned long)" PAL50", (unsigned long)&freeze_menu[VIDEO_MODE_OFFSET], 6);
   }
-  else {
-    lcopy((unsigned long)"RESUME", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 6);
-
-    // Display "- PAUSED STATE -"
-    lcopy((unsigned long)" - PAUSED STATE -   ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
-  }
-
-  // Draw drive numbers for internal drive
-  lfill((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET], 0, 2);
-  lfill((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET], 0, 2);
-  screen_decimal((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET], freeze_peek(0x10113L));
-  screen_decimal((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET], freeze_peek(0x10114L));
-
-  // CPU MODE
-  if (freeze_peek(0xffd367dL) & 0x20)
-    lcopy((unsigned long)"  4502", (unsigned long)&freeze_menu[CPU_MODE_OFFSET], 6);
-  else
-    lcopy((unsigned long)"  AUTO", (unsigned long)&freeze_menu[CPU_MODE_OFFSET], 6);
-
-  // Joystick 1/2 swap
-  lcopy((unsigned long)((PEEK(0xd612L) & 0x20) ? "YES" : " NO"), (unsigned long)&freeze_menu[JOY_SWAP_OFFSET], 3);
 
   // ROM version
-  lcopy((long)detect_rom(), (unsigned long)&freeze_menu[ROM_NAME_OFFSET], 11);
-
-  // Cartridge enable
-  lcopy(
-      (unsigned long)((freeze_peek(0xffd367dL) & 0x01) ? "YES" : " NO"), (unsigned long)&freeze_menu[CART_ENABLE_OFFSET], 3);
+  if (part & UPDATE_ROM)
+    lcopy((long)detect_rom(), (unsigned long)&freeze_menu[ROM_NAME_OFFSET], 11);
 
   // CPU frequency
-  switch (detect_cpu_speed()) {
-  case 1:
-    lcopy((unsigned long)"  1", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
-    break;
-  case 2:
-    lcopy((unsigned long)"  2", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
-    break;
-  case 3:
-    lcopy((unsigned long)"3.5", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
-    break;
-  case 40:
-    lcopy((unsigned long)" 40", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
-    break;
-  default:
-    lcopy((unsigned long)"???", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
-    break;
-  }
-
-  if (freeze_peek(0xffd306fL) & 0x80) {
-    // NTSC60
-    lcopy((unsigned long)"NTSC60", (unsigned long)&freeze_menu[VIDEO_MODE_OFFSET], 6);
-  }
-  else {
-    // PAL50
-    lcopy((unsigned long)" PAL50", (unsigned long)&freeze_menu[VIDEO_MODE_OFFSET], 6);
-  }
+  if (part & UPDATE_FREQ)
+    switch (detect_cpu_speed()) {
+    case 1:
+      lcopy((unsigned long)"  1", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
+      break;
+    case 2:
+      lcopy((unsigned long)"  2", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
+      break;
+    case 3:
+      lcopy((unsigned long)"3.5", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
+      break;
+    case 40:
+      lcopy((unsigned long)" 40", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
+      break;
+    default:
+      lcopy((unsigned long)"???", (unsigned long)&freeze_menu[CPU_FREQ_OFFSET], 3);
+      break;
+    }
 
   /* Display info from the process descriptor
      The useful bits are:
@@ -389,102 +404,105 @@ void draw_freeze_menu(void)
 
      We should just read the sector containing all this, and get it out all at once.
   */
-  lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
-  freeze_fetch_sector(0xFFFBD00L, (unsigned char*)&process_descriptor);
+  if (part & UPDATE_PROCESS) {
+    lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
+    freeze_fetch_sector(0xFFFBD00L, (unsigned char*)&process_descriptor);
 
-  // Display process ID as decimal
-  screen_decimal((unsigned long)&freeze_menu[PROCESS_ID_OFFSET], process_descriptor.task_id);
+    // Display process ID as decimal
+    screen_decimal((unsigned long)&freeze_menu[PROCESS_ID_OFFSET], process_descriptor.task_id);
 
-  // Blank out process descriptor fields
-  lcopy((unsigned long)"UNNAMED TASK    ", (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
-  lfill((unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], ' ', 19);
-  lfill((unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], ' ', 19);
-
-  if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
-    // Process name: But only display if valid
-    for (i = 0; i < 16; i++)
-      if (!process_descriptor.process_name[i])
-        break;
-    if (i == 16)
-      lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
+    if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
+      // Process name: But only display if valid
+      for (i = 0; i < 16; i++)
+        if (!process_descriptor.process_name[i])
+          break;
+      if (i == 16)
+        lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
+    } else // Blank out process descriptor fields
+      lcopy((unsigned long)"UNNAMED TASK    ", (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
   }
 
-  // Show name of current mounted disk image
-  if (process_descriptor.d81_image0_namelen) {
-    for (i = 0; i < process_descriptor.d81_image0_namelen; i++)
-      if (!process_descriptor.d81_image0_name[i])
-        break;
-    if (i == process_descriptor.d81_image0_namelen) {
-      topetsciiupper(process_descriptor.d81_image0_name, process_descriptor.d81_image0_namelen);
-      lcopy((unsigned long)process_descriptor.d81_image0_name, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
-          process_descriptor.d81_image0_namelen < 19 ? process_descriptor.d81_image0_namelen : 19);
+  if (part & UPDATE_DISK) {
+    // Draw drive numbers for internal drive
+    lfill((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET], 0, 2);
+    lfill((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET], 0, 2);
+    screen_decimal((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET], freeze_peek(0x10113L));
+    screen_decimal((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET], freeze_peek(0x10114L));
+
+    lfill((unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], ' ', 19);
+    lfill((unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], ' ', 19);
+
+    // Show name of current mounted disk image
+    if (process_descriptor.d81_image0_namelen) {
+      for (i = 0; i < process_descriptor.d81_image0_namelen; i++)
+        if (!process_descriptor.d81_image0_name[i])
+          break;
+      if (i == process_descriptor.d81_image0_namelen) {
+        topetsciiupper(process_descriptor.d81_image0_name, process_descriptor.d81_image0_namelen);
+        lcopy((unsigned long)process_descriptor.d81_image0_name, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
+            process_descriptor.d81_image0_namelen < 19 ? process_descriptor.d81_image0_namelen : 19);
+      }
+    }
+
+    if (process_descriptor.d81_image1_namelen) {
+      for (i = 0; i < process_descriptor.d81_image1_namelen; i++)
+        if (!process_descriptor.d81_image1_name[i])
+          break;
+      if (i == process_descriptor.d81_image1_namelen) {
+        topetsciiupper(process_descriptor.d81_image1_name, process_descriptor.d81_image1_namelen);
+        lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
+            process_descriptor.d81_image1_namelen < 19 ? process_descriptor.d81_image1_namelen : 19);
+      }
     }
   }
 
-  if (process_descriptor.d81_image1_namelen) {
-    for (i = 0; i < process_descriptor.d81_image1_namelen; i++)
-      if (!process_descriptor.d81_image1_name[i])
-        break;
-    if (i == process_descriptor.d81_image1_namelen) {
-      topetsciiupper(process_descriptor.d81_image1_name, process_descriptor.d81_image1_namelen);
-      lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
-          process_descriptor.d81_image1_namelen < 19 ? process_descriptor.d81_image1_namelen : 19);
-    }
-  }
-
+  // wait till raster leaves screen
   while (PEEK(0xD012U) < 0xf8)
     continue;
 
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
-  for (i = 0; freeze_menu[i]; i++) {
-    if ((freeze_menu[i] >= 'A') && (freeze_menu[i] <= 'Z'))
-      POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i] - 0x40);
-    else if ((freeze_menu[i] >= 'a') && (freeze_menu[i] <= 'z'))
-      POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i] - 0x20);
-    else
-      POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i]);
-    POKE(SCREEN_ADDRESS + i * 2 + 1, 0);
-  }
+  for (i = 0; freeze_menu[i]; i++)
+    if (freeze_menu[i] != '~') { // skip thumb area
+      if ((freeze_menu[i] >= 'A') && (freeze_menu[i] <= 'Z'))
+        POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i] - 0x40);
+      else if ((freeze_menu[i] >= 'a') && (freeze_menu[i] <= 'z'))
+        POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i] - 0x20);
+      else
+        POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i]);
+      POKE(SCREEN_ADDRESS + i * 2 + 1, 0);
+    }
 
   // Draw the thumbnail surround area
   //  if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
-  if (1) {
+  if (part & 0x80) {
+#ifdef WITH_GUS
     unsigned char snail = 0;
+#endif
+    unsigned char thumb_frame = F_C65;
     uint32_t screen_data_start;
     unsigned short* tile_num;
     unsigned short tile_offset;
     if (detect_rom()[2] == '5') {
       if (detect_cpu_speed() == 1) {
 #ifdef WITH_GUS
-        read_file_from_sdcard("GUSTHUMB.M65", 0x052000L);
+        thumb_frame = F_GUS;
         snail = 1;
 #else
-        read_file_from_sdcard("C64THUMB.M65", 0x052000L);
-        snail = 0;
+        thumb_frame = F_C64;
 #endif
       }
-      else if (detect_rom()[0] == 'M') {
-        if (read_file_from_sdcard("M65THUMB.M65", 0x052000L))
-          read_file_from_sdcard("C65THUMB.M65", 0x052000L);
-        snail = 0;
-      }
-      else {
-        read_file_from_sdcard("C65THUMB.M65", 0x052000L);
-        snail = 0;
-      }
+      else if (detect_rom()[0] == 'M')
+        thumb_frame = F_M65;
     }
-    else {
-      read_file_from_sdcard("C64THUMB.M65", 0x052000L);
-      snail = 0;
-    }
-#if 0
-      if (detect_cpu_speed()==40) {
-  read_file_from_sdcard("F40THUMB.M65",0x052000L);
-  snail=1;
-      }
-#endif
+    else
+      thumb_frame = F_C64;
+
+    // only load new image if needed
+    if (thumb_frame != last_thumb_frame)
+      if (!read_file_from_sdcard(thumb_frame_name[thumb_frame], 0x052000L))
+        last_thumb_frame = thumb_frame;
 
     // Work out where the tile data begins
     screen_data_start = 0x52000L + 0x300L + 0x40L;
@@ -508,6 +526,7 @@ void draw_freeze_menu(void)
     // Now draw the 10x6 character block for thumbnail display itself
     // This sits in the region below the menu where we will also have left and right arrows,
     // the program name etc, so you can easily browse through the freeze slots.
+#ifdef WITH_GUS
     if (snail) {
       for (x = 0; x < 9; x++)
         for (y = 0; y < 6; y++) {
@@ -516,13 +535,19 @@ void draw_freeze_menu(void)
         }
     }
     else {
+#endif
       for (x = 0; x < 9; x++)
         for (y = 0; y < 6; y++) {
           POKE(SCREEN_ADDRESS + (80 * 14) + (5 * 2) + (x * 2) + (y * 80) + 0, x * 6 + y); // $50000 base address
           POKE(SCREEN_ADDRESS + (80 * 14) + (5 * 2) + (x * 2) + (y * 80) + 1, 0x14);      // $50000 base address
         }
+#ifdef WITH_GUS
     }
+#endif
   }
+
+  // restore border colour (fdisk/sd stuff still twiddles with it)
+  POKE(0xD020U, 6);
 }
 
 // NOTE: I wanted to tweak the string to look nicer, but this gave me dos driver errors once back in BASIC (doing a DIR)
@@ -621,7 +646,7 @@ void select_mounted_disk_image(int diskid)
   }
 
   predraw_freeze_menu();
-  draw_freeze_menu();
+  draw_freeze_menu(0xff);
 }
 
 #ifdef __CC65__
@@ -691,7 +716,7 @@ int main(int argc, char** argv)
 
   setup_menu_screen();
   predraw_freeze_menu();
-  draw_freeze_menu();
+  draw_freeze_menu(0xff);
 
   draw_thumbnail();
 
@@ -823,7 +848,7 @@ int main(int argc, char** argv)
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_PROCESS);
           draw_thumbnail();
           POKE(0xD020U, 6);
           break;
@@ -837,7 +862,7 @@ int main(int argc, char** argv)
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_PROCESS);
           draw_thumbnail();
           POKE(0xD020U, 6);
           break;
@@ -861,13 +886,13 @@ int main(int argc, char** argv)
         case 'j': // Toggle joystick swap
           POKE(0xD612L, (PEEK(0xD612L) ^ 0x20) & 0xEF);
 
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_TOP);
           break;
 
         case 'T':
         case 't': // Toggle cartridge enable
           freeze_poke(0xFFD367dL, freeze_peek(0xFFD367dL) ^ 0x01);
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_TOP);
           break;
 
 #if 0
@@ -880,13 +905,15 @@ int main(int argc, char** argv)
         case 'c':
         case 'C': // Toggle CPU mode
           freeze_poke(0xFFD367dL, freeze_peek(0xFFD367dL) ^ 0x20);
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_TOP);
           break;
 
         case 'F':
         case 'f': // Change CPU speed
-          next_cpu_speed();
-          draw_freeze_menu();
+          if (next_cpu_speed())
+            draw_freeze_menu(UPDATE_FREQ|UPDATE_THUMB);
+          else
+            draw_freeze_menu(UPDATE_FREQ);
           break;
 
         case 'V':
@@ -929,13 +956,13 @@ int main(int argc, char** argv)
             freeze_poke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
             freeze_poke(0xFFD3072L, 24);
           }
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_TOP);
           break;
         case '8':
         case '9':
           // Change drive number of internal drives
           freeze_poke(0x10113L - '8' + c, freeze_peek(0x10113L - '8' + c) ^ 2);
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_DISK);
           break;
         case '0': // Select mounted disk image
           select_mounted_disk_image(0);
@@ -1010,7 +1037,7 @@ int main(int argc, char** argv)
           }
           POKE(0xD020U, 6);
 
-          draw_freeze_menu();
+          draw_freeze_menu(UPDATE_PROCESS);
         } break;
 
         case 0x1f: // HELP MEGAINFO
