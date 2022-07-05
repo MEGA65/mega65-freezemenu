@@ -852,14 +852,12 @@ void draw_screen(void)
   row = 12;
   col = 0;
   for (i = 0; SDessentials[i][0] != 0; i++) {
-    read_file_from_sdcard(SDessentials[i], 0x40000L);
+    fail = read_file_from_sdcard(SDessentials[i], 0x40000L);
     strcpy(buffer, SDessentials[i]);
     strcat(buffer, ":");
     write_text(col, row, 1, buffer);
-    if (PEEK(0xd021U) > 6) { // not found increments background, stupid!
-      POKE(0xd021U, 6);      // restore blue!
+    if (fail)
       write_text(col + 14, row, 10, "FILE NOT FOUND");
-    }
     else {
       fail = format_util_version(0x40000L, artix_ymd);
       write_text_upper(col + 14, row, 7 + fail * 3, buffer);
