@@ -25,9 +25,10 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.9       "
 #define CPU_FREQ_OFFSET (6 * 40 + 13)
 #define CART_ENABLE_OFFSET (6 * 40 + 36)
                              " CPU (F)REQ: 40 MHZ  CAR(T) ENABLE: YES "
-#define ROM_NAME_OFFSET (7 * 40 + 8)
+// #define ROM_NAME_OFFSET (7 * 40 + 8)
+#define CRTEMU_MODE_OFFSET (7 * 40 + 16)
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
-                             " (R)OM:  C65 911101  (V)IDEO:    NTSC60 "
+                             " C(R)T EMU:     OFF  (V)IDEO:    NTSC60 "
                              "cccccccccccccccccccccccccccccccccccccccc"
                              " M - MONITOR                            "
                              " A - AUDIO & VOLUME                     "
@@ -317,11 +318,14 @@ char thumb_frame_name[][13] = {
   "M65THUMB.M65",
 };
 
+#define UPDATE_ALL     0xff
+#define UPDATE_UPPER   0x0f
 #define UPDATE_TOP     0x01
 #define UPDATE_ROM     0x02
 #define UPDATE_FREQ    0x04
-#define UPDATE_PROCESS 0x08
-#define UPDATE_DISK    0x10
+#define UPDATE_LOWER   0xf0
+#define UPDATE_PROCESS 0x10
+#define UPDATE_DISK    0x20
 #define UPDATE_THUMB   0x80
 
 void draw_freeze_menu(unsigned char part)
@@ -359,6 +363,11 @@ void draw_freeze_menu(unsigned char part)
     lcopy(
         (unsigned long)((freeze_peek(0xffd367dL) & 0x01) ? "YES" : " NO"), (unsigned long)&freeze_menu[CART_ENABLE_OFFSET], 3);
 
+    if (freeze_peek(0xFFD3054L) & 0x20) // PALEMU
+      lcopy((unsigned long)" ON", (unsigned long)&freeze_menu[CRTEMU_MODE_OFFSET], 3);
+    else // PAL50
+      lcopy((unsigned long)"OFF", (unsigned long)&freeze_menu[CRTEMU_MODE_OFFSET], 3);
+
     if (freeze_peek(0xffd306fL) & 0x80) // NTSC60
       lcopy((unsigned long)"NTSC60", (unsigned long)&freeze_menu[VIDEO_MODE_OFFSET], 6);
     else // PAL50
@@ -366,8 +375,10 @@ void draw_freeze_menu(unsigned char part)
   }
 
   // ROM version
+  /*
   if (part & UPDATE_ROM)
     lcopy((long)detect_rom(), (unsigned long)&freeze_menu[ROM_NAME_OFFSET], 11);
+  */
 
   // CPU frequency
   if (part & UPDATE_FREQ)
@@ -716,7 +727,7 @@ int main(int argc, char** argv)
 
   setup_menu_screen();
   predraw_freeze_menu();
-  draw_freeze_menu(0xff);
+  draw_freeze_menu(UPDATE_ALL);
 
   draw_thumbnail();
 
@@ -943,6 +954,15 @@ int main(int argc, char** argv)
             freeze_poke(0xFFD304EL, 0x68);
             freeze_poke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
             freeze_poke(0xFFD3072L, 0);
+            lpoke(0xFFD306fL, 0x00);
+            lpoke(0xFFD3072L, 0x00);
+            lpoke(0xFFD3048L, 0x68);
+            lpoke(0xFFD3049L, 0x0 + (lpeek(0xFFD3049L) & 0xf0));
+            lpoke(0xFFD304AL, 0xF8);
+            lpoke(0xFFD304BL, 0x1 + (lpeek(0xFFD304BL) & 0xf0));
+            lpoke(0xFFD304EL, 0x68);
+            lpoke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
+            lpoke(0xFFD3072L, 0);
           }
           else {
             // Switch to NTSC
@@ -955,6 +975,15 @@ int main(int argc, char** argv)
             freeze_poke(0xFFD304EL, 0x2A);
             freeze_poke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
             freeze_poke(0xFFD3072L, 24);
+            lpoke(0xFFD306fL, 0x87);
+            lpoke(0xFFD3072L, 0x18);
+            lpoke(0xFFD3048L, 0x2A);
+            lpoke(0xFFD3049L, 0x0 + (lpeek(0xFFD3049L) & 0xf0));
+            lpoke(0xFFD304AL, 0xB9);
+            lpoke(0xFFD304BL, 0x1 + (lpeek(0xFFD304BL) & 0xf0));
+            lpoke(0xFFD304EL, 0x2A);
+            lpoke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
+            lpoke(0xFFD3072L, 24);
           }
           draw_freeze_menu(UPDATE_TOP);
           break;
@@ -1045,10 +1074,23 @@ int main(int argc, char** argv)
           break;
 
         case 'R':
-        case 'r': // Switch ROMs
+        case 'r': // switch CRT Emulation
+          c = freeze_peek(0xFFD3054L);
+          if (c & 0x20) {
+            freeze_poke(0xFFD3054L, c & 0xdf);
+            lpoke(0xFFD3054L, lpeek(0xFFD3054L) & 0xdf);
+          }
+          else {
+            freeze_poke(0xFFD3054L, c | 0x20);
+            lpoke(0xFFD3054L, lpeek(0xFFD3054L) | 0x20);
+          }
+          draw_freeze_menu(UPDATE_TOP);
+          break;
+        // was: Switch ROMs
+        /* DOES NOT WORK -- disabled in favor of CRT-EMU switch
           mega65_dos_exechelper("ROMLOAD.M65");
           break;
-
+        */
         case 'X':
         case 'x': // Poke finder
         case 'E':
