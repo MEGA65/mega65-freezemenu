@@ -948,42 +948,56 @@ int main(int argc, char** argv)
             freeze_poke(0xFFD306fL, 0x00);
             freeze_poke(0xFFD3072L, 0x00);
             freeze_poke(0xFFD3048L, 0x68);
-            freeze_poke(0xFFD3049L, 0x0 + (lpeek(0xFFD3049L) & 0xf0));
+            freeze_poke(0xFFD3049L, 0x0 | (freeze_peek(0xFFD3049L) & 0xf0));
             freeze_poke(0xFFD304AL, 0xF8);
-            freeze_poke(0xFFD304BL, 0x1 + (lpeek(0xFFD304BL) & 0xf0));
+            freeze_poke(0xFFD304BL, 0x1 | (freeze_peek(0xFFD304BL) & 0xf0));
             freeze_poke(0xFFD304EL, 0x68);
-            freeze_poke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
+            freeze_poke(0xFFD304FL, 0x0 | (freeze_peek(0xFFD304FL) & 0xf0));
             freeze_poke(0xFFD3072L, 0);
+            // CIA TOD
+            freeze_poke(0xffd3c0el, freeze_peek(0xffd3c0el) | 0x80);
+            freeze_poke(0xffd3d0el, freeze_peek(0xffd3d0el) | 0x80);
+            // do it for the freezer itself
             lpoke(0xFFD306fL, 0x00);
             lpoke(0xFFD3072L, 0x00);
             lpoke(0xFFD3048L, 0x68);
-            lpoke(0xFFD3049L, 0x0 + (lpeek(0xFFD3049L) & 0xf0));
+            lpoke(0xFFD3049L, 0x0 | (lpeek(0xFFD3049L) & 0xf0));
             lpoke(0xFFD304AL, 0xF8);
-            lpoke(0xFFD304BL, 0x1 + (lpeek(0xFFD304BL) & 0xf0));
+            lpoke(0xFFD304BL, 0x1 | (lpeek(0xFFD304BL) & 0xf0));
             lpoke(0xFFD304EL, 0x68);
-            lpoke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
+            lpoke(0xFFD304FL, 0x0 | (lpeek(0xFFD304FL) & 0xf0));
             lpoke(0xFFD3072L, 0);
+            // CIA TOD
+            lpoke(0xffd3c0el, lpeek(0xffd3c0el) | 0x80);
+            lpoke(0xffd3d0el, lpeek(0xffd3d0el) | 0x80);
           }
           else {
             // Switch to NTSC
             freeze_poke(0xFFD306fL, 0x87);
             freeze_poke(0xFFD3072L, 0x18);
             freeze_poke(0xFFD3048L, 0x2A);
-            freeze_poke(0xFFD3049L, 0x0 + (lpeek(0xFFD3049L) & 0xf0));
+            freeze_poke(0xFFD3049L, 0x0 | (freeze_peek(0xFFD3049L) & 0xf0));
             freeze_poke(0xFFD304AL, 0xB9);
-            freeze_poke(0xFFD304BL, 0x1 + (lpeek(0xFFD304BL) & 0xf0));
+            freeze_poke(0xFFD304BL, 0x1 | (freeze_peek(0xFFD304BL) & 0xf0));
             freeze_poke(0xFFD304EL, 0x2A);
-            freeze_poke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
+            freeze_poke(0xFFD304FL, 0x0 | (freeze_peek(0xFFD304FL) & 0xf0));
             freeze_poke(0xFFD3072L, 24);
+            // CIA TOD
+            freeze_poke(0xffd3c0el, freeze_peek(0xffd3c0el) & 0x7f);
+            freeze_poke(0xffd3d0el, freeze_peek(0xffd3d0el) & 0x7f);
+            // do it for the freezer itself
             lpoke(0xFFD306fL, 0x87);
             lpoke(0xFFD3072L, 0x18);
             lpoke(0xFFD3048L, 0x2A);
-            lpoke(0xFFD3049L, 0x0 + (lpeek(0xFFD3049L) & 0xf0));
+            lpoke(0xFFD3049L, 0x0 | (lpeek(0xFFD3049L) & 0xf0));
             lpoke(0xFFD304AL, 0xB9);
-            lpoke(0xFFD304BL, 0x1 + (lpeek(0xFFD304BL) & 0xf0));
+            lpoke(0xFFD304BL, 0x1 | (lpeek(0xFFD304BL) & 0xf0));
             lpoke(0xFFD304EL, 0x2A);
-            lpoke(0xFFD304FL, 0x0 + (lpeek(0xFFD304FL) & 0xf0));
+            lpoke(0xFFD304FL, 0x0 | (lpeek(0xFFD304FL) & 0xf0));
             lpoke(0xFFD3072L, 24);
+            // CIA TOD
+            lpoke(0xffd3c0el, lpeek(0xffd3c0el) & 0x7f);
+            lpoke(0xffd3d0el, lpeek(0xffd3d0el) & 0x7f);
           }
           draw_freeze_menu(UPDATE_TOP);
           break;
