@@ -20,7 +20,6 @@ static char SDessentials[][13] = {
   "ONBOARD.M65",
   "MONITOR.M65",
   "MAKEDISK.M65",
-  "ROMLOAD.M65",
   "AUDIOMIX.M65",
   "SPRITED.M65",
   ""
@@ -183,10 +182,10 @@ char* format_datestamp(unsigned char offset, unsigned char msbmask)
   if (m==5 && ds>31) { m++; ds-=31;}
   if (m==6 && ds>30) { m++; ds-=30;}
   if (m==7 && ds>31) { m++; ds-=31;}
-  if (m==8 && ds>30) { m++; ds-=30;}
-  if (m==9 && ds>31) { m++; ds-=31;}
-  if (m==10 && ds>30) { m++; ds-=30;}
-  if (m==11 && ds>31) { m++; ds-=31;}
+  if (m==8 && ds>31) { m++; ds-=31;}
+  if (m==9 && ds>30) { m++; ds-=30;}
+  if (m==10 && ds>31) { m++; ds-=31;}
+  if (m==11 && ds>30) { m++; ds-=30;}
   // clang-format on
 
   // snprintf can't do %d!
