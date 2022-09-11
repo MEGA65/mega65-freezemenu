@@ -1514,6 +1514,7 @@ static void MainLoop()
 
     case 0xFB: // F11 Save to slot
       PutSpriteDataToSlot();
+      bordercolor(DEFAULT_BORDER_COLOR);
       break;
 
     case 14: // CTRL-N
