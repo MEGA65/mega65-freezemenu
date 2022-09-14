@@ -306,6 +306,7 @@ void predraw_freeze_menu(void)
   lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 2000 - 4);
 }
 
+// clang-format off
 static unsigned char last_thumb_frame = 255;
 #define F_GUS 0
 #define F_C64 1
@@ -327,6 +328,7 @@ char thumb_frame_name[][13] = {
 #define UPDATE_PROCESS 0x10
 #define UPDATE_DISK    0x20
 #define UPDATE_THUMB   0x80
+// clang-format on
 
 void draw_freeze_menu(unsigned char part)
 {
@@ -360,8 +362,8 @@ void draw_freeze_menu(unsigned char part)
     lcopy((unsigned long)((PEEK(0xd612L) & 0x20) ? "YES" : " NO"), (unsigned long)&freeze_menu[JOY_SWAP_OFFSET], 3);
 
     // Cartridge enable
-    lcopy(
-        (unsigned long)((freeze_peek(0xffd367dL) & 0x01) ? "YES" : " NO"), (unsigned long)&freeze_menu[CART_ENABLE_OFFSET], 3);
+    lcopy((unsigned long)((freeze_peek(0xffd367dL) & 0x01) ? "YES" : " NO"), (unsigned long)&freeze_menu[CART_ENABLE_OFFSET],
+        3);
 
     if (freeze_peek(0xFFD3054L) & 0x20) // PALEMU
       lcopy((unsigned long)" ON", (unsigned long)&freeze_menu[CRTEMU_MODE_OFFSET], 3);
@@ -429,7 +431,8 @@ void draw_freeze_menu(unsigned char part)
           break;
       if (i == 16)
         lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
-    } else // Blank out process descriptor fields
+    }
+    else // Blank out process descriptor fields
       lcopy((unsigned long)"UNNAMED TASK    ", (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
   }
 
@@ -859,7 +862,7 @@ int main(int argc, char** argv)
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          draw_freeze_menu(UPDATE_PROCESS);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
           draw_thumbnail();
           POKE(0xD020U, 6);
           break;
@@ -873,7 +876,7 @@ int main(int argc, char** argv)
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          draw_freeze_menu(UPDATE_PROCESS);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
           draw_thumbnail();
           POKE(0xD020U, 6);
           break;
@@ -922,7 +925,7 @@ int main(int argc, char** argv)
         case 'F':
         case 'f': // Change CPU speed
           if (next_cpu_speed())
-            draw_freeze_menu(UPDATE_FREQ|UPDATE_THUMB);
+            draw_freeze_menu(UPDATE_FREQ | UPDATE_THUMB);
           else
             draw_freeze_menu(UPDATE_FREQ);
           break;
@@ -1080,7 +1083,7 @@ int main(int argc, char** argv)
           }
           POKE(0xD020U, 6);
 
-          draw_freeze_menu(UPDATE_PROCESS);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
         } break;
 
         case 0x1f: // HELP MEGAINFO
