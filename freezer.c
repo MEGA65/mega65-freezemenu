@@ -1057,7 +1057,7 @@ int main(int argc, char** argv)
           uint32_t dest_freeze_slot_start_sector;
 
           // give visual feedback
-          hal_border_flicker = 1;
+          sdcard_visual_feedback(1);
 
           find_freeze_slot_start_sector(0);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
@@ -1090,8 +1090,8 @@ int main(int argc, char** argv)
             sdcard_writemultidone();
 #endif
           }
-          // give visual feedback
-          hal_border_flicker = 0;
+          // stop giving visual feedback
+          sdcard_visual_feedback(0);
 
           POKE(0xD020U, 6);
 
