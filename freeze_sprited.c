@@ -231,7 +231,6 @@ typedef struct tagFILEOPTIONS {
 } FILEOPTIONS;
 
 static APPSTATE g_state;
-static unsigned long g_freezeSlotStartSector;
 
 /* Nonstatic Function prototypes */
 void UpdateSpriteParameters(BOOL);
@@ -334,7 +333,9 @@ static void Initialize()
 
   // --- Freezer slot setup
 
-  g_freezeSlotStartSector = find_freeze_slot_start_sector(0);
+  find_freeze_slot_start_sector(0);
+  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+
   request_freeze_region_list();
 
   // --- Screen setup ----
@@ -366,8 +367,7 @@ static void Initialize()
 
   POKE(0xD06C, (BYTE)SPRITE_POINTER_TABLE);
   POKE(0xD06D, (BYTE)(SPRITE_POINTER_TABLE >> 8));
-  POKE(0xD06E, (BYTE)(SPRITE_POINTER_TABLE >> 16));
-  POKE(0xD06E, PEEK(0xD06E) | 128); // Enable SPRPTR16
+  POKE(0xD06E, (BYTE)(SPRITE_POINTER_TABLE >> 16) | 128); // Enable SPRPTR16
 
   // #0: Mouse Pointer sprite at 0x380
 
@@ -601,6 +601,7 @@ void SetDrawTool(BYTE dt)
     g_state.drawShapeFn = DrawLine;
     break;
   case DRAWING_TOOL_PIXEL:
+  default:
     g_state.drawShapeFn = DrawNothing;
   }
 }
@@ -728,19 +729,19 @@ static void FetchVic2RegsFromSlot()
 static void FetchSpriteDataFromSlot()
 {
   // TODO: Sprites may exceed 512 bytes
-  freeze_fetch_sector_32(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
+  freeze_fetch_sector_partial(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void PutSpriteDataToSlot()
 {
   // TODO: Sprites may exceed 512 bytes
-  freeze_store_sector_32(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
+  freeze_store_sector_partial(g_state.spriteDataAddr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void CopySpriteData(const uint32_t to_addr)
 {
   // TODO: Sprites may exceed 512 bytes
-  freeze_store_sector_32(to_addr, SPRITE_BUFFER, g_state.spriteSizeBytes);
+  freeze_store_sector_partial(to_addr, SPRITE_BUFFER, g_state.spriteSizeBytes);
 }
 
 static void UpdatePalette(void)
@@ -1097,14 +1098,36 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 
 static void ShowHelp()
 {
-  const char* fileKeys[] = { "  file / txfer     ", "load             f5", "save raw       f7,r", "save basic     f7,b",
-    "fetch slot       f9", "store slot      f11", "exit             f3" };
+// clang-format off
+  const char* fileKeys[] = {
+    "  file / txfer     ",
+    "load             f5",
+    "save raw       f7,r",
+    "save basic     f7,b",
+    "fetch slot       f9",
+    "store slot      f11",
+    "exit             f3",
+  };
 
-  const char* drawKeys[] = { "       tools       ", "pixel             p", "box               x", "filled box      s-x",
-    "circle            o", "filled circle   s-o", "line              l" };
+  const char* drawKeys[] = {
+    "       tools       ",
+    "pixel             p",
+    "line              l",
+    "box               x",
+    "filled box      s-x",
+    "not implemented   o",
+    "not implemented s-o",
+  };
 
-  const char* colorKeys[] = { "       color       ", "select         0..9", "               a..f", "prev component    -",
-    "next component    +", "select background k", "sel pal bank ctrl+p" };
+  const char* colorKeys[] = {
+    "       color       ",
+    "select         0..9",
+    "               a..f",
+    "prev component    -",
+    "next component    +",
+    "select background k",
+    "sel pal bank ctrl+p",
+  };
 
   const char* editKeys[] = {
     "       edit        ",
@@ -1128,6 +1151,14 @@ static void ShowHelp()
     "25/50-line    alt+d",
   };
 
+  const char* tipsNtricks[] = {
+    "   tips & tricks   ",
+    "press f11 to store ",
+    "current sprite     ",
+    "before exiting.    ",
+  };
+// clang-format on
+
   POKE(0xD015, 0);
 
   flushkeybuf();
@@ -1139,6 +1170,7 @@ static void ShowHelp()
   PrintKeyGroup(drawKeys, ARRAY_SIZE(drawKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1);
   PrintKeyGroup(colorKeys, ARRAY_SIZE(colorKeys), 0, 2 + ARRAY_SIZE(fileKeys) + 1 + ARRAY_SIZE(drawKeys) + 1);
   PrintKeyGroup(displayKeys, ARRAY_SIZE(displayKeys), 42, 2);
+  PrintKeyGroup(tipsNtricks, ARRAY_SIZE(tipsNtricks), 42, 16);
 
   textcolor(COLOUR_CYAN);
   revers(1);
@@ -1529,6 +1561,7 @@ static void MainLoop()
 
       /* --------------------------- DRAWING TOOLS GROUP ----------------------- */
 
+    /*
     case 111: // o = circle  tool
       SetDrawTool(DRAWING_TOOL_CIRCLE);
       g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
@@ -1541,6 +1574,7 @@ static void MainLoop()
       g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
       SetRedrawFullCanvas();
       break;
+    */
 
     case 112: // p=pixel tool
       SetDrawTool(DRAWING_TOOL_PIXEL);

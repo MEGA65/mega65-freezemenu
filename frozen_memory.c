@@ -143,12 +143,13 @@ unsigned char freeze_fetch_sector(uint32_t addr, unsigned char* buffer)
   // Read the sector
   sdcard_readsector(freeze_slot_start_sector + freeze_slot_offset);
 
-  // Return the byte
-  lcopy((long)&sector_buffer[offset], (long)buffer, 512);
+  // Copy the sector
+  lcopy((long)&sector_buffer[offset], (long)buffer, 512 - offset);
+
   return 0;
 }
 
-unsigned char freeze_fetch_sector_32(uint32_t addr, uint32_t dest, unsigned int count)
+unsigned char freeze_fetch_sector_partial(uint32_t addr, uint32_t dest, unsigned int count)
 {
 
   // Find sector
@@ -171,8 +172,9 @@ unsigned char freeze_fetch_sector_32(uint32_t addr, uint32_t dest, unsigned int 
   // Read the sector
   sdcard_readsector(freeze_slot_start_sector + freeze_slot_offset);
 
-  // Return the byte
+  // Copy fetched data to dest address
   lcopy((long)&sector_buffer[offset], dest, count);
+
   return 0;
 }
 
@@ -190,7 +192,13 @@ unsigned char freeze_store_sector(uint32_t addr, unsigned char* buffer)
     return 0x55;
   }
 
-  lcopy((long)buffer, (long)&sector_buffer[offset], 512);
+  // if this is no full sector store, we need to get that sector first
+  if (offset > 0) {
+    // Read the sector for modification
+    sdcard_readsector(freeze_slot_start_sector + freeze_slot_offset);
+  }
+
+  lcopy((long)buffer, (long)&sector_buffer[offset], 512 - offset); // don't write behind the buffer!
 
   // Write the sector
   sdcard_writesector(freeze_slot_start_sector + freeze_slot_offset, 0);
@@ -198,7 +206,7 @@ unsigned char freeze_store_sector(uint32_t addr, unsigned char* buffer)
   return 0;
 }
 
-unsigned char freeze_store_sector_32(uint32_t addr, uint32_t src, unsigned int count)
+unsigned char freeze_store_sector_partial(uint32_t addr, uint32_t src, unsigned int count)
 {
 
   // Find sector
@@ -214,6 +222,12 @@ unsigned char freeze_store_sector_32(uint32_t addr, uint32_t src, unsigned int c
   if (freeze_slot_offset == 0xFFFFFFFFL) {
     // Invalid / unfrozen memory
     return 0x55;
+  }
+
+  // if this is no full sector store, we need to get that sector first
+  if (count != 512 || offset != 0) {
+    // Read the sector for modification
+    sdcard_readsector(freeze_slot_start_sector + freeze_slot_offset);
   }
 
   lcopy(src, (long)&sector_buffer[offset], count);
