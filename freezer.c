@@ -424,15 +424,13 @@ void draw_freeze_menu(unsigned char part)
     // Display process ID as decimal
     screen_decimal((unsigned long)&freeze_menu[PROCESS_ID_OFFSET], process_descriptor.task_id);
 
-    if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
-      // Process name: But only display if valid
-      for (i = 0; i < 16; i++)
-        if (!process_descriptor.process_name[i])
-          break;
-      if (i == 16)
-        lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
-    }
-    else // Blank out process descriptor fields
+    // Process name: only display if no unprintable PETSCII chars
+    for (i = 0; i < 16; i++)
+      if ((process_descriptor.process_name[i] & 0x7f) < 0x20)
+        break;
+    if (i == 16)
+      lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
+    else
       lcopy((unsigned long)"UNNAMED TASK    ", (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
   }
 
@@ -443,8 +441,8 @@ void draw_freeze_menu(unsigned char part)
     screen_decimal((unsigned long)&freeze_menu[DRIVE0_NUM_OFFSET], freeze_peek(0x10113L));
     screen_decimal((unsigned long)&freeze_menu[DRIVE1_NUM_OFFSET], freeze_peek(0x10114L));
 
-    lfill((unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], ' ', 19);
-    lfill((unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], ' ', 19);
+    lfill((unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], ' ', 18);
+    lfill((unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], ' ', 18);
 
     // Show name of current mounted disk image
     if (process_descriptor.d81_image0_namelen) {
@@ -454,7 +452,7 @@ void draw_freeze_menu(unsigned char part)
       if (i == process_descriptor.d81_image0_namelen) {
         topetsciiupper(process_descriptor.d81_image0_name, process_descriptor.d81_image0_namelen);
         lcopy((unsigned long)process_descriptor.d81_image0_name, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET],
-            process_descriptor.d81_image0_namelen < 19 ? process_descriptor.d81_image0_namelen : 19);
+            process_descriptor.d81_image0_namelen < 18 ? process_descriptor.d81_image0_namelen : 18);
       }
     }
 
@@ -465,7 +463,7 @@ void draw_freeze_menu(unsigned char part)
       if (i == process_descriptor.d81_image1_namelen) {
         topetsciiupper(process_descriptor.d81_image1_name, process_descriptor.d81_image1_namelen);
         lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
-            process_descriptor.d81_image1_namelen < 19 ? process_descriptor.d81_image1_namelen : 19);
+            process_descriptor.d81_image1_namelen < 18 ? process_descriptor.d81_image1_namelen : 18);
       }
     }
   }
@@ -489,8 +487,7 @@ void draw_freeze_menu(unsigned char part)
     }
 
   // Draw the thumbnail surround area
-  //  if ((process_descriptor.process_name[0] >= ' ') && (process_descriptor.process_name[0] <= 0x7f)) {
-  if (part & 0x80) {
+  if (part & UPDATE_THUMB) {
 #ifdef WITH_GUS
     unsigned char snail = 0;
 #endif
