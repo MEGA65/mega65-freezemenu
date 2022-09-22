@@ -851,7 +851,16 @@ int main(int argc, char** argv)
       // Process char
       if (c)
         switch (c) {
+        case 0x13: // Home
+          if (slot_number) {
+            slot_number = 0;
+            find_freeze_slot_start_sector(slot_number);
+            freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
+            draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
+            draw_thumbnail();
+          }
+          break;
         case 0x11: // Cursor down
         case 0x9D: // Cursor left
           if (slot_number)
