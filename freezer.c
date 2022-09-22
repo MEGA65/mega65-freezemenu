@@ -858,13 +858,11 @@ int main(int argc, char** argv)
             slot_number--;
           else
             slot_number = get_freeze_slot_count() - 1;
-          POKE(0xD020U, 0);
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
           draw_thumbnail();
-          POKE(0xD020U, 6);
           break;
         case 0x91: // Cursor up
         case 0x1D: // Cursor right
@@ -872,13 +870,11 @@ int main(int argc, char** argv)
             slot_number++;
           else
             slot_number = 0;
-          POKE(0xD020U, 0);
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
           draw_thumbnail();
-          POKE(0xD020U, 6);
           break;
 
         case 'M':
@@ -1050,6 +1046,10 @@ int main(int argc, char** argv)
           uint32_t i;
           uint32_t j;
           uint32_t dest_freeze_slot_start_sector;
+
+          // give visual feedback
+          hal_border_flicker = 1;
+
           find_freeze_slot_start_sector(0);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
           find_freeze_slot_start_sector(slot_number);
@@ -1081,6 +1081,9 @@ int main(int argc, char** argv)
             sdcard_writemultidone();
 #endif
           }
+          // give visual feedback
+          hal_border_flicker = 0;
+
           POKE(0xD020U, 6);
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);

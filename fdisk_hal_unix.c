@@ -6,6 +6,11 @@
 #include "fdisk_hal.h"
 
 FILE* sdcard = NULL;
+unsigned char hal_border_flicker = 0;
+
+void sdcard_visual_feedback(const uint8_t do_flicker)
+{
+}
 
 void mega65_fast(void)
 {

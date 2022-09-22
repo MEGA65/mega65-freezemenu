@@ -4,8 +4,10 @@
 
 extern unsigned char sdhc_card;
 extern uint8_t sector_buffer[512];
+extern uint8_t hal_border_flicker;
 
 uint32_t sdcard_getsize(void);
+void sdcard_visual_feedback(const uint8_t do_flicker);
 void sdcard_open(void);
 void sdcard_writesector(const uint32_t sector_number, uint8_t is_multi);
 void sdcard_readsector(const uint32_t sector_number);

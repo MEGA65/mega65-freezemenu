@@ -15,6 +15,7 @@ const uint16_t sd_addr = 0xd681L;
 const uint16_t sd_errorcode = 0xd6daL;
 
 unsigned char sdhc_card = 0;
+uint8_t hal_border_flicker = 0;
 
 // Tell utilpacker what our display name is
 const char* prop_m65u_name = "PROP.M65U.NAME=SDCARD FDISK+FORMAT UTILITY";
@@ -33,6 +34,18 @@ void usleep(uint32_t micros)
   return;
 }
 
+/*
+ * sdcard_visual_feedback(do_flicker)
+ *
+ *   do_flicker 0 == no border change
+ *              1 == only success/fail display
+ *              2 == full progress
+ */
+void sdcard_visual_feedback(const uint8_t do_flicker)
+{
+  hal_border_flicker = do_flicker < 3 ? do_flicker : 2;
+}
+
 void sdcard_reset(void)
 {
   // Reset and release reset
@@ -42,9 +55,9 @@ void sdcard_reset(void)
   POKE(sd_ctl, 1);
 
   // Now wait for SD card reset to complete
-  while (PEEK(sd_ctl) & 3) {
-    POKE(0xd020, (PEEK(0xd020) + 1) & 15);
-  }
+  while (PEEK(sd_ctl) & 3)
+    if (hal_border_flicker > 1)
+      POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
 
   if (sdhc_card) {
     // Set SDHC flag (else writing doesnt work for some reason)
@@ -158,7 +171,8 @@ void sdcard_readsector(const uint32_t sector_number)
       return;
     }
 
-    POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
+    if (hal_border_flicker > 1) 
+      POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
 
     // Reset SD card
     sdcard_open();
@@ -195,7 +209,8 @@ void sdcard_writesector(const uint32_t sector_number, uint8_t is_multi)
 
   counter = 0;
   while (PEEK(sd_ctl) & 3) {
-    POKE(0xD020, PEEK(0xD020) + 1);
+    if (hal_border_flicker > 1)
+      POKE(0xD020, (PEEK(0xd020) + 1) & 0xf);
     counter++;
     if (!counter) {
       // SD card not becoming ready: try reset
@@ -270,7 +285,8 @@ void sdcard_writesector(const uint32_t sector_number, uint8_t is_multi)
     }
 
     write_count++;
-    POKE(0xD020, write_count & 0x0f);
+    if (hal_border_flicker > 1)
+      POKE(0xD020, write_count & 0x0f);
 
     // Note result
     result = PEEK(sd_ctl);
@@ -278,7 +294,8 @@ void sdcard_writesector(const uint32_t sector_number, uint8_t is_multi)
     if (!(PEEK(sd_ctl) & 0x67)) {
       write_count++;
 
-      POKE(0xD020, write_count & 0x0f);
+      if (hal_border_flicker > 1)
+        POKE(0xD020, write_count & 0x0f);
 
       // There is a bug in the SD controller: You have to read between writes, or it
       // gets really upset.
@@ -315,7 +332,8 @@ void sdcard_writesector(const uint32_t sector_number, uint8_t is_multi)
       }
     }
 
-    POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
+    if (hal_border_flicker > 1)
+      POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
   }
 
   //  write_line("Write error @ $$$$$$$$$",2);
