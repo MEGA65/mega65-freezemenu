@@ -171,7 +171,7 @@ void sdcard_readsector(const uint32_t sector_number)
       return;
     }
 
-    if (hal_border_flicker > 1) 
+    if (hal_border_flicker > 1)
       POKE(0xd020, (PEEK(0xd020) + 1) & 0xf);
 
     // Reset SD card

@@ -87,9 +87,9 @@ int main(int argc, char** argv)
 
   // done in freeze_sprited.c:Initialize
   // Now find the start sector of the slot, and make a copy for safe keeping
-  //slot_number = 0;
-  //find_freeze_slot_start_sector(slot_number);
-  //freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  // slot_number = 0;
+  // find_freeze_slot_start_sector(slot_number);
+  // freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
   // SD or SDHC card?
   if (PEEK(0xD680U) & 0x10)
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
     sdhc_card = 0;
 
   // done in freeze_sprited.c:Initialize
-  //request_freeze_region_list();
+  // request_freeze_region_list();
 
   // Back to 40 column, 8-bit text mode
   POKE(0xD031U, 0x00);

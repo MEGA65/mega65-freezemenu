@@ -578,12 +578,14 @@ static void DrawBox(PAINTFUNC pfun)
   clearattr();
 }
 
+// clang-format off
 #pragma warn(unused-param, push, off)
 static void DrawNothing(PAINTFUNC pfun)
 {
   return;
 }
 #pragma warn(unused-param, pop)
+// clang-format on
 
 void SetDrawTool(BYTE dt)
 {
@@ -1066,6 +1068,7 @@ static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
   g_state.redrawFlags |= REDRAW_SB_COORD;
 }
 
+// clang-format off
 #pragma warn(unused-param, push, off)
 static BYTE SaveRawData(const BYTE name[16], char deviceNumber)
 {
@@ -1079,6 +1082,7 @@ static BYTE LoadRawData(const BYTE name[16])
   return 0;
 }
 #pragma warn(unused-param, pop)
+// clang-format on
 
 static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 {
@@ -1098,7 +1102,7 @@ static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
 
 static void ShowHelp()
 {
-// clang-format off
+  // clang-format off
   const char* fileKeys[] = {
     "  file / txfer     ",
     "load             f5",
@@ -1157,7 +1161,7 @@ static void ShowHelp()
     "current sprite     ",
     "before exiting.    ",
   };
-// clang-format on
+  // clang-format on
 
   POKE(0xD015, 0);
 
@@ -1561,20 +1565,20 @@ static void MainLoop()
 
       /* --------------------------- DRAWING TOOLS GROUP ----------------------- */
 
-    /*
-    case 111: // o = circle  tool
-      SetDrawTool(DRAWING_TOOL_CIRCLE);
-      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
+      /*
+      case 111: // o = circle  tool
+        SetDrawTool(DRAWING_TOOL_CIRCLE);
+        g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
 
-      SetRedrawFullCanvas();
-      break;
+        SetRedrawFullCanvas();
+        break;
 
-    case 79: // "O" = filled circle  tool
-      SetDrawTool(DRAWING_TOOL_FILLED_CIRCLE);
-      g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
-      SetRedrawFullCanvas();
-      break;
-    */
+      case 79: // "O" = filled circle  tool
+        SetDrawTool(DRAWING_TOOL_FILLED_CIRCLE);
+        g_state.redrawFlags = REDRAW_SB_TOOLS | REDRAW_TOOL_PREVIEW;
+        SetRedrawFullCanvas();
+        break;
+      */
 
     case 112: // p=pixel tool
       SetDrawTool(DRAWING_TOOL_PIXEL);

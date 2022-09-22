@@ -572,7 +572,8 @@ char* freeze_select_disk_image(unsigned char drive_id)
         while (x) {
           POKE(0xD081, 0x18);
           while (PEEK(0xD082) & 0x80)
-            if (hal_border_flicker > 1) POKE(0xD020, (PEEK(0xD020) + 1) & 0xf);
+            if (hal_border_flicker > 1)
+              POKE(0xD020, (PEEK(0xD020) + 1) & 0xf);
           x--;
         }
 

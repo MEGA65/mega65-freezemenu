@@ -240,7 +240,10 @@ GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatt
 	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 2>/dev/null
 
 format:
-	find . -type d \( -path ./cc65 -o -path ./cbmconvert \) -prune -false -o -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' | xargs clang-format --style=file -i
+	@submodules=""; for sm in `git submodule | awk '{ print "./" $$2 }'`; do \
+		submodules="$$submodules -o -path $$sm"; \
+	done; \
+	find . -type d \( $${submodules:3} \) -prune -false -o \( -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' \) -print | xargs clang-format --style=file -i --verbose
 
 .PHONY: clean cleangen version.s
 
