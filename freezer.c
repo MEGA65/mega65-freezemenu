@@ -13,7 +13,7 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.1.9       "
+unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.0       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40 + 3)
