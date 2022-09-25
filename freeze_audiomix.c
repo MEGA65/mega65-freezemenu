@@ -11,7 +11,7 @@
 #ifdef WITH_AUDIOMIXER
 
 unsigned char* audio_menu = "         MEGA65 AUDIO MIXER MENU        "
-                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2020  "
+                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2022  "
                             " cccccccccccccccccccccccccccccccccccccc "
                             "        LFT RGT PH1 PH2 BTL BTR HDL HDR "
                             "        cccccccccccccccccccccccccccccccc"
@@ -34,11 +34,11 @@ unsigned char* audio_menu = "         MEGA65 AUDIO MIXER MENU        "
                             " cccccccccccccccccccccccccccccccccccccc "
                             " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
                             " +/- ADJUST VALUE,    0/* - FAST ADJUST "
-                            " F3 - EXIT,        M - TOGGLE MIC MUTE  "
+                            " F3 - SIMPLE MODE,  M - TOGGLE MIC MUTE "
                             "\0";
 
 unsigned char* audio_menu_simple = "         MEGA65 AUDIO MIXER MENU        "
-                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2020  "
+                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2022  "
                                    " cccccccccccccccccccccccccccccccccccccc "
                                    "                                        "
                                    "         LEFT OUTPUT CHANNEL:           "
@@ -88,7 +88,8 @@ uint8_t audioxbar_getcoefficient(uint8_t n)
   return PEEK(0xD6F5U);
 }
 
-static uint8_t c, value, select_row, select_column;
+static uint8_t c, value, select_row, select_column, simple_row;
+static uint8_t mute_save[4];
 static uint16_t i;
 
 uint8_t nybl_to_hex(uint8_t v)
@@ -103,8 +104,13 @@ void draw_advanced_mixer(void)
   uint16_t offset;
   uint8_t colour;
 
-  audio_menu[38] = nybl_to_hex(select_column);
-  audio_menu[39] = nybl_to_hex(select_row);
+  // debug output gray
+  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 5, 12);
+  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 7, 12);
+  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 11, 12);
+  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 13, 12);
+  audio_menu[3*40 + 2] = nybl_to_hex(select_column);
+  audio_menu[3*40 + 3] = nybl_to_hex(select_row);
 
   c = 0;
   do {
@@ -138,8 +144,9 @@ void draw_advanced_mixer(void)
         colour = 13;
     }
     if (colour == 1) {
-      audio_menu[33] = nybl_to_hex(c >> 4);
-      audio_menu[34] = nybl_to_hex(c & 0xf);
+      // debug output
+      audio_menu[3*40 + 5] = nybl_to_hex(c >> 4);
+      audio_menu[3*40 + 6] = nybl_to_hex(c & 0xf);
     }
 
     lpoke(COLOUR_RAM_ADDRESS + offset + offset + 1, colour);
@@ -248,7 +255,7 @@ void draw_db_bar(unsigned char line, unsigned int val)
   // And the annotation to the right
   bar_addr += 24;
   if (!db) {
-    snprintf(msg, 10, "0DB");
+    snprintf(msg, 10, " 0DB");
     for (i = 0; msg[i]; i++)
       POKE(bar_addr + i, msg[i]);
     for (; i < 5; i++)
@@ -291,26 +298,47 @@ void set_amplifier(unsigned char leftRight, unsigned short v)
 
   */
 
+  // This does not work, disabled!
+
+  // avoid compiler warning because of disabled code
+  if (leftRight == v)
+    return;
+
+#if 0
   unsigned char amp_value = 0x20 + (v / 293);
 
   // Do we have an amplifier, and if so, where is it?
   switch (PEEK(0xD629)) {
   case 0x03: // MEGA65R3
     // $FFD71DC
-    while (lpeek(0xffd71e1 + leftRight) != amp_value)
+    // try 20 times, no endless loop please!
+    for (c = 0; c < 99 && lpeek(0xffd71e1 + leftRight) != amp_value; c++) {
       lpoke(0xffd71e1 + leftRight, amp_value);
+      usleep(10000U);
+    }
     break;
   case 0x21: // MEGAphone R1
   case 0x22: // MEGAphone R2
   case 0x23: // MEGAphone R3
     // $FFD7030
-    while (lpeek(0xffd7035 + leftRight) != amp_value)
+    // try 20 times, no endless loop please!
+    for (c = 0; c < 99 && lpeek(0xffd7035 + leftRight) != amp_value; c++) {
       lpoke(0xffd7035 + leftRight, amp_value);
+      usleep(10000U);
+    }
     break;
   }
+  if (c == 99) {
+    POKE(0xD020U, 2);
+    POKE(0xD021U, 2);
+    usleep(100000L);
+    POKE(0xD020U, 6);
+    POKE(0xD021U, 6);
+  }
+#endif
 }
 
-void plus_one_db(unsigned char row)
+void change_db(unsigned char row, unsigned char change)
 {
   // clang-format off
   switch (row) {
@@ -332,8 +360,13 @@ void plus_one_db(unsigned char row)
   v = audioxbar_getcoefficient(c);
   v |= audioxbar_getcoefficient(c + 1) << 8;
   val_to_db(v);
-  if (db)
-    db--;
+  if (change == 0) { // minus 1
+    if (db < 80)
+      db++;
+  } else { // plus 1
+    if (db)
+      db--;
+  }
   v = minus_db_table[db];
   audioxbar_setcoefficient(c + 0, v & 0xff);
   audioxbar_setcoefficient(c + 1, v >> 8);
@@ -344,41 +377,12 @@ void plus_one_db(unsigned char row)
     set_amplifier(1, v);
 }
 
-void swap_coefficients(unsigned char a, unsigned b)
+void swap_coefficients(unsigned char a, unsigned char b)
 {
   v = audioxbar_getcoefficient(a);
   v2 = audioxbar_getcoefficient(b);
   audioxbar_setcoefficient(a, v2);
   audioxbar_setcoefficient(b, v);
-}
-
-void minus_one_db(unsigned char row)
-{
-  // clang-format off
-  switch (row) {
-  case  0: c = 0xde; break;
-  case  1: c = 0xc0; break;
-  case  2: c = 0xc2; break;
-  case  3: c = 0xd0; break;
-  case  4: c = 0xd2; break;
-  case  5: c = 0xdc; break;
-  case  6: c = 0xfe; break;
-  case  7: c = 0xe0; break;
-  case  8: c = 0xe2; break;
-  case  9: c = 0xf0; break;
-  case 10: c = 0xf2; break;
-  case 11: c = 0xfc; break;
-  }
-  // clang-format on
-
-  v = audioxbar_getcoefficient(c);
-  v |= audioxbar_getcoefficient(c + 1) << 8;
-  val_to_db(v);
-  if (db < 80)
-    db++;
-  v = minus_db_table[db];
-  audioxbar_setcoefficient(c + 0, v & 0xff);
-  audioxbar_setcoefficient(c + 1, v >> 8);
 }
 
 void stereo_swap(void)
@@ -613,16 +617,16 @@ void test_audio(unsigned char advanced_view)
       case 2:
       case 4:
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 18 * 80, 80);
         lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
         break;
       case 1:
       case 3:
         lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 18 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
         break;
       }
     }
@@ -641,7 +645,6 @@ void test_audio(unsigned char advanced_view)
       while (PEEK(0xD012U) != 0x80) {
         POKE(0xD438U, 0x0f);
         POKE(0xD478U, 0x0f);
-        continue;
       }
 
       while (PEEK(0xD012U) == 0x80)
@@ -661,35 +664,44 @@ void test_audio(unsigned char advanced_view)
     lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 15 * 80, 80);
   }
   // Silence SIDs gradually to avoid pops
-  for (frames = 15; frames <= 0; frames--) {
-    while (PEEK(0xD012U) != 0x80) {
-      POKE(0xD418U, frames);
-      POKE(0xD438U, frames);
-      POKE(0xD458U, frames);
-      POKE(0xD478U, frames);
-      continue;
-    }
-
-    while (PEEK(0xD012U) == 0x80)
-      continue;
+  /*
+  for (frames = 15; frames < 16; frames--) {
+    while (PEEK(0xD012U) != 0x80); // wait for raster
+    POKE(0xD418U, frames);
+    POKE(0xD438U, frames);
+    POKE(0xD458U, frames);
+    POKE(0xD478U, frames);
   }
+  */
+  while (PEEK(0xD012U) != 0x80);
+  POKE(0xD418U, 0x0);
+  POKE(0xD438U, 0x0);
+  POKE(0xD458U, 0x0);
+  POKE(0xD478U, 0x0);
 
   // Reset all sids
-  lfill(0xffd3400, 0, 0x100);
+  //lfill(0xffd3400, 0, 0x100);
 }
+
+unsigned char cin;
 
 void do_advanced_mixer(void)
 {
   select_row = 0;
   select_column = 0;
 
+  // reset colour ram
+  lfill(0xff80000U, 1, 2000);
+
+  draw_advanced_mixer();
+
+  // clear keybuffer
+  while ((cin = PEEK(0xD610U)))
+    POKE(0xD610U, 0);
+
   while (1) {
-    draw_advanced_mixer();
-
-    if (PEEK(0xD610U)) {
-
-      unsigned char c = PEEK(0xD610U);
-
+    cin = PEEK(0xD610U);
+    if (cin) {
       // Flush char from input buffer
       POKE(0xD610U, 0);
 
@@ -700,9 +712,11 @@ void do_advanced_mixer(void)
       value = audioxbar_getcoefficient(i);
 
       // Process char
-      switch (c) {
+      switch (cin) {
       case 0x03:
       case 0xf3: // RUN/STOP or F3 to exit
+        // reset colour ram
+        lfill(0xff80000U, 1, 2000);
         return;
       case 0x11:
         select_row++;
@@ -770,8 +784,11 @@ void do_advanced_mixer(void)
         usleep(150000L);
         POKE(0xD020U, 6);
         POKE(0xD021U, 6);
+        cin = 0;
         break;
       }
+      if (cin)
+        draw_advanced_mixer();
     }
   }
 }
@@ -799,37 +816,41 @@ void do_audio_mixer(void)
     }
   }
 
+  draw_simple_mixer();
+
+  // clear keybuffer
+  while ((cin = PEEK(0xD610U)))
+    POKE(0xD610U, cin);
+
   while (1) {
-    draw_simple_mixer();
-
-    if (PEEK(0xD610U)) {
-
-      unsigned char c = PEEK(0xD610U);
-
+    cin = PEEK(0xD610U);
+    if (cin) {
       // Flush char from input buffer
       POKE(0xD610U, 0);
 
-      switch (c) {
+      switch (cin) {
       case 0x03:
       case 0xF3: // RUN/STOP / F3 = Exit
         return;
       case 'A':
       case 'a': // Advanced mode
+        simple_row = select_row;
         do_advanced_mixer();
+        select_row = simple_row;
         break;
       case '+':
-        plus_one_db(0);
-        plus_one_db(5);
+        change_db(0, 1); // master left
+        change_db(6, 1); // master right
         break;
       case '-':
-        minus_one_db(0);
-        minus_one_db(5);
+        change_db(0, 0); // master left
+        change_db(6, 0); // master right
         break;
       case 0x1d: // Right = + 1 to DB of signal
-        plus_one_db(select_row);
+        change_db(select_row, 1);
         break;
       case 0x9d: // Left = -1 to DB of signal
-        minus_one_db(select_row);
+        change_db(select_row, 0);
         break;
       case 0x11:
         select_row++;
@@ -839,7 +860,7 @@ void do_audio_mixer(void)
       case 0x91:
         select_row--;
         if (select_row >= 12)
-          select_row = 0;
+          select_row = 11;
         break;
       case 't':
       case 'T':
@@ -857,16 +878,20 @@ void do_audio_mixer(void)
       case 'm':
       case 'M': // Mute
         if (audioxbar_getcoefficient(0xfe)) {
+          mute_save[0] = audioxbar_getcoefficient(0xfe);
+          mute_save[1] = audioxbar_getcoefficient(0xff);
+          mute_save[2] = audioxbar_getcoefficient(0xde);
+          mute_save[3] = audioxbar_getcoefficient(0xdf);
           audioxbar_setcoefficient(0xfe, 0);
           audioxbar_setcoefficient(0xff, 0);
           audioxbar_setcoefficient(0xde, 0);
           audioxbar_setcoefficient(0xdf, 0);
         }
         else {
-          audioxbar_setcoefficient(0xfe, 0xff);
-          audioxbar_setcoefficient(0xff, 0xff);
-          audioxbar_setcoefficient(0xde, 0xff);
-          audioxbar_setcoefficient(0xdf, 0xff);
+          audioxbar_setcoefficient(0xfe, mute_save[0]);
+          audioxbar_setcoefficient(0xff, mute_save[1]);
+          audioxbar_setcoefficient(0xde, mute_save[2]);
+          audioxbar_setcoefficient(0xdf, mute_save[3]);
         }
         break;
       default:
@@ -876,8 +901,12 @@ void do_audio_mixer(void)
         usleep(150000L);
         POKE(0xD020U, 6);
         POKE(0xD021U, 6);
+        cin = 0;
         break;
       }
+      // only draw menu if there was a keypress to handle
+      if (cin)
+        draw_simple_mixer();
     }
   }
 }
