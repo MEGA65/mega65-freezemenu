@@ -417,10 +417,12 @@ void draw_freeze_menu(unsigned char part)
 
      We should just read the sector containing all this, and get it out all at once.
   */
-  if (part & UPDATE_PROCESS) {
+  if ((part & UPDATE_PROCESS) || (part & UPDATE_DISK)) {
     lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
     freeze_fetch_sector(0xFFFBD00L, (unsigned char*)&process_descriptor);
+  }
 
+  if (part & UPDATE_PROCESS) {
     // Display process ID as decimal
     screen_decimal((unsigned long)&freeze_menu[PROCESS_ID_OFFSET], process_descriptor.task_id);
 
@@ -627,11 +629,24 @@ void poll_touch_panel(void)
 }
 #endif
 
-void select_mounted_disk_image(int diskid)
+void store_selected_disk_image(int diskid, char* disk_image)
 {
   int disk_img_name_loc = diskid ? 0x35 : 0x15;
   int disk_img_name_length_loc = diskid ? 0x14 : 0x13;
+  unsigned char i;
 
+  // Replace disk image name in process descriptor block
+  for (i = 0; (i < 32) && disk_image[i]; i++)
+    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, tweak(disk_image[i]));
+  // Update length of name
+  freeze_poke(0xFFFBD00L + disk_img_name_length_loc, i);
+  // Pad with spaces as required by hypervisor
+  for (; i < 32; i++)
+    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, ' ');
+}
+
+void select_mounted_disk_image(int diskid)
+{
   char* disk_image = freeze_select_disk_image(diskid);
 
   // Restore freeze region offset list to $0400 screen
@@ -641,19 +656,8 @@ void select_mounted_disk_image(int diskid)
     // Have no disk image
   }
   else if (disk_image) {
-    {
-      unsigned char i;
-      POKE(0xD020U, 6);
-
-      // Replace disk image name in process descriptor block
-      for (i = 0; (i < 32) && disk_image[i]; i++)
-        freeze_poke(0xFFFBD00L + disk_img_name_loc + i, tweak(disk_image[i]));
-      // Update length of name
-      freeze_poke(0xFFFBD00L + disk_img_name_length_loc, i);
-      // Pad with spaces as required by hypervisor
-      for (; i < 32; i++)
-        freeze_poke(0xFFFBD00L + disk_img_name_loc + i, ' ');
-    }
+    POKE(0xD020U, 6);
+    store_selected_disk_image(diskid, disk_image);
   }
 
   predraw_freeze_menu();
@@ -666,6 +670,7 @@ void main(void)
 int main(int argc, char** argv)
 #endif
 {
+  unsigned char drive_state;
 #ifdef __CC65__
   mega65_fast();
 #endif
@@ -724,6 +729,15 @@ int main(int argc, char** argv)
     sdhc_card = 0;
 
   request_freeze_region_list();
+
+  // BASIC65 unmount will just poke D6A1, and
+  // not use hyppo, because we don't have a fucntion
+  // for that! so we need to udpate the process
+  // descriptor to show that we have the internal
+  // drive mounted
+  drive_state = lpeek(0xFFD36A1);
+  if (drive_state & 0x1)
+    store_selected_disk_image(0, INTERNAL_DRIVE_0);
 
   setup_menu_screen();
   predraw_freeze_menu();

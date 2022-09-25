@@ -9,7 +9,8 @@
 // #define WITH_TOUCH
 
 char cdecl mega65_dos_chdir(unsigned char* dirname);
-char cdecl mega65_dos_attachd81(char* image_name);
+char cdecl mega65_dos_d81attach0(char* image_name);
+char cdecl mega65_dos_d81attach1(char* image_name);
 char cdecl mega65_dos_exechelper(char* filename);
 void fetch_freeze_region_list_from_hypervisor(unsigned short);
 unsigned char fastcall find_freeze_slot_start_sector(unsigned short);
@@ -21,6 +22,9 @@ void closedir(unsigned char);
 void closeall(void);
 
 void freeze_monitor(void);
+
+#define INTERNAL_DRIVE_0 "- INTERNAL 3.5\" -   "
+#define INTERNAL_DRIVE_1 "- 1565 DRIVE 1 -    "
 char* freeze_select_disk_image(unsigned char drive_id);
 
 void request_freeze_region_list(void);

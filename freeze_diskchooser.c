@@ -157,7 +157,7 @@ int read_sector_with_cancel(void)
   return 1;
 }
 
-void draw_directory_contents(void)
+void draw_directory_contents(unsigned char drive_id)
 {
   unsigned char c, i, x;
 
@@ -185,7 +185,13 @@ void draw_directory_contents(void)
 
   // Try to mount it, with border black while working
   POKE(0xD020U, 0);
-  if (mega65_dos_attachd81(disk_name_return)) {
+  if (drive_id == 0)
+    x = mega65_dos_d81attach0(disk_name_return);
+  else if (drive_id == 1)
+    x = mega65_dos_d81attach1(disk_name_return);
+  else
+    x = -1;
+  if (x) {
     // Mounting the image failed
     POKE(0xD020U, 2);
 
@@ -343,11 +349,11 @@ void scan_directory(unsigned char drive_id)
   lcopy((unsigned long)"- NO DISK -         ", 0x40000L + (file_count * 64), 20);
   file_count++;
   if (drive_id == 0) {
-    lcopy((unsigned long)"- INTERNAL 3.5\" -   ", 0x40000L + (file_count * 64), 20);
+    lcopy((unsigned long)INTERNAL_DRIVE_0, 0x40000L + (file_count * 64), 20);
     file_count++;
   }
-  if (drive_id == 1) {
-    lcopy((unsigned long)"- 1565 DRIVE 1 -    ", 0x40000L + (file_count * 64), 20);
+  else if (drive_id == 1) {
+    lcopy((unsigned long)INTERNAL_DRIVE_1, 0x40000L + (file_count * 64), 20);
     file_count++;
   }
   lcopy((unsigned long)"- NEW D81 DD IMAGE -", 0x40000L + (file_count * 64), 20);
@@ -395,7 +401,13 @@ void scan_directory(unsigned char drive_id)
 char* freeze_select_disk_image(unsigned char drive_id)
 {
   unsigned char x;
+  char err;
   int idle_time = 0;
+
+  // if working with drive 1, we will be
+  if (drive_id == 1) {
+
+  }
 
   file_count = 0;
   selection_number = 0;
@@ -434,7 +446,7 @@ char* freeze_select_disk_image(unsigned char drive_id)
       idle_time++;
       if (idle_time == 100) {
         // After sitting idle for 1 second, try mounting disk image and displaying directory listing
-        draw_directory_contents();
+        draw_directory_contents(drive_id);
       }
       usleep(10000);
       continue;
@@ -499,7 +511,7 @@ char* freeze_select_disk_image(unsigned char drive_id)
             // No disk. Set image enable flag, and disable present flag
             if (drive_id == 0)
               lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0xb8) + 0x01);
-            if (drive_id == 1)
+            else if (drive_id == 1)
               lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0x47) + 0x08);
           }
           else if (disk_name_return[2] == 'I') {
@@ -531,11 +543,19 @@ char* freeze_select_disk_image(unsigned char drive_id)
           }
         }
         else {
-          if (drive_id == 0)
-            lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0xb8) + 0x07);
-          if (drive_id == 1)
-            lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0x47) + 0x38);
-          if (mega65_dos_attachd81(disk_name_return)) {
+          if (drive_id == 0) {
+            // hyppo attach does this
+            // lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0xb8) + 0x07);
+            err = mega65_dos_d81attach0(disk_name_return);
+          }
+          else if (drive_id == 1) {
+            // hyppo attach does this
+            // lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0x47) + 0x38);
+            err = mega65_dos_d81attach1(disk_name_return);
+          }
+          else
+            err = -1;
+          if (err) {
             // Mounting the image failed
             POKE(0xD020U, 2);
 

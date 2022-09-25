@@ -1,6 +1,7 @@
 
 	.setcpu "65C02"
-	.export _mega65_dos_attachd81
+	.export _mega65_dos_d81attach0
+	.export _mega65_dos_d81attach1
 	.export _mega65_dos_chdir
 	.export _mega65_dos_exechelper
 	.export	_fetch_freeze_region_list_from_hypervisor
@@ -56,9 +57,9 @@ _mega65_dos_exechelper:
 	;; XXX Check for error (carry would be clear)
 
 	; close all files to work around hyppo file descriptor leak bug
-        lda #$22
-        sta $d640
-        nop
+	lda #$22
+	sta $d640
+	nop
 	
 	;; Now copy a little routine into place in $0340 that does the actual loading and jumps into
 	;; the program when loaded.
@@ -102,24 +103,36 @@ _mega65_dos_exechelper:
 
 loadfile_routine:
 	; Now load the file to $07ff
-        lda #$36
-        ldx #$FF
-        ldy #$07
-        ldz #$00
-        sta $d640
-        nop
-        bcs load_succeeded
+	lda #$36
+	ldx #$FF
+	ldy #$07
+	ldz #$00
+	sta $d640
+	nop
+	bcs load_succeeded
 
-        rts
+	rts
 
 load_succeeded:
-        ldz     #$00
+	ldz     #$00
 	jmp $080d
 	rts
-	
-_mega65_dos_attachd81:
-	;; char mega65_dos_attachd81(char *image_name);
 
+attachHyppoCmd:
+	.byte	$40
+
+_mega65_dos_d81attach1:
+	;; char mega65_dos_d81attach1(char *image_name);
+	lda #$46
+	sta attachHyppoCmd
+	bra attachLoadFN
+
+_mega65_dos_d81attach0:
+	;; char mega65_dos_d81attach0(char *image_name);
+	lda #$40
+	sta attachHyppoCmd
+
+attachLoadFN:
 	;; Get pointer to file name
 	;; sp here is the ca65 sp ZP variable, not the stack pointer of a 4510
 	ldy #1
@@ -151,7 +164,7 @@ _mega65_dos_attachd81:
 	bcc @attachError
 
 	;; Try to attach it
-	LDA #$40
+	LDA attachHyppoCmd
 	STA $D640
 	NOP
 
@@ -363,9 +376,9 @@ _read_file_from_sdcard:
 
 _closeall:
 	; close all files to work around hyppo file descriptor leak bug
-        lda #$22
-        sta $d640
-        nop
+	lda #$22
+	sta $d640
+	nop
 
 	rts
 	
