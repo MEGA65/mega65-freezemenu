@@ -1093,6 +1093,7 @@ int main(int argc, char** argv)
           POKE(0xD020U, 6);
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
+          draw_thumbnail();
         } break;
 
         case 0x1f: // HELP MEGAINFO
