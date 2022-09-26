@@ -1,5 +1,6 @@
 
 	.setcpu "65C02"
+	.export _mega65_geterrorcode
 	.export _mega65_dos_d81attach0
 	.export _mega65_dos_d81attach1
 	.export _mega65_dos_chdir
@@ -21,6 +22,14 @@
   ;; fall-back to FREEZER.M65 if other .M65 file can't be loaded
 _freezer_m65:
 	.asciiz "freezer.m65"
+
+_mega65_geterrorcode:
+	;; short mega65_geterrorcode();
+	;; Call hypervisor trap
+	LDA #$38    ; hyppo_geterrorcode - returns errorcode in A
+	STA $D642   ; trigger hypervisor trap
+	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	RTS
 
 _mega65_dos_exechelper:
 	;; char mega65_dos_exechelper(char *image_name);
@@ -169,16 +178,22 @@ attachLoadFN:
 	NOP
 
 @attachError:
+	;; save error code from hyppo call
+	PHA
 	;; save flags
 	PHP
 
 	JSR incsp2  ; remove the char* arg from the stack
 	
-	;; return inverted carry flag, so result of 0 = success
+	;; if carry is clear, return error code from A
 	PLA
 	AND #$01
-	EOR #$01
-	LDX #$00
+	BNE @noAttachError
+	PLA
+	RTS
+@noAttachError:
+	PLA
+	LDA #$0		; zero out error code = success
 
 	RTS
 

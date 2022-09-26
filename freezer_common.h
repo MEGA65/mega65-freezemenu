@@ -17,5 +17,7 @@ extern unsigned short slot_number;
 void set_palette(void);
 char* detect_rom(void);
 unsigned char detect_cpu_speed(void);
+uint8_t nybl_to_screen(uint8_t v);
+unsigned char petscii_to_screen(unsigned char petscii);
 
 #endif /* __FREEZER_COMMON_H__ */

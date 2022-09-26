@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "freezer.h"
+#include "freezer_common.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
@@ -27,7 +28,7 @@
 
 extern unsigned short slot_number;
 
-short file_count = 0;
+short file_count = 0, min_dir_entry = 0;
 short selection_number = 0;
 short display_offset = 0;
 
@@ -62,70 +63,112 @@ unsigned char joy_to_key_disk[32] = {
   0, 0, 0, 0, 0, 0, 0, 0x9d, 0, 0, 0, 0x1d, 0, 0x11, 0x91, 0 // without fire
 };
 
-char draw_directory_entry(unsigned char screen_row)
+static char default_error[] = "ERROR CODE XX";
+char* hyppoerror_to_screen(unsigned char error)
 {
-  char type;
-  char firsta0 = 1;
-  char invalid = 0;
-  unsigned char i, c;
-  // Skip first 5 bytes
-  for (i = 0; i < 2; i++)
-    c = PEEK(0xD087U);
-  type = PEEK(0xD087U);
-  if (!(type & 0xf))
-    invalid = 1;
-  for (i = 0; i < 2; i++)
-    c = PEEK(0xD087U);
-  // Then draw the 16 chars with quotes
-  POKE(SCREEN_ADDRESS + (screen_row * 80) + (21 * 2), '"');
-  for (i = 0; i < 16; i++) {
-    c = PEEK(0xD087U);
-    if (!c)
-      invalid = 1;
-    if (firsta0 && (c == 0xa0)) {
-      POKE(SCREEN_ADDRESS + (screen_row * 80) + (22 * 2) + (i * 2), 0x22);
-      firsta0 = 0;
-    }
-    else {
-      if (c >= 'A' && c <= 'Z')
-        c &= 0x1f;
-      if (c >= 'a' && c <= 'z')
-        c &= 0x1f;
-      POKE(SCREEN_ADDRESS + (screen_row * 80) + (22 * 2) + (i * 2), c & 0x7f);
-    }
+  switch (error) {
+    case 0x07:
+      return "READ TIMEOUT";
+    case 0x11:
+      return "ILLEGAL VALUE";
+    case 0x20:
+      return "READ ERROR";
+    case 0x21:
+      return "WRITE ERROR";
+    case 0x80:
+      return "NO SUCH DRIVE";
+    case 0x81:
+      return "NAME TO LONG";
+    case 0x82:
+      return "NOT IMPLEMENTED";
+    case 0x83:
+      return "FILE TO LONG";
+    case 0x84:
+      return "TO MANY OPEN FILES";
+    case 0x85:
+      return "INVALID CLUSTER";
+    case 0x86:
+      return "IS A DIRECTORY";
+    case 0x87:
+      return "NOT A DIRECTORY";
+    case 0x88:
+      return "FILE NOT FOUND";
+    case 0x89:
+      return "INVALID FILE DESCR";
+    case 0x8a:
+      return "WRONG IMAGE LENGTH";
+    case 0x8b:
+      return "IMAGE FRAGMENTED";
+    case 0x8c:
+      return "NO SPACE LEFT";
+    case 0x8d:
+      return "FILE EXISTS";
+    case 0x8e:
+      return "DIRECTORY FULL";
+    case 0xff:
+      return "NO SUCH TRAP / EOF";
   }
-  if (firsta0) {
-    POKE(SCREEN_ADDRESS + (screen_row * 80) + (38 * 2), '"');
-  }
-  if (type & 0x40)
-    POKE(SCREEN_ADDRESS + (screen_row * 80) + (39 * 2), '<');
-  if (!type & 0xf0)
-    POKE(SCREEN_ADDRESS + (screen_row * 80) + (39 * 2), '*');
-
-  // Read the rest of the entry to advance buffer pointer nicely
-  for (i = 0; i < 11; i++)
-    c = PEEK(0xD087U);
-
-  if (invalid) {
-    // Erase whatever we drew
-    for (i = 21; i < 40; i++)
-      POKE(SCREEN_ADDRESS + (screen_row * 80) + (i * 2), ' ');
-  }
-  else {
-    lcopy((unsigned long)dir_line_colour, COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2), 19 * 2);
-  }
-
-  return invalid;
+  default_error[11] = (error >> 4) + (((error >> 4) < 10) ? 0x30 : 0x37);
+  default_error[12] = (error & 0xf) + (((error & 0xf) < 10) ? 0x30 : 0x37);
+  return default_error;
 }
 
-static unsigned char current_sector, dir_track, entries, cur_row;
+#define DISK_TYPE_D81 0
+#define DISK_TYPE_D64 1
+#define DISK_TYPE_D65 2
+#define DISK_TYPE_D71 3
+static unsigned char disk_type, current_sector, dir_track, entries, cur_row, current_side = 0, entry_buffer[18] = "\"                 ";
+
+void draw_directory_entry(unsigned char screen_row)
+{
+  unsigned char i;
+
+  for (i = 0; i < 18; i++)
+    POKE(SCREEN_ADDRESS + (screen_row * 80) + (21 * 2) + (i * 2), entry_buffer[i]);
+
+  lcopy((unsigned long)dir_line_colour, COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2), 19 * 2);
+}
+
+unsigned char next_directory_entry(void)
+{
+  unsigned char c, i, type = 0;
+
+  if (disk_type == DISK_TYPE_D81 || disk_type == DISK_TYPE_D64) {
+    // D81 || D64
+    c = PEEK(0xD087U); // track next entry
+    c = PEEK(0xD087U); // sector next entry
+    type = PEEK(0xD087U); // file type
+    c = PEEK(0xD087U); // track file
+    c = PEEK(0xD087U); // sector file
+    // now 16 char filename
+    if (type & 0xf) { // valid
+      entry_buffer[17] = ' ';
+      for (i = 1; i < 17; i++)
+        entry_buffer[i] = petscii_to_screen(PEEK(0xD087U));
+      for (; entry_buffer[i] == ' ' && i > 1; i--);
+      entry_buffer[i+1] = '"';
+
+      // skip rest up to 32 bytes
+      for (i = 0; i < 11; i++)
+        c = PEEK(0xD087U);
+    }
+    else
+      for (i = 0; i < 27; i++)
+        c = PEEK(0xD087U);
+  }
+
+  return type & 0xf;
+}
 
 void draw_entries(void)
 {
   unsigned char i;
+
   for (i = 0; i < entries; i++) {
-    if (!draw_directory_entry(cur_row))
+    if (next_directory_entry()) {
+      draw_directory_entry(cur_row);
       cur_row++;
+    }
     if (cur_row >= 23)
       break;
   }
@@ -135,7 +178,7 @@ int read_sector_with_cancel(void)
 {
   POKE(0xD084U, dir_track);
   POKE(0xD085U, current_sector);
-  POKE(0xD086U, 0);
+  POKE(0xD086U, current_side);
   while (PEEK(0xD082U) & 0x80) {
     // Exit if a key has been pressed
     if (PEEK(0xD610U)) {
@@ -159,9 +202,13 @@ int read_sector_with_cancel(void)
 
 void draw_directory_contents(unsigned char drive_id)
 {
-  unsigned char c, i, x;
+  unsigned char c, i, x, *errstr;
+  unsigned char err;
+  short skip_bytes, j;
 
-  dir_track = 39;
+  // only work on drive 0 and 1
+  if (drive_id > 1)
+    return;
 
   lcopy(0x40000L + (selection_number * 64), (unsigned long)disk_name_return, 32);
 
@@ -169,34 +216,28 @@ void draw_directory_contents(unsigned char drive_id)
   if (disk_name_return[0] == '/')
     return;
 
-  // Then null terminate it
-  for (x = 31; x; x--)
-    if (disk_name_return[x] == ' ') {
-      disk_name_return[x] = 0;
-    }
-    else {
-      break;
-    }
-
-  // For D64 files, directory sector is at T18/S0
-  i = strlen(disk_name_return);
-  if (disk_name_return[i - 2] == '6' && disk_name_return[i - 1] == '4')
-    dir_track = 17;
+  // null terminate disk_name_return
+  for (x = 31; x && disk_name_return[x] == ' '; x--)
+    disk_name_return[x] = 0;
 
   // Try to mount it, with border black while working
   POKE(0xD020U, 0);
   if (drive_id == 0)
-    x = mega65_dos_d81attach0(disk_name_return);
+    err = mega65_dos_d81attach0(disk_name_return);
   else if (drive_id == 1)
-    x = mega65_dos_d81attach1(disk_name_return);
+    err = mega65_dos_d81attach1(disk_name_return);
   else
-    x = -1;
-  if (x) {
+    err = 1;
+  if (err) {
     // Mounting the image failed
     POKE(0xD020U, 2);
-
-    // XXX - Get DOS error code, and replace directory listing area with
-    // appropriate error message
+    errstr = hyppoerror_to_screen(err);
+    for (i=0; i < 19 && errstr[i]; i++) {
+      POKE(SCREEN_ADDRESS + (21 * 2) + (i * 2), petscii_to_screen(errstr[i]));
+      lpoke(COLOUR_RAM_ADDRESS + (21 * 2) + 1 + (i * 2), 0x02); // errors are red
+    }
+    for (; i < 19; i++)
+      POKE(SCREEN_ADDRESS + (21 * 2) + (i * 2), ' ');
     return;
   }
   POKE(0xD020U, 6);
@@ -205,44 +246,123 @@ void draw_directory_contents(unsigned char drive_id)
   if (PEEK(0xD610U))
     return;
 
+  // determine disk image type
+  // d68a.6/7 -> d64 flag
+  // d68b.6/7 -> d65 flag
+  disk_type = ((PEEK(0xd68b) >> (5 + drive_id)) & 0x2) | ((PEEK(0xd68a) >> (6 + drive_id)) & 0x1);
+  switch (disk_type) {
+    case DISK_TYPE_D81:
+      dir_track = 39;
+      current_side = 0;
+      current_sector = 1;
+      skip_bytes = 4;
+      break;
+    case DISK_TYPE_D64:
+      dir_track = 8;
+      current_side = 1;
+      current_sector = 9;
+      skip_bytes = 256 + 0x90;
+      break;
+    case DISK_TYPE_D65:
+    case DISK_TYPE_D71:
+      // write_entry
+      return; // not supported
+  }
+
   // Mounted disk, so now get the directory.
 
   // Read T40 S1 (sectors begin at 1, not 0)
-  POKE(0xD080U, 0x60); // motor and LED on
+  POKE(0xD080U, 0x60 | drive_id); // motor and LED on, and select correct drive
   POKE(0xD081U, 0x20); // Wait for motor spin up
-  current_sector = 1;
 
   if (!read_sector_with_cancel())
     return;
 
-  // Disk name is in bytes $04-$14, so skip first four bytes of sector buffer
-  // (we have to assign the PEEK here, so it doesn't get optimised away)
-  i = 4;
-  if (dir_track == 17) // d64 image? Then find disk name at 0x90
-    i = 0x90;
-  for (x = 0; x < i; x++)
+#if 0
+  // debugger!
+  while (1) {
+    x = 0;
+    do {
+      c = PEEK(0xD087U);
+      if (c >= 'A' && c <= 'Z')
+        c &= 0x1f;
+      if (c >= 'a' && c <= 'z')
+        c &= 0x1f;
+      if (x % 16 == 0) {
+        POKE(SCREEN_ADDRESS + 21 * 2 + ((x >> 4) * 80), nybl_to_screen(x >> 4));
+        POKE(SCREEN_ADDRESS + 22 * 2 + ((x >> 4) * 80), nybl_to_screen(x));
+      }
+      POKE(SCREEN_ADDRESS + ((24 + (x%16)) * 2) + ((x >> 4) * 80), c & 0x7f);
+    } while (++x);
+    POKE(SCREEN_ADDRESS + 21 * 2 + 17 * 80, nybl_to_screen(dir_track >> 4));
+    POKE(SCREEN_ADDRESS + 22 * 2 + 17 * 80, nybl_to_screen(dir_track));
+    POKE(SCREEN_ADDRESS + 24 * 2 + 17 * 80, current_side + 0x30);
+    POKE(SCREEN_ADDRESS + 26 * 2 + 17 * 80, nybl_to_screen(current_sector >> 4));
+    POKE(SCREEN_ADDRESS + 27 * 2 + 17 * 80, nybl_to_screen(current_sector));
+    POKE(SCREEN_ADDRESS + 30 * 2 + 17 * 80, 0x01);
+    while ((x = PEEK(0xD610U)) == 0);
+    POKE(0xD610U, 0);
+    if (x == 'q')
+      return;
+    do {
+      c = PEEK(0xD087U);
+      if (c >= 'A' && c <= 'Z')
+        c &= 0x1f;
+      if (c >= 'a' && c <= 'z')
+        c &= 0x1f;
+      if (x % 16 == 0) {
+        POKE(SCREEN_ADDRESS + 21 * 2 + ((x >> 4) * 80), nybl_to_screen(x >> 4));
+        POKE(SCREEN_ADDRESS + 22 * 2 + ((x >> 4) * 80), nybl_to_screen(x));
+      }
+      POKE(SCREEN_ADDRESS + ((24 + (x%16)) * 2) + ((x >> 4) * 80), c & 0x7f);
+    } while (++x);
+    POKE(SCREEN_ADDRESS + 30 * 2 + 17 * 80, 0x02);
+    while ((x = PEEK(0xD610U)) == 0);
+    POKE(0xD610U, 0);
+    if (x == 'q')
+      return;
+
+    current_sector++;
+    if (current_sector > 10) {
+      if (current_side == 1) {
+        current_side = 0;
+        dir_track++;
+      }
+      else
+        current_side = 1;
+      current_sector = 1;
+    }
+    if (!read_sector_with_cancel())
+      return;
+  }
+#else
+  // skip start of sector until we reach the disk title
+  for (j = 0; j < skip_bytes; j++)
     c = PEEK(0xD087U);
+
   // Then draw title at the top of the screen
+  POKE(SCREEN_ADDRESS + 21 * 2, '"');
   for (x = 0; x < 16; x++) {
     c = PEEK(0xD087U);
     if (c >= 'A' && c <= 'Z')
       c &= 0x1f;
-    if (c >= 'a' && c <= 'z')
-      c &= 0x1f;
-    POKE(SCREEN_ADDRESS + (21 * 2) + (x * 2), c & 0x7f);
+    POKE(SCREEN_ADDRESS + (22 + x) * 2, c & 0x7f);
   }
+  POKE(SCREEN_ADDRESS + 38 * 2, '"');
   // reverse for disk title
-  for (i = 0; i < 16; i++)
+  for (i = 0; i < 18; i++)
     lpoke(COLOUR_RAM_ADDRESS + (21 * 2) + 1 + i * 2, 0x2e);
 
+  // user impatient?
   if (PEEK(0xD610U)) {
     POKE(0xD080U, 0);
     return;
   }
 
-  if (dir_track != 17) // is not a d64? (i.e., d81 or d65?)
-  {
-    current_sector = 2;
+  // move to first dir entry depending on disk_type
+  if (disk_type == DISK_TYPE_D81) {
+    // D81
+    current_sector++;
     if (!read_sector_with_cancel())
       return;
     // Skip 1st half of sector
@@ -252,10 +372,10 @@ void draw_directory_contents(unsigned char drive_id)
     while (++x);
     entries = 8;
   }
-  else // for d64 files, skip 0x60 bytes more
-  {
-    for (x = 0; x < 0x60; x++)
-      c = PEEK(0xD087U);
+  else { // DISK_TYPE_D64
+    current_sector++;
+    if (!read_sector_with_cancel())
+      return;
     entries = 16;
   }
   cur_row = 1; // begin drawing on row 1 of screen
@@ -265,9 +385,10 @@ void draw_directory_contents(unsigned char drive_id)
   if (!read_sector_with_cancel())
     return;
 
+  // once more, then we have the 22 entries we can display
   entries = 16;
   draw_entries();
-
+#endif
   // Turn floppy LED and motor back off
   POKE(0xD080U, 0);
 }
@@ -358,8 +479,14 @@ void scan_directory(unsigned char drive_id)
   }
   lcopy((unsigned long)"- NEW D81 DD IMAGE -", 0x40000L + (file_count * 64), 20);
   file_count++;
+
+  // no way to mount D65 yet...
+#if WITH_NEW_D65
   lcopy((unsigned long)"- NEW D65 HD IMAGE -", 0x40000L + (file_count * 64), 20);
   file_count++;
+#endif
+
+  min_dir_entry = file_count;
 
   dir = opendir();
   dirent = readdir(dir);
@@ -444,7 +571,7 @@ char* freeze_select_disk_image(unsigned char drive_id)
 
     if (!x) {
       idle_time++;
-      if (idle_time == 100) {
+      if (idle_time == 100 && selection_number >= min_dir_entry) {
         // After sitting idle for 1 second, try mounting disk image and displaying directory listing
         draw_directory_contents(drive_id);
       }
@@ -582,6 +709,9 @@ char* freeze_select_disk_image(unsigned char drive_id)
         // Mount succeeded, now seek to track 0 to make sure DOS
         // knows where we are, and to make sure the drive head is
         // sitting properly.
+        POKE(0xD080U, 0x60 | drive_id); // motor and LED on
+        POKE(0xD081U, 0x20); // Wait for motor spin up
+
         while (!(PEEK(0xD082) & 0x01)) {
           POKE(0xD081, 0x10);
           usleep(7000);

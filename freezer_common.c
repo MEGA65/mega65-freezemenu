@@ -171,3 +171,32 @@ void clear_sector_buffer(void)
   lfill((uint32_t)sector_buffer, 0, 512);
 #endif
 }
+
+uint8_t nybl_to_screen(uint8_t v)
+{
+  v &= 0xf;
+  if (v < 0xa)
+    return 0x30 + v;
+  return v - 0x9;
+}
+
+unsigned char petscii_to_screen(unsigned char petscii)
+{
+  // control characters => space
+  if ((petscii & 0x7f) < 0x20)
+    return 0x20;
+  if (petscii < 0x40)
+    return petscii;
+  if (petscii < 0x60)
+    return petscii & 0x3f;
+  if (petscii < 0x80)
+    return petscii & 0x5f;
+  if (petscii < 0xc0)
+    return petscii ^ 0xc0;
+  if (petscii < 0xe0)
+    return petscii & 0x5f;
+  if (petscii < 0xff)
+    return petscii & 0x7f;
+  // want some pi?
+  return 0x5e;
+}

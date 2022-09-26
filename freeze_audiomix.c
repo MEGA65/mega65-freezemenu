@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "freezer.h"
+#include "freezer_common.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
@@ -92,13 +93,6 @@ static uint8_t c, value, select_row, select_column, simple_row;
 static uint8_t mute_save[4];
 static uint16_t i;
 
-uint8_t nybl_to_hex(uint8_t v)
-{
-  if (v < 0xa)
-    return 0x30 + v;
-  return 0x41 - 0xa + v;
-}
-
 void draw_advanced_mixer(void)
 {
   uint16_t offset;
@@ -109,8 +103,8 @@ void draw_advanced_mixer(void)
   lpoke(COLOUR_RAM_ADDRESS + 3*80 + 7, 12);
   lpoke(COLOUR_RAM_ADDRESS + 3*80 + 11, 12);
   lpoke(COLOUR_RAM_ADDRESS + 3*80 + 13, 12);
-  audio_menu[3*40 + 2] = nybl_to_hex(select_column);
-  audio_menu[3*40 + 3] = nybl_to_hex(select_row);
+  audio_menu[3*40 + 2] = nybl_to_screen(select_column);
+  audio_menu[3*40 + 3] = nybl_to_screen(select_row);
 
   c = 0;
   do {
@@ -125,8 +119,8 @@ void draw_advanced_mixer(void)
 
     // And get the value to display
     value = audioxbar_getcoefficient(c);
-    audio_menu[offset] = nybl_to_hex(value >> 4);
-    audio_menu[offset + 1] = nybl_to_hex(value & 0xf);
+    audio_menu[offset] = nybl_to_screen(value >> 4);
+    audio_menu[offset + 1] = nybl_to_screen(value);
 
     // Now pick the colour to display
     // We want to make it easy to find values, so we should
@@ -145,8 +139,8 @@ void draw_advanced_mixer(void)
     }
     if (colour == 1) {
       // debug output
-      audio_menu[3*40 + 5] = nybl_to_hex(c >> 4);
-      audio_menu[3*40 + 6] = nybl_to_hex(c & 0xf);
+      audio_menu[3*40 + 5] = nybl_to_screen(c >> 4);
+      audio_menu[3*40 + 6] = nybl_to_screen(c);
     }
 
     lpoke(COLOUR_RAM_ADDRESS + offset + offset + 1, colour);
@@ -798,21 +792,23 @@ void do_audio_mixer(void)
   select_row = 0;
 
   for (i = 0; i < 80; i += 2) {
-    db_bar_highlight[i + 0] = 0;
-    db_bar_lowlight[i + 0] = 0;
-    db_bar_highlight[i + 1] = 1;
-    db_bar_lowlight[i + 1] = 11;
     if (i >= 22 && i < 46) {
       db_bar_highlight[i + 1] = 5;
       db_bar_lowlight[i + 1] = 13;
     }
-    if (i >= 46 && i < 54) {
+    else if (i >= 46 && i < 54) {
       db_bar_highlight[i + 1] = 8;
       db_bar_lowlight[i + 1] = 7;
     }
-    if (i >= 54 && i < 70) {
+    else if (i >= 54 && i < 70) {
       db_bar_highlight[i + 1] = 2;
       db_bar_lowlight[i + 1] = 10;
+    }
+    else {
+      db_bar_highlight[i + 0] = 0;
+      db_bar_lowlight[i + 0] = 0;
+      db_bar_highlight[i + 1] = 1;
+      db_bar_lowlight[i + 1] = 12;
     }
   }
 
