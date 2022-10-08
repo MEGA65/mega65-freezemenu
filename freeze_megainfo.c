@@ -126,6 +126,8 @@ char* format_mega_model()
     return "MEGA65 R3";
   case 33:
     return "MEGAPHONE R1 PROTOTYPE";
+  case 34:
+    return "MEGAPHONE R4 PROTOTYPE";
   case 64:
     return "NEXYS 4 PSRAM";
   case 65:
