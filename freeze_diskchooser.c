@@ -150,19 +150,23 @@ unsigned char next_directory_entry(void)
 
   if (disk_type == DISK_TYPE_D81 || disk_type == DISK_TYPE_D64) {
     // D81 || D64
-    c = PEEK(0xD087U); // track next dir
+    i = PEEK(0xD087U); // track next dir
     c = PEEK(0xD087U); // sector next dir
-    if (next_sector == 255)
-      next_sector = c;
+    if (next_sector == 255) { // only first two bytes of sector count!
+      if (i > 0 && c > 1 && c < 41) // track 0 means end of dir
+        next_sector = c;
+      else
+        next_sector = 254; // first two bytes of sector read
+    }
     type = PEEK(0xD087U); // file type
     c = PEEK(0xD087U); // track file
     c = PEEK(0xD087U); // sector file
     // now 16 char filename
-    if (type & 0xf) { // valid
+    if (type) { // valid
       entry_buffer[17] = ' ';
       for (i = 1; i < 17; i++)
         entry_buffer[i] = petscii_to_screen(PEEK(0xD087U));
-      for (; entry_buffer[i] == ' ' && i > 1; i--);
+      for (; (entry_buffer[i] & 0xbf) == ' ' && i > 1; i--); // this might be 0x20 or 0x60
       entry_buffer[i+1] = '"';
 
       // skip rest up to 32 bytes
@@ -174,13 +178,16 @@ unsigned char next_directory_entry(void)
         c = PEEK(0xD087U);
   }
 
-  return type & 0xf;
+  return type;
 }
 
 void draw_entries(void)
 {
   unsigned char i;
 
+  // next_sector = 255 -> first entry of sector to be read
+  // next_sector = 254 -> first already read, no valid dir pointer
+  // next_sector < 41  -> next dir sector 
   next_sector = 255;
   for (i = 0; i < entries; i++) {
     if (next_directory_entry()) {
@@ -189,6 +196,8 @@ void draw_entries(void)
     }
     if (cur_row >= 23)
       break;
+    if (i == 8) // D81 two sectors at once, so read next pointer
+      next_sector = 255;
   }
 }
 
@@ -381,7 +390,7 @@ unsigned char draw_directory_contents(unsigned char drive_id)
   }
   cur_row = 1; // begin drawing on row 1 of screen
   draw_entries();
-  if (next_sector == 255)
+  if (next_sector >= 254)
     goto exit_with_motor_off;
   do {
     if (disk_type == DISK_TYPE_D81) {
@@ -421,7 +430,7 @@ unsigned char draw_directory_contents(unsigned char drive_id)
 
     // once more, then we have the 22 entries we can display
     draw_entries();
-  } while (cur_row < 23 && next_sector != 255);
+  } while (cur_row < 23 && next_sector < 254);
 #endif
   // Turn floppy LED and motor back off
 exit_with_motor_off:
