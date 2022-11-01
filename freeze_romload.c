@@ -372,9 +372,8 @@ char* freeze_select_rom_or_patch(void)
 void do_rom_loader(void)
 {
   // Get user to select a ROM file or ROM patch file from the SD card
+  // This also loads it into RAM, and then writes it out into the freeze slot
   char* rom_file = freeze_select_rom_or_patch();
-
-  // Load and/or patch the requested file
 
   // Return, so that control can go back to the freezer
   return;
