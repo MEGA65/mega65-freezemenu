@@ -1066,11 +1066,21 @@ int main(int argc, char** argv)
 
         case 0xf7: // F7 = save to slot
         {
-          // Get start sectors of the source and destination slots
           uint32_t i;
           uint32_t j;
           uint32_t dest_freeze_slot_start_sector;
 
+          // can't save to slot 0
+          if (slot_number == 0) {
+            POKE(0xD020U, 2);
+            POKE(0xD021U, 2);
+            usleep(150000L);
+            POKE(0xD020U, 6);
+            POKE(0xD021U, 6);
+            continue;
+          }
+
+          // Get start sectors of the source and destination slots
           // give visual feedback
           sdcard_visual_feedback(1);
 
