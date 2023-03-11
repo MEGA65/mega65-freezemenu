@@ -30,7 +30,7 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
                              " C(R)T EMU:     OFF  (V)IDEO:    NTSC60 "
                              "cccccccccccccccccccccccccccccccccccccccc"
-                             " M - MONITOR         L - LOAD ROM       "
+                             " M - MONITOR         L - LOAD ROM/CHAR  "
                              " A - AUDIO & VOLUME                     "
                              " S - SPRITE EDITOR                      "
                              "cccccccccccccccccccccccccccccccccccccccc"
