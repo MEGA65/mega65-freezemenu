@@ -578,6 +578,7 @@ void draw_freeze_menu(unsigned char part)
 #ifdef WITH_GUS
     }
 #endif
+    draw_thumbnail();
   }
 
   // restore border colour (fdisk/sd stuff still twiddles with it)
@@ -682,7 +683,7 @@ void select_mounted_disk_image(int diskid)
   }
 
   predraw_freeze_menu();
-  draw_freeze_menu(0xff);
+  draw_freeze_menu(UPDATE_ALL);
 }
 
 #ifdef __CC65__
@@ -774,8 +775,6 @@ int main(int argc, char** argv)
   setup_menu_screen();
   predraw_freeze_menu();
   draw_freeze_menu(UPDATE_ALL);
-
-  draw_thumbnail();
 
   // Flush input buffer
   while (PEEK(0xD610U))
@@ -902,7 +901,6 @@ int main(int argc, char** argv)
             request_freeze_region_list();
 
             draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
-            draw_thumbnail();
           }
           break;
         case 0x11: // Cursor down
@@ -916,7 +914,6 @@ int main(int argc, char** argv)
           request_freeze_region_list();
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
-          draw_thumbnail();
           break;
         case 0x91: // Cursor up
         case 0x1D: // Cursor right
@@ -929,7 +926,6 @@ int main(int argc, char** argv)
           request_freeze_region_list();
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
-          draw_thumbnail();
           break;
 
         case 'M':
@@ -1156,26 +1152,29 @@ int main(int argc, char** argv)
 
           POKE(0xD020U, 6);
 
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
-          draw_thumbnail();
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
         } break;
 
         case 0x1f: // HELP MEGAINFO
           mega65_dos_exechelper("MEGAINFO.M65");
           break;
 
-        case 0xfe: // F14 - load DEFAULT_CHARSET
+        case 0xfe: // F14 - restore CHARSET from ROM
+          // clear screen first
+          predraw_freeze_menu();
           if (!read_file_from_sdcard("MEGA65.ROM", 0x40000L)) {
+            // CHARC is at D000
             lcopy(0x4D000L, 0xFF7E000L, 4096);
-            last_thumb_frame = 255;
-            draw_freeze_menu(UPDATE_ALL);
-            draw_thumbnail();
           }
-          else {
+          else { // failed to load ROM, flash screen
             POKE(0xD020U, 2);
             usleep(150000L);
             POKE(0xD020U, 6);
           }
+          // we need to redraw everything, because loading the ROM
+          // will mess things up (thumbnail for example)
+          last_thumb_frame = 255; // invalidate thumbnail
+          draw_freeze_menu(UPDATE_ALL);
           break;
         case 'R':
         case 'r': // switch CRT Emulation
