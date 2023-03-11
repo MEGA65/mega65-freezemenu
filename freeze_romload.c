@@ -32,7 +32,7 @@ char *rom_reset_screen = "YOU HAVE LOADED THE ROM FILE            "
                          "IT IS PROBABLY UNSAFE TO JUST RESUME THE"
                          "SYSTEM, A FULL RESET IS RECOMMENDED.    "
                          "                                        "
-                         "           RESET SYSTEM NOW?            ";
+                         "        RESET SYSTEM NOW? (Y/N)         ";
 
 // clang-format off
 unsigned char normal_row[40] = {
@@ -425,7 +425,7 @@ void user_reset_prompt(void)
   copy_line_to_screen(SCREEN_ADDRESS + 3*80 + 8, rom_name_return, 32);
   copy_line_to_screen(SCREEN_ADDRESS + 4*80 + 34, detect_rom(), 11);
 
-  while (!x) {
+  while (x != 'Y' && x!= 'y' && x != 'N' && x != 'n') {
     x = PEEK(0xD610U);
 
     if (!x) {
@@ -434,8 +434,11 @@ void user_reset_prompt(void)
       // Then wait for joystick to release
       while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
         continue;
-      if (x == 0xd)
+      // translate joystick to keys
+      if (x == 0xd) // fire is Y
         x = 'Y';
+      else if (x == 0x9d) // left is abort
+        x = 'N';
     }
     else {
       POKE(0xD610U, 0);
