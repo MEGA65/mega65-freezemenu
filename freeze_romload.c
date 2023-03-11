@@ -358,19 +358,14 @@ unsigned char freeze_load_romarea(void)
         
         if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR")) {
           // Load CHARSET to CHARA
+          read_file_from_sdcard(rom_name_return, 0x40000L);
+          lcopy(0x40000L, 0xFF7E000L, 4096);
 
-          // currently does not work, as the CHARSET is **NOT** taken from the ROM area
-          // https://github.com/MEGA65/mega65-core/issues/676 will change this
-
+          // Then progressively save it into the frozen memory
+          /*
           int s;
           unsigned int slot_number = 0; // XXX Get this passed from main freezer programme
 
-          // Load normal ROM file
-
-          // Begin by loading the file at $40000-$5FFFF
-          read_file_from_sdcard(rom_name_return, 0x40000L);
-
-          // Then progressively save it into the frozen memory
           request_freeze_region_list();
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
@@ -382,7 +377,7 @@ unsigned char freeze_load_romarea(void)
             freeze_store_sector(0x2d000L + ((long)s) * 512L, buffer);
           }
           POKE(0xD020, 0x00);
-
+          */
           return 0; // no reset needed, most probably...
         }
       }

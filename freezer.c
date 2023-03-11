@@ -58,6 +58,8 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
                              "~~~~~~~~~~~~~~~~~~~~                    "
                              "\0";
 
+#define DEFAULT_CHARSET "M65DEF.CHR"
+
 static unsigned short i;
 unsigned char rom_changed = 0;
 char* deadly_haiku[3] = { "Error consumes all", "As sand erodes rock and stone", "Now also your mind" };
@@ -1164,6 +1166,15 @@ int main(int argc, char** argv)
           mega65_dos_exechelper("MEGAINFO.M65");
           break;
 
+        case 0xfe: // F14 - load DEFAULT_CHARSET
+          if (!read_file_from_sdcard(DEFAULT_CHARSET, 0x40000L))
+            lcopy(0x40000L, 0xFF7E000L, 4096);
+          else {
+            POKE(0xD020U, 2);
+            usleep(150000L);
+            POKE(0xD020U, 6);
+          }
+          break;
         case 'R':
         case 'r': // switch CRT Emulation
           c = freeze_peek(0xFFD3054L);
