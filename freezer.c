@@ -16,7 +16,7 @@
 unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
-#define LOAD_RESUME_OFFSET (3 * 40 + 3)
+#define LOAD_RESUME_OFFSET (3 * 40)
                              "F3-LOAD   F5-RESET F7-SAVE HELP-MEGAINFO"
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define CPU_MODE_OFFSET (5 * 40 + 13)
@@ -59,6 +59,7 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
                              "\0";
 
 static unsigned short i;
+unsigned char rom_changed = 0;
 char* deadly_haiku[3] = { "Error consumes all", "As sand erodes rock and stone", "Now also your mind" };
 #ifdef WITH_TOUCH
 signed char swipe_dir = 0;
@@ -341,13 +342,16 @@ void draw_freeze_menu(unsigned char part)
   if (part & UPDATE_TOP) {
 
     if (slot_number) {
-      lcopy((unsigned long)"LOAD  ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 6);
+      lcopy((unsigned long)"F3-LOAD  ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
       lcopy((unsigned long)" FREEZE SLOT:      ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
       // Display slot ID as decimal
       screen_decimal((unsigned long)&freeze_menu[SLOT_NUMBER_OFFSET], slot_number);
     }
     else {
-      lcopy((unsigned long)"RESUME", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 6);
+      if (rom_changed)
+        lcopy((unsigned long)"         ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
+      else
+        lcopy((unsigned long)"F3-RESUME", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
 
       // Display "- PAUSED STATE -"
       lcopy((unsigned long)" - PAUSED STATE -   ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
@@ -699,6 +703,13 @@ int main(int argc, char** argv)
   POKE(0xD01AU, 0x00);
   // XXX add missing C65 AND M65 peripherals
   // C65 UART, ethernet etc
+
+  // check border for return codes from other helpers
+  switch (PEEK(0xD020U)) {
+    case 0x83:
+      rom_changed = 1;
+      break;
+  }
 
   // Bank out BASIC ROM, leave KERNAL and IO in
   POKE(0x00, 0x3F);
@@ -1075,8 +1086,13 @@ int main(int argc, char** argv)
         }
           // fall through
         case 0xf3: // F3 = resume
+        case 0xf4: // RESUME even if ROM changed
+          // if rom changed, slot 0 resume is disabled, reset is required
+          if (c == 0xf3 && slot_number == 0 && rom_changed)
+            break;
           // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
           POKE(0xD689, origD689);
+
           unfreeze_slot(slot_number);
 
           // should never get here

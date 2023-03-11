@@ -467,12 +467,17 @@ void user_reset_prompt(void)
   }
 }
 
-void do_rom_loader(void)
+// returns 1 if rom was changed and user skipped reset
+unsigned char do_rom_loader(void)
 {
+  unsigned char changed = 0;
+
   // Get user to select a ROM file from the SD card
   // This loads it into RAM, and then writes it out into the freeze slot
-  if (freeze_load_romarea())
+  if (freeze_load_romarea()) {
     user_reset_prompt();
+    changed = 1;
+  }
 
   // need to go up to root dir, or we can't load FREEZER again!
   while (subdir_count) {
@@ -481,5 +486,5 @@ void do_rom_loader(void)
   }
 
   // Return, so that control can go back to the freezer
-  return;
+  return changed;
 }

@@ -41,8 +41,6 @@ void setup_menu_screen(void)
   lfill(0xff80000U, 1, 2000);
 }
 
-static unsigned short i;
-
 struct process_descriptor_t process_descriptor;
 
 // Left/right do left/right
@@ -131,7 +129,12 @@ int main(int argc, char** argv)
 
   request_freeze_region_list();
 
-  do_rom_loader();
+  // communicate changed ROM by setting specific border color
+  if (do_rom_loader())
+    POKE(0xD020U, 0x83);
+  else
+    POKE(0xD020U, 0x06);
+
   mega65_dos_exechelper("FREEZER.M65");
 
   return;
