@@ -14,6 +14,15 @@
 extern uint8_t sector_buffer[512];
 extern unsigned short slot_number;
 
+// this variable is set by detect_rom()
+#define MEGA65_ROM_UNKNOWN 0
+#define MEGA65_ROM_C64     1
+#define MEGA65_ROM_C65     2
+#define MEGA65_ROM_M65     3
+#define MEGA65_ROM_OPENROM 4
+extern char mega65_rom_type;
+extern char mega65_rom_name[];
+
 void set_palette(void);
 char* detect_rom(void);
 unsigned char detect_cpu_speed(void);

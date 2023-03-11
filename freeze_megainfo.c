@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "freezer.h"
+#include "freezer_common.h"
 #include "infohelper.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
@@ -249,120 +250,12 @@ char* format_fpga_hash(unsigned char offset, unsigned char reverse)
  */
 char* format_rom_version(void)
 {
-  // Check for C65 ROM via version string
-  lcopy(0x20016L, (long)buffer + 4, 7);
-  if ((buffer[4] == 'V') && (buffer[5] == '9')) {
-    if (buffer[6] >= '2')
-      buffer[0] = 'M';
-    else
-      buffer[0] = 'C';
-    buffer[1] = '6';
-    buffer[2] = '5';
-    buffer[3] = ' ';
-    buffer[11] = 0;
-    return buffer;
-  }
+  // we want to display the version in freeze slot 0!
+  find_freeze_slot_start_sector(0);
+  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  request_freeze_region_list();
 
-  // OpenROM - 16 characters "OYYMMDDCC       "
-  lcopy(0x20010L, (long)buffer + 4, 16);
-  if ((buffer[4] == 'O') && (buffer[11] == '2') && (buffer[12] == '0') && (buffer[13] == ' ')) {
-    buffer[0] = 'O';
-    buffer[1] = 'P';
-    buffer[2] = 'E';
-    buffer[3] = 'N';
-    buffer[4] = ' ';
-    buffer[11] = 0;
-    return buffer;
-  }
-
-  if (freeze_peek(0x2e47dL) == 'J') {
-    // Probably jiffy dos
-    if (freeze_peek(0x2e535L) == 0x06)
-      return "SX64 JIFFY";
-    else
-      return "C64 JIFFY";
-  }
-
-  if (freeze_peek(0x2e449L) == 0x2e) {
-    return "C64GS";
-  }
-  if (freeze_peek(0x2e119L) == 0xc9) {
-    return "C64 REV1";
-  }
-  if (freeze_peek(0x2e67dL) == 0xb0) {
-    return "C64 REV2 JP";
-  }
-  if (freeze_peek(0x2ebaeL) == 0x5b) {
-    return "C64 REV3 DK";
-  }
-  if (freeze_peek(0x2e0efL) == 0x28) {
-    return "C64 SCAND";
-  }
-  if (freeze_peek(0x2ebf3L) == 0x40) {
-    return "C64 SWEDEN";
-  }
-  if (freeze_peek(0x2e461L) == 0x20) {
-    return "CYCLONE 1.0";
-  }
-  if (freeze_peek(0x2e4a4L) == 0x41) {
-    return "DOLPHIN 1.0";
-  }
-  if (freeze_peek(0x2e47fL) == 0x52) {
-    return "DOLPHIN 2AU";
-  }
-  if (freeze_peek(0x2eed7L) == 0x2c) {
-    return "DOLPHIN 2P1";
-  }
-  if (freeze_peek(0x2e7d2L) == 0x6b) {
-    return "DOLPHIN 2P2";
-  }
-  if (freeze_peek(0x2e4a6L) == 0x32) {
-    return "DOLPHIN 2P3";
-  }
-  if (freeze_peek(0x2e0f9L) == 0xaa) {
-    return "DOLPHIN 3.0";
-  }
-  if (freeze_peek(0x2e462L) == 0x45) {
-    return "DOSROM V1.2";
-  }
-  if (freeze_peek(0x2e472L) == 0x20) {
-    return "MERCRY3 PAL";
-  }
-  if (freeze_peek(0x2e16dL) == 0x84) {
-    return "MERCRY NTSC";
-  }
-  if (freeze_peek(0x2e42dL) == 0x4c) {
-    return "PET 4064";
-  }
-  if (freeze_peek(0x2e1d9L) == 0xa6) {
-    return "SX64 CROACH";
-  }
-  if (freeze_peek(0x2eba9L) == 0x2d) {
-    return "SX64 SCAND";
-  }
-  if (freeze_peek(0x2e476L) == 0x2a) {
-    return "TRBOACS 2.6";
-  }
-  if (freeze_peek(0x2e535L) == 0x07) {
-    return "TRBOACS 3P1";
-  }
-  if (freeze_peek(0x2e176L) == 0x8d) {
-    return "TRBOASC 3P2";
-  }
-  if (freeze_peek(0x2e42aL) == 0x72) {
-    return "TRBOPROC US";
-  }
-  if (freeze_peek(0x2e4acL) == 0x81) {
-    return "C64C 251913";
-  }
-  if (freeze_peek(0x2e479L) == 0x2a) {
-    return "C64 REV2";
-  }
-  if (freeze_peek(0x2e535L) == 0x06) {
-    return "SX64 REV4";
-  }
-
-  return "UNKNOWN ROM";
+  return detect_rom();
 }
 
 /*

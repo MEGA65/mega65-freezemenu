@@ -2,12 +2,14 @@
 #include <string.h>
 
 #include "freezer.h"
+#include "freezer_common.h"
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
+short subdir_count = 0;
 short file_count = 0;
 short selection_number = 0;
 short display_offset = 0;
@@ -16,8 +18,21 @@ unsigned char buffer[512];
 
 char* reading_disk_list_message = "SCANNING DIRECTORY ...";
 
-char* diskchooser_instructions = " SELECT ROM OR PATCH, THEN PRESS RETURN "
+char* diskchooser_instructions = "SELECT A ROM FILE, PRESS RETURN TO LOAD,"
                                  "  OR PRESS RUN/STOP TO LEAVE UNCHANGED  ";
+
+char *rom_reset_screen = "YOU HAVE LOADED THE ROM FILE            "
+                         "                                        "
+                         "                                        "
+                         "    ROM VERSION:                        "
+                         "                                        "
+                         "INTO FROZEN MEMORY, REPLACING THE WHOLE "
+                         "ROM STORED THERE.                       "
+                         "                                        "
+                         "IT IS PROBABLY UNSAFE TO JUST RESUME THE"
+                         "SYSTEM, A FULL RESET IS RECOMMENDED.    "
+                         "                                        "
+                         "           RESET SYSTEM NOW?            ";
 
 // clang-format off
 unsigned char normal_row[40] = {
@@ -101,31 +116,40 @@ char draw_directory_entry(unsigned char screen_row)
   return invalid;
 }
 
+void clear_screen(unsigned char lines)
+{
+  POKE(SCREEN_ADDRESS + 0, ' ');
+  POKE(SCREEN_ADDRESS + 1, 0);
+  POKE(SCREEN_ADDRESS + 2, ' ');
+  POKE(SCREEN_ADDRESS + 3, 0);
+  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 40 * 2 * lines - 4);
+  lpoke(COLOUR_RAM_ADDRESS + 0, 0);
+  lpoke(COLOUR_RAM_ADDRESS + 1, 1);
+  lpoke(COLOUR_RAM_ADDRESS + 2, 0);
+  lpoke(COLOUR_RAM_ADDRESS + 3, 1);
+  lcopy(COLOUR_RAM_ADDRESS, COLOUR_RAM_ADDRESS + 4, 40 * 2 * lines - 4);
+}
+
+void copy_line_to_screen(long dest, char *src, unsigned int length)
+{
+  unsigned int i;
+
+  for (i = 0; i < length && src[i] != 0; i++) {
+    POKE(dest + (i << 1) + 0, petscii_to_screen(src[i]));
+    POKE(dest + (i << 1) + 1, 0);
+  }
+}
+
 void draw_file_list(void)
 {
   unsigned addr = SCREEN_ADDRESS;
   unsigned char i, x;
   unsigned char name[64];
   // First, clear the screen
-  POKE(SCREEN_ADDRESS + 0, ' ');
-  POKE(SCREEN_ADDRESS + 1, 0);
-  POKE(SCREEN_ADDRESS + 2, ' ');
-  POKE(SCREEN_ADDRESS + 3, 0);
-  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 40 * 2 * 23 - 4);
-  lpoke(COLOUR_RAM_ADDRESS + 0, 0);
-  lpoke(COLOUR_RAM_ADDRESS + 1, 1);
-  lpoke(COLOUR_RAM_ADDRESS + 2, 0);
-  lpoke(COLOUR_RAM_ADDRESS + 3, 1);
-  lcopy(COLOUR_RAM_ADDRESS, COLOUR_RAM_ADDRESS + 4, 40 * 2 * 23 - 4);
+  clear_screen(23);
 
   // Draw instructions
-  for (i = 0; i < 80; i++) {
-    if (diskchooser_instructions[i] >= 'A' && diskchooser_instructions[i] <= 'Z')
-      POKE(SCREEN_ADDRESS + 23 * 80 + (i << 1) + 0, diskchooser_instructions[i] & 0x1f);
-    else
-      POKE(SCREEN_ADDRESS + 23 * 80 + (i << 1) + 0, diskchooser_instructions[i]);
-    POKE(SCREEN_ADDRESS + 23 * 80 + (i << 1) + 1, 0);
-  }
+  copy_line_to_screen(SCREEN_ADDRESS + 23 * 80, diskchooser_instructions, 80);
   lcopy((long)highlight_row, COLOUR_RAM_ADDRESS + (23 * 80) + 0, 40);
   lcopy((long)highlight_row, COLOUR_RAM_ADDRESS + (23 * 80) + 40, 40);
   lcopy((long)highlight_row, COLOUR_RAM_ADDRESS + (24 * 80) + 0, 40);
@@ -194,8 +218,8 @@ void scan_directory(void)
       }
     }
     else if (x > 4) {
-      if ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) || (!strncmp(&dirent->d_name[x - 4], ".RDF", 4))) {
-        // File is a ROM or ROM Diff File
+      if ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) || (!strncmp(&dirent->d_name[x - 4], ".CHR", 4))) {
+        // File is a ROM or a CHaRset
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
         file_count++;
@@ -208,7 +232,16 @@ void scan_directory(void)
   closedir(dir);
 }
 
-char* freeze_select_rom_or_patch(void)
+/*
+ * uchar freeze_load_romarea()
+ *
+ * lets the user select a ROM like file from the SDcard
+ * and loads it into frozen memory
+ * 
+ * returns 1 with the whole ROM was replaced and the user
+ * should be prompted for a direct reset
+ */
+unsigned char freeze_load_romarea(void)
 {
   unsigned char x;
   int idle_time = 0;
@@ -231,7 +264,7 @@ char* freeze_select_rom_or_patch(void)
 
   // If we didn't find any disk images, then just return
   if (!file_count)
-    return NULL;
+    return 0;
 
   // Okay, we have some disk images, now get the user to pick one!
   draw_file_list();
@@ -246,15 +279,18 @@ char* freeze_select_rom_or_patch(void)
         continue;
     }
     else {
-      POKE(0xD610, 0);
+      POKE(0xD610U, 0);
     }
 
     switch (x) {
     case 0x03: // RUN-STOP = make no change
-      return NULL;
+      return 0;
     case 0x5f: // <- key at top left of key board
       // Go back up one directory
+      if (!subdir_count) break;
+
       mega65_dos_chdir("..");
+      subdir_count--;
       file_count = 0;
       selection_number = 0;
       display_offset = 0;
@@ -279,6 +315,10 @@ char* freeze_select_rom_or_patch(void)
       POKE(0xD020U, 0);
       if (rom_name_return[0] == '/') {
         // Its a directory
+        if (rom_name_return[1] == '.' && rom_name_return[2] == '.' && !rom_name_return[3])
+          subdir_count--;
+        else
+          subdir_count++;
         mega65_dos_chdir(&rom_name_return[1]);
         file_count = 0;
         selection_number = 0;
@@ -287,52 +327,64 @@ char* freeze_select_rom_or_patch(void)
         draw_file_list();
       }
       else {
-        if (rom_name_return[0] == '-') {
-          // Do nothing
-        }
-        else {
-          // XXX - Actually do loading of ROM / ROM diff file
-          if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM")) {
-            int s;
-            unsigned int slot_number = 0; // XXX Get this passed from main freezer programme
+        if (!selection_number)
+          return 0;
 
-            // Load normal ROM file
+        // XXX - Actually do loading of ROM / ROM diff file
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM")) {
+          int s;
+          unsigned int slot_number = 0; // XXX Get this passed from main freezer programme
 
-            // Begin by loading the file at $40000-$5FFFF
-            read_file_from_sdcard(rom_name_return, 0x40000L);
+          // Load normal ROM file
 
-            // Then progressively save it into the frozen memory
-            request_freeze_region_list();
-            find_freeze_slot_start_sector(slot_number);
-            freeze_slot_start_sector = *(uint32_t*)0xD681U;
+          // Begin by loading the file at $40000-$5FFFF
+          read_file_from_sdcard(rom_name_return, 0x40000L);
 
-            for (s = 0; s < (128 * 1024 / 512); s++) {
-              // Write each sector to frozen memory
-              POKE(0xD020, PEEK(0xD020) + 1);
-              lcopy(0x40000L + 512L * (long)s, (long)buffer, 512);
-              freeze_store_sector(0x20000L + ((long)s) * 512L, buffer);
-            }
-            POKE(0xD020, 0x00);
+          // Then progressively save it into the frozen memory
+          request_freeze_region_list();
+          find_freeze_slot_start_sector(slot_number);
+          freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-            return rom_name_return;
+          for (s = 0; s < (128 * 1024 / 512); s++) {
+            // Write each sector to frozen memory
+            POKE(0xD020, PEEK(0xD020) + 1);
+            lcopy(0x40000L + 512L * (long)s, (long)buffer, 512);
+            freeze_store_sector(0x20000L + ((long)s) * 512L, buffer);
           }
-          else if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".RDF")) {
-            // Load ROM diff file
-            read_file_from_sdcard(rom_name_return, 0x40000L);
+          POKE(0xD020, 0x00);
+
+          return 1;
+        }
+        
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR")) {
+          // Load CHARSET to CHARA
+
+          // currently does not work, as the CHARSET is **NOT** taken from the ROM area
+          // https://github.com/MEGA65/mega65-core/issues/676 will change this
+
+          int s;
+          unsigned int slot_number = 0; // XXX Get this passed from main freezer programme
+
+          // Load normal ROM file
+
+          // Begin by loading the file at $40000-$5FFFF
+          read_file_from_sdcard(rom_name_return, 0x40000L);
+
+          // Then progressively save it into the frozen memory
+          request_freeze_region_list();
+          find_freeze_slot_start_sector(slot_number);
+          freeze_slot_start_sector = *(uint32_t*)0xD681U;
+
+          for (s = 0; s < 8; s++) {
+            // Write each sector to frozen memory
+            POKE(0xD020, PEEK(0xD020) + 1);
+            lcopy(0x40000L + 512L * (long)s, (long)buffer, 512);
+            freeze_store_sector(0x2d000L + ((long)s) * 512L, buffer);
           }
+          POKE(0xD020, 0x00);
+
+          return 0; // no reset needed, most probably...
         }
-        POKE(0xD020U, 6);
-
-        // ROM loading succeeded.
-        // XXX - Prompt user to trigger reset, due to likely changed ROM vectors?
-
-        while (!(PEEK(0xD082) & 0x01)) {
-          POKE(0xD081, 0x10);
-          usleep(7000);
-        }
-
-        // Mounted ok, so return this image
-        return rom_name_return;
       }
       break;
     case 0x11:
@@ -366,14 +418,67 @@ char* freeze_select_rom_or_patch(void)
     x = 0;
   }
 
-  return NULL;
+  return 0;
+}
+
+void user_reset_prompt(void)
+{
+  unsigned char x = 0;
+
+  clear_screen(25);
+  copy_line_to_screen(SCREEN_ADDRESS + 80, rom_reset_screen, 12*80);
+  copy_line_to_screen(SCREEN_ADDRESS + 3*80 + 8, rom_name_return, 32);
+  copy_line_to_screen(SCREEN_ADDRESS + 4*80 + 34, detect_rom(), 11);
+
+  while (!x) {
+    x = PEEK(0xD610U);
+
+    if (!x) {
+      // We use a simple lookup table to do this
+      x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
+      // Then wait for joystick to release
+      while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
+        continue;
+      if (x == 0xd)
+        x = 'Y';
+    }
+    else {
+      POKE(0xD610U, 0);
+    }
+  }
+
+  if (x == 'y' || x == 'Y') {
+    freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
+    freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
+    // Reset $01 port values
+    freeze_poke(0xFFD3640U + 0x10, 0x3f);
+    freeze_poke(0xFFD3640U + 0x11, 0x3f);
+    // disable interrupts, clear decimal mode
+    freeze_poke(0xFFD3640U + 0x07, 0xe7);
+    // Clear memory mapping
+    for (x = 0x0a; x <= 0x0f; x++)
+      freeze_poke(0xFFD3640U + x, 0);
+    // Turn off extended graphics mode, only keep palemu
+    freeze_poke(0xFFD3054U, freeze_peek(0xFFD3054U) & 0x20);
+    unfreeze_slot(0);
+
+    while (1)
+      POKE(0xD020, PEEK(0xD020) + 1);
+  }
 }
 
 void do_rom_loader(void)
 {
-  // Get user to select a ROM file or ROM patch file from the SD card
-  // This also loads it into RAM, and then writes it out into the freeze slot
-  char* rom_file = freeze_select_rom_or_patch();
+  // Get user to select a ROM file from the SD card
+  // This loads it into RAM, and then writes it out into the freeze slot
+  if (freeze_load_romarea())
+    user_reset_prompt();
+
+  // need to go up to root dir, or we can't load FREEZER again!
+  while (subdir_count) {
+    mega65_dos_chdir("..");
+    subdir_count--;
+  }
 
   // Return, so that control can go back to the freezer
   return;

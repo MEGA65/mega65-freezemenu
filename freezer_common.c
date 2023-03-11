@@ -1,4 +1,7 @@
+#include <string.h>
+
 #include "freezer.h"
+#include "freezer_common.h"
 #include "fdisk_memory.h"
 #include "ascii.h"
 
@@ -48,17 +51,27 @@ void set_palette(void)
   }
 }
 
-static char mega65_rom_name[12];
+char mega65_rom_type = 0;
+char mega65_rom_name[12];
 
-char* detect_rom(void)
+char *detect_rom(void)
 {
+  unsigned char sector[32];
+
+  // fetch memory from current slot (so change this before calling the function!)
+  freeze_fetch_sector_partial(0x20000L, (long)sector, 32);
+
   // Check for C65 ROM via version string
-  lcopy(0x20016L, (long)mega65_rom_name + 4, 7);
+  memcpy(mega65_rom_name + 4, sector + 0x16, 7);
   if ((mega65_rom_name[4] == 'V') && (mega65_rom_name[5] == '9')) {
-    if (mega65_rom_name[6] >= '2')
+    if (mega65_rom_name[6] >= '2') {
       mega65_rom_name[0] = 'M';
-    else
+      mega65_rom_type = MEGA65_ROM_M65;
+    }
+    else {
       mega65_rom_name[0] = 'C';
+      mega65_rom_type = MEGA65_ROM_C65;
+    }
     mega65_rom_name[1] = '6';
     mega65_rom_name[2] = '5';
     mega65_rom_name[3] = ' ';
@@ -67,9 +80,10 @@ char* detect_rom(void)
   }
 
   // OpenROM - 16 characters "OYYMMDDCC       "
-  lcopy(0x20010L, (long)mega65_rom_name + 4, 16);
+  memcpy(mega65_rom_name + 4, sector + 0x10, 16);
   if ((mega65_rom_name[4] == 'O') && (mega65_rom_name[11] == '2') && (mega65_rom_name[12] == '0')
       && (mega65_rom_name[13] == ' ')) {
+    mega65_rom_type = MEGA65_ROM_OPENROM;
     mega65_rom_name[0] = 'O';
     mega65_rom_name[1] = 'P';
     mega65_rom_name[2] = 'E';
@@ -79,70 +93,83 @@ char* detect_rom(void)
     return mega65_rom_name;
   }
 
+#define COPY_AND_RETURN_ROM(X) { strcpy(mega65_rom_name, X); return mega65_rom_name; }
+
+/*
+  The C64 ROM part can't really work without a real C64 cpu,
+  so it is save to return UNKNOWN for now
+
+  // entering C64 region
+  mega65_rom_type = MEGA65_ROM_C64;
+
   if (freeze_peek(0x2e47dL) == 'J') {
     // Probably jiffy dos
     if (freeze_peek(0x2e535L) == 0x06)
-      return "SX64 JIFFY ";
+      COPY_AND_RETURN_ROM("SX64 JIFFY ")
     else
-      return "C64 JIFFY  ";
+      COPY_AND_RETURN_ROM("C64 JIFFY  ")
   }
 
   // Else guess using detection routines from detect_roms.c
   // These were built using a combination of the ROMs from zimmers.net/pub/c64/firmware,
   // the RetroReplay ROM collection, and the JiffyDOS ROMs
   if (freeze_peek(0x2e449L) == 0x2e)
-    return "C64GS      ";
+    COPY_AND_RETURN_ROM("C64GS      ")
   if (freeze_peek(0x2e119L) == 0xc9)
-    return "C64 REV1   ";
+    COPY_AND_RETURN_ROM("C64 REV1   ")
   if (freeze_peek(0x2e67dL) == 0xb0)
-    return "C64 REV2 JP";
+    COPY_AND_RETURN_ROM("C64 REV2 JP")
   if (freeze_peek(0x2ebaeL) == 0x5b)
-    return "C64 REV3 DK";
+    COPY_AND_RETURN_ROM("C64 REV3 DK")
   if (freeze_peek(0x2e0efL) == 0x28)
-    return "C64 SCAND  ";
+    COPY_AND_RETURN_ROM("C64 SCAND  ")
   if (freeze_peek(0x2ebf3L) == 0x40)
-    return "C64 SWEDEN ";
+    COPY_AND_RETURN_ROM("C64 SWEDEN ")
   if (freeze_peek(0x2e461L) == 0x20)
-    return "CYCLONE 1.0";
+    COPY_AND_RETURN_ROM("CYCLONE 1.0")
   if (freeze_peek(0x2e4a4L) == 0x41)
-    return "DOLPHIN 1.0";
+    COPY_AND_RETURN_ROM("DOLPHIN 1.0")
   if (freeze_peek(0x2e47fL) == 0x52)
-    return "DOLPHIN 2AU";
+    COPY_AND_RETURN_ROM("DOLPHIN 2AU")
   if (freeze_peek(0x2eed7L) == 0x2c)
-    return "DOLPHIN 2P1";
+    COPY_AND_RETURN_ROM("DOLPHIN 2P1")
   if (freeze_peek(0x2e7d2L) == 0x6b)
-    return "DOLPHIN 2P2";
+    COPY_AND_RETURN_ROM("DOLPHIN 2P2")
   if (freeze_peek(0x2e4a6L) == 0x32)
-    return "DOLPHIN 2P3";
+    COPY_AND_RETURN_ROM("DOLPHIN 2P3")
   if (freeze_peek(0x2e0f9L) == 0xaa)
-    return "DOLPHIN 3.0";
+    COPY_AND_RETURN_ROM("DOLPHIN 3.0")
   if (freeze_peek(0x2e462L) == 0x45)
-    return "DOSROM V1.2";
+    COPY_AND_RETURN_ROM("DOSROM V1.2")
   if (freeze_peek(0x2e472L) == 0x20)
-    return "MERCRY3 PAL";
+    COPY_AND_RETURN_ROM("MERCRY3 PAL")
   if (freeze_peek(0x2e16dL) == 0x84)
-    return "MERCRY NTSC";
+    COPY_AND_RETURN_ROM("MERCRY NTSC")
   if (freeze_peek(0x2e42dL) == 0x4c)
-    return "PET 4064   ";
+    COPY_AND_RETURN_ROM("PET 4064   ")
   if (freeze_peek(0x2e1d9L) == 0xa6)
-    return "SX64 CROACH";
+    COPY_AND_RETURN_ROM("SX64 CROACH")
   if (freeze_peek(0x2eba9L) == 0x2d)
-    return "SX64 SCAND ";
+    COPY_AND_RETURN_ROM("SX64 SCAND ")
   if (freeze_peek(0x2e476L) == 0x2a)
-    return "TRBOACS 2.6";
+    COPY_AND_RETURN_ROM("TRBOACS 2.6")
   if (freeze_peek(0x2e535L) == 0x07)
-    return "TRBOACS 3P1";
+    COPY_AND_RETURN_ROM("TRBOACS 3P1")
   if (freeze_peek(0x2e176L) == 0x8d)
-    return "TRBOASC 3P2";
+    COPY_AND_RETURN_ROM("TRBOASC 3P2")
   if (freeze_peek(0x2e42aL) == 0x72)
-    return "TRBOPROC US";
+    COPY_AND_RETURN_ROM("TRBOPROC US")
   if (freeze_peek(0x2e4acL) == 0x81)
-    return "C64C 251913";
+    COPY_AND_RETURN_ROM("C64C 251913")
   if (freeze_peek(0x2e479L) == 0x2a)
-    return "C64 REV2   ";
+    COPY_AND_RETURN_ROM("C64 REV2   ")
   if (freeze_peek(0x2e535L) == 0x06)
-    return "SX64 REV4  ";
-  return "UNKNOWN ROM";
+    COPY_AND_RETURN_ROM("SX64 REV4  ")
+*/
+
+  // set some flags
+  mega65_rom_type = MEGA65_ROM_UNKNOWN;
+  COPY_AND_RETURN_ROM("UNKNOWN    ")
 }
 
 unsigned char detect_cpu_speed(void)

@@ -13,7 +13,7 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.0       "
+unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40 + 3)
@@ -30,14 +30,15 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.0       "
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
                              " C(R)T EMU:     OFF  (V)IDEO:    NTSC60 "
                              "cccccccccccccccccccccccccccccccccccccccc"
-                             " M - MONITOR                            "
+                             " M - MONITOR         L - LOAD ROM       "
                              " A - AUDIO & VOLUME                     "
                              " S - SPRITE EDITOR                      "
                              "cccccccccccccccccccccccccccccccccccccccc"
                              "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
                              "~~~~~~~~~~~~~~~~~~~~                    "
-                             "~~~~~~~~~~~~~~~~~~~~                    "
+#define PROCESS_ROM_OFFSET (15 * 40 + 26)
+                             "~~~~~~~~~~~~~~~~~~~~ ROM:               "
 #define PROCESS_ID_OFFSET (16 * 40 + 34)
 #define SLOT_NUMBER_OFFSET (17 * 40 + 34)
                              "~~~~~~~~~~~~~~~~~~~~ TASK ID:           "
@@ -402,6 +403,9 @@ void draw_freeze_menu(unsigned char part)
       break;
     }
 
+  if ((part & UPDATE_PROCESS) || (part & UPDATE_THUMB))
+    detect_rom();
+
   /* Display info from the process descriptor
      The useful bits are:
      $00     - Task ID (0-255, $FF = operating system)
@@ -434,6 +438,8 @@ void draw_freeze_menu(unsigned char part)
       lcopy((unsigned long)process_descriptor.process_name, (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
     else
       lcopy((unsigned long)"UNNAMED TASK    ", (unsigned long)&freeze_menu[PROCESS_NAME_OFFSET], 16);
+
+    lcopy((unsigned long)mega65_rom_name, (unsigned long)&freeze_menu[PROCESS_ROM_OFFSET], 11);
   }
 
   if (part & UPDATE_DISK) {
@@ -493,24 +499,35 @@ void draw_freeze_menu(unsigned char part)
 #ifdef WITH_GUS
     unsigned char snail = 0;
 #endif
-    unsigned char thumb_frame = F_C65;
+    unsigned char thumb_frame = F_M65;
     uint32_t screen_data_start;
     unsigned short* tile_num;
     unsigned short tile_offset;
-    if (detect_rom()[2] == '5') {
-      if (detect_cpu_speed() == 1) {
-#ifdef WITH_GUS
-        thumb_frame = F_GUS;
-        snail = 1;
-#else
+
+    switch (mega65_rom_type) {
+      case MEGA65_ROM_C64:
         thumb_frame = F_C64;
+        break;
+      case MEGA65_ROM_C65:
+        thumb_frame = F_C65;
+        break;
+      case MEGA65_ROM_M65:
+        // this only works for the running slot!
+        if (detect_cpu_speed() == 1) {
+#ifdef WITH_GUS
+          thumb_frame = F_GUS;
+          snail = 1;
+#else
+          thumb_frame = F_C64;
 #endif
-      }
-      else if (detect_rom()[0] == 'M')
+        } else
+          thumb_frame = F_M65;
+        break;
+      case MEGA65_ROM_OPENROM:
+      default:
         thumb_frame = F_M65;
+        break;
     }
-    else
-      thumb_frame = F_C64;
 
     // only load new image if needed
     if (thumb_frame != last_thumb_frame)
@@ -871,8 +888,9 @@ int main(int argc, char** argv)
             slot_number = 0;
             find_freeze_slot_start_sector(slot_number);
             freeze_slot_start_sector = *(uint32_t*)0xD681U;
+            request_freeze_region_list();
 
-            draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
+            draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
             draw_thumbnail();
           }
           break;
@@ -884,8 +902,9 @@ int main(int argc, char** argv)
             slot_number = get_freeze_slot_count() - 1;
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
+          request_freeze_region_list();
 
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
           draw_thumbnail();
           break;
         case 0x91: // Cursor up
@@ -896,8 +915,9 @@ int main(int argc, char** argv)
             slot_number = 0;
           find_freeze_slot_start_sector(slot_number);
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
+          request_freeze_region_list();
 
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
           draw_thumbnail();
           break;
 
@@ -1141,11 +1161,10 @@ int main(int argc, char** argv)
           }
           draw_freeze_menu(UPDATE_TOP);
           break;
-        // was: Switch ROMs
-        /* DOES NOT WORK -- disabled in favor of CRT-EMU switch
+        case 'L':
+        case 'l':
           mega65_dos_exechelper("ROMLOAD.M65");
           break;
-        */
         case 'X':
         case 'x': // Poke finder
         case 'E':
