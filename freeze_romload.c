@@ -9,7 +9,6 @@
 #include "fdisk_fat32.h"
 #include "ascii.h"
 
-short subdir_count = 0;
 short file_count = 0;
 short selection_number = 0;
 short display_offset = 0;
@@ -287,10 +286,8 @@ unsigned char freeze_load_romarea(void)
       return 0;
     case 0x5f: // <- key at top left of key board
       // Go back up one directory
-      if (!subdir_count) break;
 
       mega65_dos_chdir("..");
-      subdir_count--;
       file_count = 0;
       selection_number = 0;
       display_offset = 0;
@@ -315,10 +312,6 @@ unsigned char freeze_load_romarea(void)
       POKE(0xD020U, 0);
       if (rom_name_return[0] == '/') {
         // Its a directory
-        if (rom_name_return[1] == '.' && rom_name_return[2] == '.' && !rom_name_return[3])
-          subdir_count--;
-        else
-          subdir_count++;
         mega65_dos_chdir(&rom_name_return[1]);
         file_count = 0;
         selection_number = 0;
@@ -478,10 +471,7 @@ unsigned char do_rom_loader(void)
   }
 
   // need to go up to root dir, or we can't load FREEZER again!
-  while (subdir_count) {
-    mega65_dos_chdir("..");
-    subdir_count--;
-  }
+  mega65_dos_cdroot();
 
   // Return, so that control can go back to the freezer
   return changed;

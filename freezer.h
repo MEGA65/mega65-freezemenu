@@ -10,6 +10,7 @@
 
 unsigned char mega65_geterrorcode(void);
 char cdecl mega65_dos_chdir(unsigned char* dirname);
+char cdecl mega65_dos_cdroot();
 char cdecl mega65_dos_d81attach0(char* image_name);
 char cdecl mega65_dos_d81attach1(char* image_name);
 char cdecl mega65_dos_exechelper(char* filename);

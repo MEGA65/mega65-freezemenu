@@ -4,6 +4,7 @@
 	.export _mega65_dos_d81attach0
 	.export _mega65_dos_d81attach1
 	.export _mega65_dos_chdir
+	.export _mega65_dos_cdroot
 	.export _mega65_dos_exechelper
 	.export	_fetch_freeze_region_list_from_hypervisor
 	.export _find_freeze_slot_start_sector
@@ -255,6 +256,23 @@ _mega65_dos_chdir:
 	
 	RTS
 	
+_mega65_dos_cdroot:
+	;; char mega65_dos_cdroot();
+	;; Call hypervisor trap
+	LDA #$04    ; hyppo_dos_getcurrentdrive - returns drive number in A
+	STA $D640   ; trigger hypervisor trap
+	CLV
+	BCC chroot_error
+	TAX         ; next need drive in X
+	LDA #$3C    ; hyppo_dos_cdrootdir - returns errorcode in A
+	STA $D640   ; trigger hypervisor trap
+	CLV
+	BCC chroot_error
+	LDA #$00
+	RTS
+chroot_error:
+	LDA #$01
+	RTS
 
 	
 _unfreeze_slot:	
