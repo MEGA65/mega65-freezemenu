@@ -807,8 +807,6 @@ int main(int argc, char** argv)
     store_selected_disk_image(0, INTERNAL_DRIVE_0);
 
   setup_menu_screen();
-  predraw_freeze_menu();
-  draw_freeze_menu(UPDATE_ALL);
 
   fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_FORCE);
 
