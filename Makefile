@@ -16,6 +16,7 @@ COPTS=	-t c64 -Os --cpu 65c02 -Icc65/include
 LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
+		FRZMENU.M65 \
 		AUDIOMIX.M65 \
 		MONITOR.M65 \
 		MAKEDISK.M65 \
@@ -47,6 +48,18 @@ ASSFILES=	freezer.s \
 		charset.s \
 		helper.s \
 		freezer_common.s
+
+FMASSFILES=	freeze_menu.s \
+		frozen_memory.s \
+		freeze_diskchooser.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_fat32.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s \
+		freezer_common.s
+
 
 
 MONASSFILES=	monitor.s \
@@ -145,11 +158,11 @@ MAX_SIZE=34817
 CHECKSIZE=\
 	@SIZE=$$(stat -L -c %s $@); \
 	if [ $${SIZE} -gt $(MAX_SIZE) ]; then \
-    		echo "!!!!!!!! $@ is greater than $(MAX_SIZE)"; \
-    		exit 1; \
+		echo "!!!!!!!! $@ is greater than $(MAX_SIZE)"; \
+		exit 1; \
 	else \
 		echo "======== $@ size is ok ($$(($(MAX_SIZE)-SIZE)) remaining)"; \
-    		exit 0; \
+		exit 0; \
 	fi
 
 $(CC65):
@@ -186,6 +199,12 @@ FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 version.s $(ASSFILES)
+	$(CHECKSIZE)
+
+FRZMENU.M65:	$(FMASSFILES) $(DATAFILES) $(CC65) *.h
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) -g -Ln frzmenu.lbl $(LOPTS) -vm --add-source -l frzmenu.list -m frzmenu.map -o FRZMENU.M65 version.s $(FMASSFILES)
 	$(CHECKSIZE)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65) *.h
