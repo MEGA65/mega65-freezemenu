@@ -182,9 +182,8 @@ unsigned char detect_cpu_speed(void)
     return 40;
   if (freeze_peek(0xffd3031L) & 0x40)
     return 3;
-  // there is no 2MHz
-  // if (freeze_peek(0xffd3030L) & 0x01)
-  //  return 2;
+  if (freeze_peek(0xffd0030L) & 0x01)
+    return 2;
   return 1;
 }
 

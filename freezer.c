@@ -155,23 +155,22 @@ unsigned char next_cpu_speed(void)
 {
   switch (detect_cpu_speed()) {
   case 1:
-/*
     // Make it 2MHz
-    freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) | 0x01);
+    // ffd0030 is a special register to access the C128 D030.0 bit
+    freeze_poke(0xffd0030L, 1);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     return 1;
   case 2:
-*/
     // Make it 3.5MHz
-    // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
+    freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     break;
   case 3:
     // Make it 40MHz
-    // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
+    freeze_poke(0xffd3030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) | 0x40);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) | 0x10);
@@ -179,9 +178,10 @@ unsigned char next_cpu_speed(void)
   case 40:
   default:
     // Make it 1MHz
-    // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
+    freeze_poke(0xffd3030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
+    // we clear this, but we don't set it again
     freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     return 1;
   }
