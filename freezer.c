@@ -301,24 +301,29 @@ void predraw_freeze_menu(void)
   last_thumb_frame = -1;
 }
 
-#define UPDATE_ALL     0xff
+#define UPDATE_ALL     0x7f
 #define UPDATE_UPPER   0x0f
 #define UPDATE_TOP     0x01
 #define UPDATE_ROM     0x02
 #define UPDATE_FREQ    0x04
-#define UPDATE_LOWER   0xf0
+#define UPDATE_LOWER   0x70
 #define UPDATE_PROCESS 0x10
 #define UPDATE_DISK    0x20
-#define UPDATE_THUMB   0x80
+#define UPDATE_THUMB   0x40
+#define UPDATE_CHGSLOT 0x80
 // clang-format on
 
 void draw_freeze_menu(unsigned char part)
 {
   unsigned char x, y;
-  // Wait until we are in vertical blank area before redrawing, so that we don't have flicker
+
+  if (part & UPDATE_CHGSLOT) {
+    find_freeze_slot_start_sector(slot_number);
+    freeze_slot_start_sector = *(uint32_t*)0xD681U;
+    request_freeze_region_list();
+  }
 
   // Update messages based on the settings we allow to be easily changed
-
   if (part & UPDATE_TOP) {
 
     if (slot_number) {
@@ -948,11 +953,8 @@ int main(int argc, char** argv)
         case 0x13: // Home
           if (slot_number) {
             slot_number = 0;
-            find_freeze_slot_start_sector(slot_number);
-            freeze_slot_start_sector = *(uint32_t*)0xD681U;
-            request_freeze_region_list();
 
-            draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
+            draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           }
           break;
         case 0x11: // Cursor down
@@ -961,11 +963,8 @@ int main(int argc, char** argv)
             slot_number--;
           else
             slot_number = get_freeze_slot_count() - 1;
-          find_freeze_slot_start_sector(slot_number);
-          freeze_slot_start_sector = *(uint32_t*)0xD681U;
-          request_freeze_region_list();
 
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           break;
         case 0x91: // Cursor up
         case 0x1D: // Cursor right
@@ -973,11 +972,8 @@ int main(int argc, char** argv)
             slot_number++;
           else
             slot_number = 0;
-          find_freeze_slot_start_sector(slot_number);
-          freeze_slot_start_sector = *(uint32_t*)0xD681U;
-          request_freeze_region_list();
 
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
+          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           break;
 
         case 'M':
