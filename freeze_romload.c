@@ -217,7 +217,9 @@ void scan_directory(void)
       }
     }
     else if (x > 4) {
-      if ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) || (!strncmp(&dirent->d_name[x - 4], ".CHR", 4))) {
+      if ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) ||    // ROM Files
+          (!strncmp(&dirent->d_name[x - 4], ".CHR", 4)) ||    // 8x8 CHaRacter Set FONT files
+          (!strncmp(&dirent->d_name[x - 4], ".TCR", 4))) {    // 8x16 tall CHaRacter Set FONT files
         // File is a ROM or a CHaRset
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
@@ -326,16 +328,13 @@ unsigned char freeze_load_romarea(void)
         // XXX - Actually do loading of ROM / ROM diff file
         if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM")) {
           int s;
-          unsigned int slot_number = 0; // XXX Get this passed from main freezer programme
-
           // Load normal ROM file
-
           // Begin by loading the file at $40000-$5FFFF
           read_file_from_sdcard(rom_name_return, 0x40000L);
 
           // Then progressively save it into the frozen memory
           request_freeze_region_list();
-          find_freeze_slot_start_sector(slot_number);
+          find_freeze_slot_start_sector(0); // we only work on slot 0!
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
           for (s = 0; s < (128 * 1024 / 512); s++) {
@@ -349,28 +348,42 @@ unsigned char freeze_load_romarea(void)
           return 1;
         }
         
-        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR")) {
-          // Load CHARSET to CHARA
-          read_file_from_sdcard(rom_name_return, 0x40000L);
-          lcopy(0x40000L, 0xFF7E000L, 4096);
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR") || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR")) {
+          unsigned char cg_7a_set = 0, cg_7a_mask = 0xff;
+          unsigned char cg_54_set = 0, cg_54_mask = 0xff;
+          unsigned short i;
 
-          // Then progressively save it into the frozen memory
-          /*
-          int s;
-          unsigned int slot_number = 0; // XXX Get this passed from main freezer programme
+          // Load CHARSET to chargen WOM
+          read_file_from_sdcard(rom_name_return, 0x40000L);
+          lcopy(0x40000L, CHARGEN_ADDRESS, 4096);
 
           request_freeze_region_list();
-          find_freeze_slot_start_sector(slot_number);
+          find_freeze_slot_start_sector(0); // we only work on slot 0!
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          for (s = 0; s < 8; s++) {
-            // Write each sector to frozen memory
-            POKE(0xD020, PEEK(0xD020) + 1);
-            lcopy(0x40000L + 512L * (long)s, (long)buffer, 512);
-            freeze_store_sector(0x2d000L + ((long)s) * 512L, buffer);
+          if (freeze_region_flags & FREEZE_REGION_HAS_CHARGEN)
+            // only put that into the slot, if HYPPO supports it!
+            for (i = 0; i < 8; i++) {
+              lcopy(0x40000L + 512L*i, (long)sector_buffer, 512);
+              freeze_store_sector(CHARGEN_ADDRESS + 512L*i, NULL);
+            }
+
+          // set or reset TALL character bit depending on charset extension
+          if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR")) {
+            // switch palemu off and enable CHARY16
+            cg_54_set |= 0x20;
+            cg_54_mask ^= 0x20;
+            cg_7a_set |= 0x10;
+            cg_7a_mask ^= 0x10;
+          } else {
+            cg_7a_set |= 0x00;
+            cg_7a_mask ^= 0x10;
           }
-          POKE(0xD020, 0x00);
-          */
+          freeze_poke(0xFFD307AL, cg_54_set | (freeze_peek(0xFFD307AL) & cg_54_mask));
+          freeze_poke(0xFFD307AL, cg_7a_set | (freeze_peek(0xFFD307AL) & cg_7a_mask));
+          lpoke(0xFFD307AL, cg_54_set | (lpeek(0xFFD307AL) & cg_54_mask));
+          lpoke(0xFFD307AL, cg_7a_set | (lpeek(0xFFD307AL) & cg_7a_mask));
+
           return 0; // no reset needed, most probably...
         }
       }

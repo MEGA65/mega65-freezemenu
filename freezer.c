@@ -690,6 +690,94 @@ void select_mounted_disk_image(int diskid)
   draw_freeze_menu(UPDATE_ALL);
 }
 
+#if 0
+void debug_region_list()
+{
+  // display region list on screen
+  unsigned long test;
+  unsigned short j;
+  for (j = 0; j < freeze_region_count; j++) {
+    test = freeze_region_list[j].address_base;
+    POKE(SCREEN_ADDRESS + j*80 + 60 - 16, 32);
+    for (i = 0; i < 8; i++) {
+      POKE(SCREEN_ADDRESS + j*80 + 60 - i*2, nybl_to_screen((uint8_t)test));
+      test >>= 4;
+    }
+    POKE(SCREEN_ADDRESS + j*80 + 78 - 16, 32);
+    test = freeze_region_list[j].region_length;
+    for (i = 0; i < 8; i++) {
+      POKE(SCREEN_ADDRESS + j*80 + 78 - i*2, nybl_to_screen((uint8_t)test));
+      test >>= 4;
+    }
+  }
+  test = address_to_freeze_slot_offset(CHARGEN_ADDRESS);
+  for (i = 0; i < 8; i++) {
+    POKE(SCREEN_ADDRESS + j*80 + 78 - i*2, nybl_to_screen((uint8_t)test));
+    test >>= 4;
+  }
+
+  // wait for a key
+  while (PEEK(0xD610U))
+    POKE(0xD610U, 0);
+  while (!PEEK(0xD610U))
+    usleep(1000);
+  POKE(0xD610U, 0);
+  POKE(0xD020U, 6);
+}
+#endif
+
+#define CHARGEN_FIXMEM  0x01 // write char data to chargen memory
+#define CHARGEN_FIXSLOT 0x02 // write char data to slot storage
+#define CHARGEN_FORCE   0x40 // if check can't load region, do fix anyway
+#define CHARGEN_NOCHECK 0x80 // don't execute check, always fix
+void fix_chargen_area(unsigned char flags)
+{
+  unsigned short i = 512; // needs to be 512 for nocheck to trigger!
+  long charset_start;
+
+  // debug_region_list();
+
+  if (!(flags & CHARGEN_NOCHECK)) {
+    if (!freeze_fetch_sector(CHARGEN_ADDRESS, NULL))
+      // check if everything is zero
+      for (i = 0; i < 512 && !sector_buffer[i]; i++);
+    else
+      // error while reading sector (old core?)
+      i = (flags & CHARGEN_FORCE) ? 512 : 0;
+  }
+
+  // if first chargen sector was zero...
+  if (i == 512) {
+    charset_start = -1;
+    // try to load DEFAULT_CHARSET or MEGA65.ROM
+    if (!read_file_from_sdcard(DEFAULT_CHARSET, 0x40000L))
+      charset_start = 0x40000L;
+    else if (!read_file_from_sdcard(MAIN_ROM_FILE, 0x40000L))
+      charset_start = 0x4D000L;
+
+    if (charset_start != -1) {
+      // copy the font to chargen WOM directly
+      if (flags & CHARGEN_FIXMEM)
+        lcopy(charset_start, CHARGEN_ADDRESS, 4096);
+
+      // should we also fix the slot?
+      if (flags & CHARGEN_FIXSLOT)
+        for (i = 0; i < 8; i++) {
+          lcopy(charset_start + 512L*i, (long)sector_buffer, 512);
+          freeze_store_sector(CHARGEN_ADDRESS + 512L*i, NULL);
+        }
+    }
+    else {
+      // failed to load font, flash screen
+      POKE(0xD020U, 2);
+      POKE(0xD021U, 2);
+      usleep(150000L);
+      POKE(0xD020U, 6);
+      POKE(0xD021U, 6);
+    }
+  }
+}
+
 #ifdef __CC65__
 void main(void)
 #else
@@ -779,6 +867,8 @@ int main(int argc, char** argv)
   setup_menu_screen();
   predraw_freeze_menu();
   draw_freeze_menu(UPDATE_ALL);
+
+  fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_FORCE);
 
   // Flush input buffer
   while (PEEK(0xD610U))
@@ -1094,6 +1184,9 @@ int main(int argc, char** argv)
           // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
           POKE(0xD689, origD689);
 
+          // workaround for old freeze slots that have an empty chargen area
+          fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_FIXSLOT);
+
           unfreeze_slot(slot_number);
 
           // should never get here
@@ -1162,29 +1255,10 @@ int main(int argc, char** argv)
 
         case 0xfe: // F14 - restore CHARSET from ROM
           {
-            long charset_start = -1;
-
             // clear screen first
             predraw_freeze_menu();
-
-            charset_start = -1;
-            // try to load DEFAULT_CHARSET or MEGA65.ROM
-            if (!read_file_from_sdcard(DEFAULT_CHARSET, 0x40000L))
-              charset_start = 0x40000L;
-            else if (!read_file_from_sdcard(MAIN_ROM_FILE, 0x40000L))
-              charset_start = 0x4D000L;
-
-            if (charset_start != -1)
-              // for now, just copy the font to chargen WOM
-              lcopy(charset_start, 0xFF7E000L, 4096);
-            else {
-              // failed to load font, flash screen
-              POKE(0xD020U, 2);
-              POKE(0xD021U, 2);
-              usleep(150000L);
-              POKE(0xD020U, 6);
-              POKE(0xD021U, 6);
-            }
+            // don't check, just put font into chargen
+            fix_chargen_area(CHARGEN_NOCHECK | CHARGEN_FIXMEM);
             // we need to redraw everything, because loading the ROM
             // will mess things up (thumbnail for example)
             last_thumb_frame = 255; // invalidate thumbnail

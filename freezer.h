@@ -55,7 +55,7 @@ struct m65_dirent {
 struct freeze_region_t {
   unsigned long address_base;
   union {
-#define REGION_LENGTH_MASK 0xFFFFFF
+#define REGION_LENGTH_MASK 0x7FFFFF
     unsigned long region_length; // only lower 24 bits are valid, space occupied rounded up to next 512 bytes
     struct {
       unsigned char skip[3];
@@ -68,6 +68,10 @@ struct freeze_region_t {
 
 extern struct freeze_region_t freeze_region_list[MAX_REGIONS];
 extern unsigned char freeze_region_count;
+
+#define FREEZE_REGION_HAS_CHARGEN 0x01
+extern unsigned char freeze_region_flags;
+
 extern unsigned long freeze_slot_start_sector;
 
 struct file_descriptor_t {
