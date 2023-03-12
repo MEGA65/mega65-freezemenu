@@ -176,9 +176,8 @@ char *detect_rom(void)
 
 unsigned char detect_cpu_speed(void)
 {
-  // this is not frozen!
-  // if (freeze_peek(0xffd367dL) & 0x10)
-  //   return 40;
+  if (freeze_peek(0xffd367dL) & 0x10)
+    return 40;
   if (freeze_peek(0xffd3054L) & 0x40)
     return 40;
   if (freeze_peek(0xffd3031L) & 0x40)

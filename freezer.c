@@ -167,12 +167,14 @@ unsigned char next_cpu_speed(void)
     // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
+    // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     break;
   case 3:
     // Make it 40MHz
     // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) | 0x40);
+    // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) | 0x10);
     break;
   case 40:
   default:
@@ -180,6 +182,7 @@ unsigned char next_cpu_speed(void)
     // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
+    freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     return 1;
   }
   return 0;
@@ -256,32 +259,9 @@ void draw_thumbnail(void)
 
 struct process_descriptor_t process_descriptor;
 
-void predraw_freeze_menu(void)
-{
-  // Clear screen, blue background, white text, like Action Replay
-  POKE(0xD020U, 6);
-  POKE(0xD021U, 6);
-
-  lfill(0xFF80000L, 1, 2000);
-  // Make disk image names different colour to avoid confusion
-  for (i = 40; i < 80; i += 2) {
-    lpoke(0xff80000 + 21 * 80 + 1 + i, 0xe);
-    lpoke(0xff80000 + 24 * 80 + 1 + i, 0xe);
-  }
-
-  // Clear 16-bit text mode screen using DMA copy to copy the
-  // manually cleared first couple of chars (we need two, because
-  // of the pipelining in the DMA engine).
-  lpoke(SCREEN_ADDRESS, 0x20);
-  lpoke(SCREEN_ADDRESS + 1, 0x00);
-  lpoke(SCREEN_ADDRESS + 2, 0x20);
-  lpoke(SCREEN_ADDRESS + 3, 0x00);
-  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 2000 - 4);
-}
-
 // clang-format off
 char last_thumb_frame = -1;
-unsigned char thumb_xoff, thumb_yoff;
+unsigned char thumb_xoff = 5, thumb_yoff = 1;
 unsigned short tile_offset;
 #define F_M65 0
 #define F_C65 1
@@ -293,6 +273,33 @@ char thumb_frame_name[][13] = {
   "C64THUMB.M65",
   "GUSTHUMB.M65",
 };
+
+void predraw_freeze_menu(void)
+{
+  // Clear screen, blue background, white text, like Action Replay
+  POKE(0xD020U, 6);
+  POKE(0xD021U, 6);
+
+  lfill(0xFF80000L, 1, 2000);
+  // Make disk image names different colour to avoid confusion
+  for (i = 40; i < 80; i += 2) {
+    lpoke(0xff80000 + 21 * 80 + 1 + i, 0xe);
+    lpoke(0xff80000 + 24 * 80 + 1 + i, 0xe);
+    if (i > 50) // ROM VERSION
+      lpoke(0xff80000 + 15 * 80 + 1 + i, 0xf);
+  }
+
+  // Clear 16-bit text mode screen using DMA copy to copy the
+  // manually cleared first couple of chars (we need two, because
+  // of the pipelining in the DMA engine).
+  lpoke(SCREEN_ADDRESS, 0x20);
+  lpoke(SCREEN_ADDRESS + 1, 0x00);
+  lpoke(SCREEN_ADDRESS + 2, 0x20);
+  lpoke(SCREEN_ADDRESS + 3, 0x00);
+  lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 2000 - 4);
+
+  last_thumb_frame = -1;
+}
 
 #define UPDATE_ALL     0xff
 #define UPDATE_UPPER   0x0f
