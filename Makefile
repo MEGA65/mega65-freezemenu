@@ -180,7 +180,7 @@ tools/pngprepare:	tools/pngprepare.c
 
 tools/thumbnail-surround-formatter: tools/thumbnail-surround-formatter.c
 	$(info ======== Making: $@)
-	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
+	gcc -g -Wall -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)

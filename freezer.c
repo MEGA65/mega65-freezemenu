@@ -266,12 +266,10 @@ unsigned short tile_offset;
 #define F_M65 0
 #define F_C65 1
 #define F_C64 2
-#define F_GUS 3
 char thumb_frame_name[][13] = {
   "M65THUMB.M65",
   "C65THUMB.M65",
-  "C64THUMB.M65",
-  "GUSTHUMB.M65",
+  "C64THUMB.M65"
 };
 
 void predraw_freeze_menu(void)
@@ -496,7 +494,7 @@ void draw_freeze_menu(unsigned char part)
         break;
       case MEGA65_ROM_M65:
         if (detect_cpu_speed() == 1)
-          thumb_frame = F_GUS;
+          thumb_frame = F_C64;
         else
           thumb_frame = F_M65;
         break;
