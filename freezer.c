@@ -155,25 +155,31 @@ unsigned char next_cpu_speed(void)
 {
   switch (detect_cpu_speed()) {
   case 1:
+/*
     // Make it 2MHz
-    freeze_poke(0xffd0030L, 1);
+    freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) | 0x01);
+    freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
+    freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     return 1;
   case 2:
+*/
     // Make it 3.5MHz
-    freeze_poke(0xffd0030L, 0);
+    // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
+    freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     break;
   case 3:
     // Make it 40MHz
-    freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) | 0x10);
+    // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
+    freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
+    freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) | 0x40);
     break;
   case 40:
   default:
     // Make it 1MHz
-    freeze_poke(0xffd0030L, 0);
+    // freeze_poke(0xffd3030L, freeze_peek(0xffd3030L) & 0xfe);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
-    freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     return 1;
   }
   return 0;
@@ -274,16 +280,18 @@ void predraw_freeze_menu(void)
 }
 
 // clang-format off
-static unsigned char last_thumb_frame = 255;
-#define F_GUS 0
-#define F_C64 1
-#define F_C65 2
-#define F_M65 3
+char last_thumb_frame = -1;
+unsigned char thumb_xoff, thumb_yoff;
+unsigned short tile_offset;
+#define F_M65 0
+#define F_C65 1
+#define F_C64 2
+#define F_GUS 3
 char thumb_frame_name[][13] = {
-  "GUSTHUMB.M65",
-  "C64THUMB.M65",
-  "C65THUMB.M65",
   "M65THUMB.M65",
+  "C65THUMB.M65",
+  "C64THUMB.M65",
+  "GUSTHUMB.M65",
 };
 
 #define UPDATE_ALL     0xff
@@ -465,13 +473,7 @@ void draw_freeze_menu(unsigned char part)
 
   // Draw the thumbnail surround area
   if (part & UPDATE_THUMB) {
-#ifdef WITH_GUS
-    unsigned char snail = 0;
-#endif
-    unsigned char thumb_frame = F_M65;
-    uint32_t screen_data_start;
-    unsigned short* tile_num;
-    unsigned short tile_offset;
+    int8_t thumb_frame = F_M65;
 
     switch (mega65_rom_type) {
       case MEGA65_ROM_C64:
@@ -481,15 +483,9 @@ void draw_freeze_menu(unsigned char part)
         thumb_frame = F_C65;
         break;
       case MEGA65_ROM_M65:
-        // this only works for the running slot!
-        if (detect_cpu_speed() == 1) {
-#ifdef WITH_GUS
+        if (detect_cpu_speed() == 1)
           thumb_frame = F_GUS;
-          snail = 1;
-#else
-          thumb_frame = F_C64;
-#endif
-        } else
+        else
           thumb_frame = F_M65;
         break;
       case MEGA65_ROM_OPENROM:
@@ -499,51 +495,57 @@ void draw_freeze_menu(unsigned char part)
     }
 
     // only load new image if needed
-    if (thumb_frame != last_thumb_frame)
-      if (!read_file_from_sdcard(thumb_frame_name[thumb_frame], 0x052000L))
-        last_thumb_frame = thumb_frame;
+    if (thumb_frame != last_thumb_frame) {
+      while (thumb_frame > -1) {
+        if (!read_file_from_sdcard(thumb_frame_name[thumb_frame], 0x052000L))
+          break;
+        // fall through to next lower thumb image
+        thumb_frame--;
+      }
+    }
 
     // Work out where the tile data begins
-    screen_data_start = 0x52000L + 0x300L + 0x40L;
-    tile_offset = (screen_data_start >> 6);
-    // Work out where the screen data begins
-    screen_data_start = lpeek(0x5203dL) + (lpeek(0x5203eL) << 8);
-    screen_data_start += 0x52000L + 0x40L;
-    for (y = 0; y < 13; y++) {
-      // Copy row of screen data
-      lcopy(screen_data_start + (y << 6), SCREEN_ADDRESS + (13 * 80) + (y * 80), (19 * 2));
-      // Add tile number based on data starting at $52040 = $1481
-      for (x = 0; x < 19; x++) {
-        tile_num = (unsigned short*)(SCREEN_ADDRESS + (13 * 80) + (y * 80) + (x << 1));
-        if (*tile_num)
-          (*tile_num) += tile_offset;
-        else
-          *tile_num = 0x20;
+    if (thumb_frame > -1 && thumb_frame != last_thumb_frame) {
+      uint32_t screen_data_start;
+      unsigned short* tile_num;
+
+      screen_data_start = 0x52000L + 0x300L + 0x40L;
+      tile_offset = (screen_data_start >> 6);
+      // Work out where the screen data begins
+      screen_data_start = lpeek(0x5203dL) + (lpeek(0x5203eL) << 8);
+      screen_data_start += 0x52000L + 0x40L;
+      for (y = 0; y < 13; y++) {
+        // Copy row of screen data
+        lcopy(screen_data_start + (y << 6), SCREEN_ADDRESS + (13 * 80) + (y * 80), (19 * 2));
+        // Add tile number based on data starting at $52040 = $1481
+        for (x = 0; x < 19; x++) {
+          tile_num = (unsigned short*)(SCREEN_ADDRESS + (13 * 80) + (y * 80) + (x << 1));
+          if (*tile_num)
+            (*tile_num) += tile_offset;
+          else
+            *tile_num = 0x20;
+        }
       }
+      thumb_xoff = lpeek(0x52020L);
+      thumb_yoff = thumb_xoff >> 4;
+      thumb_xoff &= 0xf;
+      last_thumb_frame = thumb_frame;
+    }
+    else if (thumb_frame == -1) {
+      thumb_xoff = 5;
+      thumb_yoff = 2;
+      last_thumb_frame = -1;
     }
 
     // Now draw the 10x6 character block for thumbnail display itself
     // This sits in the region below the menu where we will also have left and right arrows,
     // the program name etc, so you can easily browse through the freeze slots.
-#ifdef WITH_GUS
-    if (snail) {
-      for (x = 0; x < 9; x++)
-        for (y = 0; y < 6; y++) {
-          POKE(SCREEN_ADDRESS + (80 * 16) + (8 * 2) + (x * 2) + (y * 80) + 0, x * 6 + y); // $50000 base address
-          POKE(SCREEN_ADDRESS + (80 * 16) + (8 * 2) + (x * 2) + (y * 80) + 1, 0x14);      // $50000 base address
-        }
-    }
-    else {
-#endif
-      for (x = 0; x < 9; x++)
-        for (y = 0; y < 6; y++) {
-          POKE(SCREEN_ADDRESS + (80 * 14) + (5 * 2) + (x * 2) + (y * 80) + 0, x * 6 + y); // $50000 base address
-          POKE(SCREEN_ADDRESS + (80 * 14) + (5 * 2) + (x * 2) + (y * 80) + 1, 0x14);      // $50000 base address
-        }
-#ifdef WITH_GUS
-    }
-#endif
     draw_thumbnail();
+    for (x = 0; x < 9; x++)
+      for (y = 0; y < 6; y++) {
+        POKE(SCREEN_ADDRESS + (80 * 13) + ((thumb_xoff + x) * 2) + ((thumb_yoff + y) * 80) + 0, x * 6 + y); // $50000 base address
+        POKE(SCREEN_ADDRESS + (80 * 13) + ((thumb_xoff + x) * 2) + ((thumb_yoff + y) * 80) + 1, 0x14);      // $50000 base address
+      }
   }
 
   // restore border colour (fdisk/sd stuff still twiddles with it)

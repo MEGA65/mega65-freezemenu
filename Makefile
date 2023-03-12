@@ -178,7 +178,7 @@ tools/pngprepare:	tools/pngprepare.c
 	$(info ======== Making: $@)
 	$(CC) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare tools/pngprepare.c -lpng
 
-tools/thumbnail-surround-formatter:
+tools/thumbnail-surround-formatter: tools/thumbnail-surround-formatter.c
 	$(info ======== Making: $@)
 	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
@@ -226,19 +226,19 @@ MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
 
 M65THUMB.M65:	assets/thumbnail-surround-m65.png tools/thumbnail-surround-formatter
 	$(warning ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-m65.png M65THUMB.M65 2>/dev/null
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-m65.png 5 1 M65THUMB.M65 2>/dev/null
 
 C65THUMB.M65:	assets/thumbnail-surround-c65.png tools/thumbnail-surround-formatter
 	$(info ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png C65THUMB.M65 2>/dev/null
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-c65.png 5 1 C65THUMB.M65 2>/dev/null
 
 C64THUMB.M65:	assets/thumbnail-surround-c64.png tools/thumbnail-surround-formatter
 	$(info ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png C64THUMB.M65 2>/dev/null
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-c64.png 5 1 C64THUMB.M65 2>/dev/null
 
 GUSTHUMB.M65:	assets/thumbnail-surround-gus.png tools/thumbnail-surround-formatter
 	$(info ======== Making: $@)
-	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png GUSTHUMB.M65 2>/dev/null
+	tools/thumbnail-surround-formatter assets/thumbnail-surround-gus.png 8 3 GUSTHUMB.M65 2>/dev/null
 
 format:
 	@submodules=""; for sm in `git submodule | awk '{ print "./" $$2 }'`; do \

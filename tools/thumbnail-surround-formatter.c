@@ -11,6 +11,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -422,16 +423,32 @@ void read_png_file(char* file_name)
 
 /* ============================================================= */
 
+void usage(char *error)
+{
+  fprintf(stderr, "Usage: pngtoscreens <input PNG file> <xoffset> <yoffset> <output M65 file>\n");
+  if (error != NULL)
+    fprintf(stderr, "\n%s\n", error);
+  exit(-1);
+}
+
 int main(int argc, char** argv)
 {
   int i, x, y;
+  unsigned long xoff, yoff;
+  char *end;
 
-  if (argc < 3) {
-    fprintf(stderr, "Usage: pngtoscreens <input PNG file> <output M65 file>\n");
-    exit(-1);
-  }
+  if (argc < 5)
+    usage("wrong number of arguments");
 
-  FILE* outfile = fopen(argv[2], "wb");
+  errno = 0;
+  xoff = strtoul(argv[2], &end, 10);
+  if (*end != 0 || errno != 0 || xoff > 9)
+    usage("xoffset needs to be a number 0 <= xoffset <= 9");
+  yoff = strtoul(argv[3], &end, 10);
+  if (*end != 0 || errno != 0 || yoff > 5)
+    usage("yoffset needs to be a number 0 <= yoffset <= 5");
+
+  FILE* outfile = fopen(argv[4], "wb");
   if (!outfile) {
     perror("Could not open output file");
     exit(-3);
@@ -453,9 +470,9 @@ int main(int argc, char** argv)
   printf("Reading %s\n", argv[1]);
   read_png_file(argv[1]);
   image_tiles += width * height / 64;
-  struct screen* s = png_to_screen(i - 1, ts);
+  struct screen* s = png_to_screen(0, ts);
   if (!s) {
-    fprintf(stderr, "ERROR: Could not produce screen from PNG '%s'\n", argv[i]);
+    fprintf(stderr, "ERROR: Could not produce screen from PNG '%s'\n", argv[1]);
   }
   else {
     screen_list[screen_count++] = s;
@@ -474,6 +491,8 @@ int main(int argc, char** argv)
     header + 18 = number of palette slots used
     [ header + 19,20 = first tile number (set only when loaded) ]
 
+    header + 32 = xoffset | (yoffset << 4)
+
     header + 61-63 = size of section in bytes [becomes pointer to next section after loading]
     3x256 bytes palette values
     Tiles, 64 bytes each.
@@ -486,6 +505,7 @@ int main(int argc, char** argv)
   header[17] = (ts->tile_count >> 8) & 0xff;
   header[18] = ts->colour_count;
   unsigned size = 64 + 256 + 256 + 256 + (ts->tile_count * 64);
+  header[32] = xoff | (yoff << 4);
   header[61] = (size >> 00) & 0xff;
   header[62] = (size >> 8) & 0xff;
   header[63] = (size >> 16) & 0xff;
