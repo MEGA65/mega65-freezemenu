@@ -143,11 +143,12 @@ MAKE_VERSION= \
 # $9000 (screen) - $07ff
 MAX_SIZE=34817
 CHECKSIZE=\
-	@if [ $$(stat -L -c %s $@) -gt $(MAX_SIZE) ]; then \
+	@SIZE=$$(stat -L -c %s $@); \
+	if [ $${SIZE} -gt $(MAX_SIZE) ]; then \
     		echo "!!!!!!!! $@ is greater than $(MAX_SIZE)"; \
     		exit 1; \
 	else \
-    		echo "======== $@ size is ok"; \
+		echo "======== $@ size is ok ($$(($(MAX_SIZE)-SIZE)) remaining)"; \
     		exit 0; \
 	fi
 
