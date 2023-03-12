@@ -13,11 +13,6 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
-extern unsigned long root_dir_sector;
-extern unsigned long fat1_sector;
-extern unsigned long fat2_sector;
-unsigned char fat32_open_file_system(void);
-
 void setup_menu_screen(void)
 {
   POKE(0xD018U, 0x15); // upper case
@@ -223,7 +218,7 @@ void format_disk_image(unsigned long file_sector, char* diskname, unsigned char 
     sect_count = 85 * 64;
 
   // Make sure entire image is empty
-  lfill((long)sector_buffer, 0, 512);
+  clear_sector_buffer();
   for (s = 0; s < sect_count; s++) {
     // XXX - Using multi-sector writes here would be much faster
     sdcard_writesector(file_sector + s, 0);
@@ -257,7 +252,7 @@ void format_disk_image(unsigned long file_sector, char* diskname, unsigned char 
   else
     sdcard_writesector(file_sector + (39 * 64 * 2 + 0), 0);
 
-  lfill((long)sector_buffer, 0, 0x200);
+  clear_sector_buffer();
   lcopy((long)bam_sector1, (long)sector_buffer, 0x100);
   // Disk ID in BAM
   sector_buffer[0x004] = to_hex(i & 0xf);

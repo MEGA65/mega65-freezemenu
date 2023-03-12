@@ -15,10 +15,6 @@ unsigned char fat_copies = 0;
 unsigned long sectors_per_fat = 0;
 unsigned long root_dir_cluster = 0;
 
-extern unsigned char sector_buffer[512];
-
-void sdcard_readsector(const uint32_t sector_number);
-
 void mega65_serial_monitor_write(char* s)
 {
   while (*s) {
@@ -370,7 +366,7 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
         // Zero out new directory cluster
         mega65_serial_monitor_write("Zeroing out new directory cluster\n");
         serial_hex(dir_cluster);
-        lfill((long)sector_buffer, 0, 512);
+        clear_sector_buffer();
         for (sn = 0; sn < sectors_per_cluster; sn++) {
           sdcard_writesector(root_dir_sector + ((dir_cluster - 2) * sectors_per_cluster) + sn, 0);
         }

@@ -377,7 +377,7 @@ void sdcard_writemultidone(void)
 void sdcard_erase(const uint32_t first_sector, const uint32_t last_sector)
 {
   uint32_t n;
-  lfill((uint32_t)sector_buffer, 0, 512);
+  clear_sector_buffer();
 
   //  fprintf(stderr,"ERASING SECTORS %d..%d\r\n",first_sector,last_sector);
 

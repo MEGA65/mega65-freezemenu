@@ -12,6 +12,8 @@
   }
 
 extern uint8_t sector_buffer[512];
+#define clear_sector_buffer() lfill((uint32_t)sector_buffer, 0, 512)
+
 extern unsigned short slot_number;
 
 #define CHARGEN_ADDRESS 0xFF7E000L
@@ -30,5 +32,6 @@ char* detect_rom(void);
 unsigned char detect_cpu_speed(void);
 uint8_t nybl_to_screen(uint8_t v);
 unsigned char petscii_to_screen(unsigned char petscii);
+void screen_of_death(char* msg);
 
 #endif /* __FREEZER_COMMON_H__ */

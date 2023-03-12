@@ -4,6 +4,8 @@
 
 extern unsigned char sdhc_card;
 extern uint8_t sector_buffer[512];
+#define clear_sector_buffer() lfill((uint32_t)sector_buffer, 0, 512)
+
 extern uint8_t hal_border_flicker;
 
 uint32_t sdcard_getsize(void);

@@ -5,6 +5,11 @@
 #include "fdisk_memory.h"
 #include "ascii.h"
 
+uint8_t sector_buffer[512];
+unsigned short slot_number = 0;
+char mega65_rom_type = 0;
+char mega65_rom_name[12];
+
 // clang-format off
 static unsigned char c64_palette[64]={
   0x00, 0x00, 0x00, 0x00,
@@ -50,9 +55,6 @@ void set_palette(void)
     POKE(0xD300U + c, (c << 2) & 0xf);
   }
 }
-
-char mega65_rom_type = 0;
-char mega65_rom_name[12];
 
 char *detect_rom(void)
 {
@@ -185,20 +187,12 @@ unsigned char detect_cpu_speed(void)
   return 1;
 }
 
-uint8_t sector_buffer[512];
-unsigned short slot_number = 0;
-
-void clear_sector_buffer(void)
-{
-#ifndef __CC65__DONTUSE
-  int i;
-  for (i = 0; i < 512; i++)
-    sector_buffer[i] = 0;
-#else
-  lfill((uint32_t)sector_buffer, 0, 512);
-#endif
-}
-
+/*
+ * uint8_t nybl_to_screen(uint8_t v)
+ *
+ * converts the lower 4 bits of a byte to a screen code
+ * hexadecimal number digit.
+ */
 uint8_t nybl_to_screen(uint8_t v)
 {
   v &= 0xf;
@@ -226,4 +220,44 @@ unsigned char petscii_to_screen(unsigned char petscii)
     return petscii & 0x7f;
   // want some pi?
   return 0x5e;
+}
+
+// static char* deadly_haiku[3] = { "Error consumes all", "As sand erodes rock and stone", "Now also your mind" };
+
+void screen_of_death(char* msg)
+{
+  // TODO: This is broken, obviously...
+#if 0
+  POKE(0,0x41);
+  POKE(0xD02FU,0x47); POKE(0xD02FU,0x53);
+
+  // Reset video mode
+  POKE(0xD05DU,0x01); POKE(0xD011U,0x1b); POKE(0xD016U,0xc8);
+  POKE(0xD018U,0x17); // lower case
+  POKE(0xD06FU,0x80); // NTSC 60Hz mode for monitor compatibility?
+  POKE(0xD06AU,0x00); // Charset from bank 0
+
+  // No sprites
+  POKE(0xD015U,0x00);
+  
+  // Normal video mode (but preserve CRT emulation etc)
+  POKE(0xD054U,PEEK(0xD054)&0xA8);
+
+  // Reset colour palette to normal for black and white
+  POKE(0xD100U,0x00);  POKE(0xD200U,0x00);  POKE(0xD300U,0x00);
+  POKE(0xD101U,0xFF);  POKE(0xD201U,0xFF);  POKE(0xD301U,0xFF);
+  
+  POKE(0xD020U,0); POKE(0xD021U,0);
+
+  // Reset CPU IO ports
+  POKE(1,0x3f); POKE(0,0x3F);
+  lfill(0x0400U,' ',1000);
+  lfill(0xd800U,1,1000);
+
+  for(i=0;deadly_haiku[0][i];i++) POKE(0x0400+10*40+11+i,ascii_to_screencode(deadly_haiku[0][i]));
+  for(i=0;deadly_haiku[1][i];i++) POKE(0x0400+12*40+11+i,ascii_to_screencode(deadly_haiku[1][i]));
+  for(i=0;deadly_haiku[2][i];i++) POKE(0x0400+14*40+11+i,ascii_to_screencode(deadly_haiku[2][i]));
+#endif
+  while (1 || msg)
+    continue;
 }
