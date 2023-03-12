@@ -371,18 +371,25 @@ unsigned char freeze_load_romarea(void)
           // set or reset TALL character bit depending on charset extension
           if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR")) {
             // switch palemu off and enable CHARY16
-            cg_54_set |= 0x20;
-            cg_54_mask ^= 0x20;
+	    // turn of PALEMU
+            cg_54_set &= ~0x20;
+            cg_54_mask &= ~0x20;
+	    // Set tall char flag
             cg_7a_set |= 0x10;
             cg_7a_mask ^= 0x10;
           } else {
+	    // XXX - Ideally we would restore $D054 from config sector
+            cg_54_set = 0x00;
+            cg_54_mask = 0xff;
+	    // Clear tall char mode flag
             cg_7a_set |= 0x00;
             cg_7a_mask ^= 0x10;
           }
-          freeze_poke(0xFFD307AL, cg_54_set | (freeze_peek(0xFFD307AL) & cg_54_mask));
+          freeze_poke(0xFFD3054L, cg_54_set | (freeze_peek(0xFFD3054L) & cg_54_mask));
           freeze_poke(0xFFD307AL, cg_7a_set | (freeze_peek(0xFFD307AL) & cg_7a_mask));
-          lpoke(0xFFD307AL, cg_54_set | (lpeek(0xFFD307AL) & cg_54_mask));
+          lpoke(0xFFD3054L, cg_54_set | (lpeek(0xFFD3054L) & cg_54_mask));
           lpoke(0xFFD307AL, cg_7a_set | (lpeek(0xFFD307AL) & cg_7a_mask));
+	  
 
           return 0; // no reset needed, most probably...
         }
