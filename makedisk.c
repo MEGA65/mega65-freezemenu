@@ -424,7 +424,7 @@ int main(int argc, char** argv)
     do_make_disk_image(1); // 0=DD, 1=HD
   else
     do_make_disk_image(0); // 0=DD, 1=HD
-  mega65_dos_exechelper("FREEZER.M65");
+  mega65_dos_exechelper("FRZMENU.M65");
 
   return;
 }

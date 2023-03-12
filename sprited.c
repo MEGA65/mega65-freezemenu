@@ -113,7 +113,7 @@ int main(int argc, char** argv)
   // 256-colour char data from chip RAM, not expansion RAM
   POKE(0xD063U, 0x00);
 
-  mega65_dos_exechelper("FREEZER.M65");
+  mega65_dos_exechelper("FRZMENU.M65");
 
   return;
 }

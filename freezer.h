@@ -6,7 +6,11 @@
 #include <stdint.h>
 
 #define WITH_AUDIOMIXER
-// #define WITH_TOUCH
+#define WITH_TOUCH
+
+// Temporary storage of slot number when calling helper programs
+#define SLOT_NUMBER_STASH 0x3c0
+#define DISK_ID_STASH 0x3c2
 
 unsigned char mega65_geterrorcode(void);
 char cdecl mega65_dos_chdir(unsigned char* dirname);

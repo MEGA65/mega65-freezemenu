@@ -17,6 +17,8 @@
 // clang-format off
 static char SDessentials[][13] = {
   "FREEZER.M65",
+  "FRZMENU.M65",
+  "FRZVTOG.M65",
   "MEGAINFO.M65",
   "ONBOARD.M65",
   "MONITOR.M65",

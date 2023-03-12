@@ -632,25 +632,6 @@ void store_selected_disk_image(int diskid, char* disk_image)
     freeze_poke(0xFFFBD00L + disk_img_name_loc + i, ' ');
 }
 
-void select_mounted_disk_image(int diskid)
-{
-  char* disk_image = freeze_select_disk_image(diskid);
-
-  // Restore freeze region offset list to $0400 screen
-  request_freeze_region_list();
-
-  if ((unsigned short)disk_image == 0xFFFF) {
-    // Have no disk image
-  }
-  else if (disk_image) {
-    POKE(0xD020U, 6);
-    store_selected_disk_image(diskid, disk_image);
-  }
-
-  predraw_freeze_menu();
-  draw_freeze_menu(UPDATE_ALL);
-}
-
 #if 0
 void debug_region_list()
 {
@@ -837,8 +818,14 @@ int main(int argc, char** argv)
 
   // Ensure correct keyboard DDR etc
   POKE(0xDC00U, 0xFF);
+
   POKE(0xDC02U, 0x00);
 
+  // Default to slot zero
+  slot_number=0;
+  POKE(SLOT_NUMBER_STASH,slot_number);
+  POKE(SLOT_NUMBER_STASH+1,slot_number>>8);
+  
   mega65_dos_exechelper("FRZMENU.M65");
   
   return;

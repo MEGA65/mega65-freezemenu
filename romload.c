@@ -135,7 +135,7 @@ int main(int argc, char** argv)
   else
     POKE(0xD020U, 0x06);
 
-  mega65_dos_exechelper("FREEZER.M65");
+  mega65_dos_exechelper("FRZMENU.M65");
 
   return;
 }

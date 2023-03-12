@@ -132,7 +132,7 @@ int main(int argc, char** argv)
   request_freeze_region_list();
 
   do_audio_mixer();
-  mega65_dos_exechelper("FREEZER.M65");
+  mega65_dos_exechelper("FRZMENU.M65");
 
   return;
 }

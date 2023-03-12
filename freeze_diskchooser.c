@@ -705,8 +705,8 @@ char* freeze_select_disk_image(unsigned char drive_id)
             // (this is like exec()/fork(), so there is no return value
 
             // Save the current freeze slot number, so that the image can get mounted against us
-            POKE(0x03C0, slot_number & 0xff);
-            POKE(0x03C1, slot_number >> 8);
+            POKE(SLOT_NUMBER_STASH, slot_number & 0xff);
+            POKE(SLOT_NUMBER_STASH+1, slot_number >> 8);
 
             // Tell MAKEDISK if we want a D81 or a D65 image
             if (disk_name_return[7] == '8')

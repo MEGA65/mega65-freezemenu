@@ -17,6 +17,8 @@ LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
 		FRZMENU.M65 \
+		FRZVTOG.M65 \
+		FRZDSEL.M65 \
 		AUDIOMIX.M65 \
 		MONITOR.M65 \
 		MAKEDISK.M65 \
@@ -40,7 +42,6 @@ M65IDESOURCES=	freezer.c \
 
 ASSFILES=	freezer.s \
 		frozen_memory.s \
-		freeze_diskchooser.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \
@@ -51,6 +52,27 @@ ASSFILES=	freezer.s \
 
 FMASSFILES=	freeze_menu.s \
 		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_fat32.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s \
+		freezer_common.s
+
+
+VTASSFILES=	freeze_videotoggle.s \
+		frozen_memory.s \
+		fdisk_memory.s \
+		fdisk_screen.s \
+		fdisk_fat32.s \
+		fdisk_hal_mega65.s \
+		charset.s \
+		helper.s \
+		freezer_common.s
+
+DSASSFILES=	freeze_dsel.s \
+		frozen_memory.s \
 		freeze_diskchooser.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
@@ -59,6 +81,7 @@ FMASSFILES=	freeze_menu.s \
 		charset.s \
 		helper.s \
 		freezer_common.s
+
 
 
 
@@ -205,6 +228,18 @@ FRZMENU.M65:	$(FMASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
 	$(CL65) $(COPTS) -g -Ln frzmenu.lbl $(LOPTS) -vm --add-source -l frzmenu.list -m frzmenu.map -o FRZMENU.M65 version.s $(FMASSFILES)
+	$(CHECKSIZE)
+
+FRZDSEL.M65:	$(DSASSFILES) $(DATAFILES) $(CC65) *.h
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) -g -Ln frzdsel.lbl $(LOPTS) -vm --add-source -l frzdsel.list -m frzdsel.map -o FRZDSEL.M65 version.s $(DSASSFILES)
+	$(CHECKSIZE)
+
+FRZVTOG.M65:	$(VTASSFILES) $(DATAFILES) $(CC65) *.h
+	$(info ======== Making: $@)
+	$(MAKE_VERSION)
+	$(CL65) $(COPTS) -g -Ln frzvtog.lbl $(LOPTS) -vm --add-source -l frzvtog.list -m frzvtog.map -o FRZVTOG.M65 version.s $(VTASSFILES)
 	$(CHECKSIZE)
 
 AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65) *.h

@@ -124,7 +124,7 @@ int main(int argc, char** argv)
   setup_menu_screen();
 
   do_megainfo();
-  mega65_dos_exechelper("FREEZER.M65");
+  mega65_dos_exechelper("FRZMENU.M65");
 
   return;
 }
