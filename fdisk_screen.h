@@ -54,7 +54,7 @@ void write_line(char* s, char col);
 void write_line_len(char* s, char col, char length);
 void write_line_raw(char* s, char col, char length);
 void recolour_last_line(char colour);
-char read_line(char* buffer, char maxlen);
+char read_line(char* buffer, unsigned char maxlen);
 
 void format_decimal(const int addr, const int value, const char columns);
 void format_hex(const int addr, const long value, const char columns);
