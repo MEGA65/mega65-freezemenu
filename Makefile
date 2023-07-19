@@ -11,6 +11,10 @@ else
 	CL65=	cc65/bin/cl65
 endif
 
+MEGA65LIBCDIR=	../mega65-libc
+MEGA65LIBCLIB=	$(MEGA65LIBCDIR)/libmega65.a
+MEGA65LIBCINC=	-I$(MEGA65LIBCDIR)/include
+
 #COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02 -Icc65/include
 COPTS=	-t c64 -Os --cpu 65c02 -Icc65/include
 LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
@@ -110,9 +114,6 @@ MIASSFILES=	megainfo.s \
 		infohelper.s \
 		freezer_common.s
 
-LIBCASSFILES=	../mega65-libc/cc65/src/conio.s \
-		../mega65-libc/cc65/src/mouse.s
-
 HEADERS=	Makefile \
 		freezer.h \
 		fdisk_memory.h \
@@ -123,9 +124,12 @@ HEADERS=	Makefile \
 
 DATAFILES=	ascii8x8.bin
 
+$(MEGA65LIBCLIB):
+	make -C $(MEGA65LIBCDIR) -f Makefile_cc65 all
+
 %.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
 	$(info ======== Making: $@)
-	$(CC65) $(COPTS) --add-source -o $@ $<
+	$(CC65) $(COPTS) $(MEGA65LIBCINC) --add-source -o $@ $<
 
 all:	$(FILES)
 
@@ -206,22 +210,22 @@ MAKEDISK.M65:	$(MDASSFILES) $(DATAFILES) $(CC65) *.h
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 version.s $(MDASSFILES)
 	$(CHECKSIZE)
 
-SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
+SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) *.h $(MEGA65LIBCLIB)
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 version.s $(SEASSFILES) $(LIBCASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 version.s $(SEASSFILES) $(MEGA65LIBCLIB)
 	$(CHECKSIZE)
 
-ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
+ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES) $(LIBCASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES)
 	$(CHECKSIZE)
 
-MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) *.h $(LIBCASSFILES)
+MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
 	$(MAKE_VERSION)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES) $(LIBCASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES)
 	$(CHECKSIZE)
 
 M65THUMB.M65:	assets/thumbnail-surround-m65.png tools/thumbnail-surround-formatter
