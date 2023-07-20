@@ -11,7 +11,7 @@ else
 	CL65=	cc65/bin/cl65
 endif
 
-MEGA65LIBCDIR=	../mega65-libc
+MEGA65LIBCDIR=	../mega65-libc/cc65
 MEGA65LIBCLIB=	$(MEGA65LIBCDIR)/libmega65.a
 MEGA65LIBCINC=	-I$(MEGA65LIBCDIR)/include
 
@@ -124,17 +124,17 @@ HEADERS=	Makefile \
 
 DATAFILES=	ascii8x8.bin
 
+.PHONY: all
+
+all:	$(FILES)
+
+# prerequisite: mega65-libc checked out on same level as this repo
 $(MEGA65LIBCLIB):
 	make -C $(MEGA65LIBCDIR) -f Makefile_cc65 all
 
 %.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
 	$(info ======== Making: $@)
-	$(CC65) $(COPTS) $(MEGA65LIBCINC) --add-source -o $@ $<
-
-all:	$(FILES)
-
-install:	all
-	m65ftp < install.mftp
+	$(CC65) $(MEGA65LIBCINC) $(COPTS) --add-source -o $@ $<
 
 MAKE_VERSION= \
 	@if [ -z "$(DO_MKVER)" ] || [ "$(DO_MKVER)" -eq "1" ] ; then \
