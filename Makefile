@@ -130,7 +130,8 @@ all:	$(FILES)
 
 # prerequisite: mega65-libc checked out on same level as this repo
 $(MEGA65LIBCLIB):
-	make -C $(MEGA65LIBCDIR) -f Makefile_cc65 all
+	make -C $(MEGA65LIBCDIR) all
+	make -C $(MEGA65LIBCDIR) clean
 
 %.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
 	$(info ======== Making: $@)
