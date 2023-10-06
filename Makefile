@@ -12,7 +12,7 @@ else
 endif
 
 #COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02 -Icc65/include
-COPTS=	-t c64 -Os --cpu 65c02 -Icc65/include
+COPTS=	-t c64 -Os --cpu 65c02 -I mega65-libc/include
 LOPTS=	--asm-include-dir cc65/asminc --cfg-path cc65/cfg --lib-path cc65/lib
 
 FILES=		FREEZER.M65 \
@@ -110,8 +110,8 @@ MIASSFILES=	megainfo.s \
 		infohelper.s \
 		freezer_common.s
 
-LIBCASSFILES=	../mega65-libc/cc65/src/conio.s \
-		../mega65-libc/cc65/src/mouse.s
+LIBCASSFILES=	./mega65-libc/src/conio.s \
+		./mega65-libc/src/mouse.s
 
 HEADERS=	Makefile \
 		freezer.h \
