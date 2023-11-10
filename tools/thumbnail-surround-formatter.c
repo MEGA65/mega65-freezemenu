@@ -18,7 +18,7 @@
 #include <getopt.h>
 
 #define PNG_DEBUG 3
-#include <png.h>
+#include <libpng16/png.h>
 
 /* ============================================================= */
 
