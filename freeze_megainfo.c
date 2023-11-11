@@ -117,30 +117,40 @@ void copy_hw_version()
 char* format_mega_model()
 {
   switch (code_buffer[0]) {
-  case 1:
+  case 0x01:
     return "MEGA65 R1";
-  case 2:
+  case 0x02:
     hasRTC = 1;
     return "MEGA65 R2";
-  case 3:
+  case 0x03:
     hasRTC = 1;
     return "MEGA65 R3";
-  case 33:
+  case 0x04:
+    hasRTC = 1;
+    return "MEGA65 R4";
+  case 0x05:
+    hasRTC = 1;
+    return "MEGA65 R5";
+  case 0x21:
     return "MEGAPHONE R1 PROTOTYPE";
-  case 34:
+  case 0x22:
     return "MEGAPHONE R4 PROTOTYPE";
-  case 64:
+  case 0x40:
     return "NEXYS 4 PSRAM";
-  case 65:
+  case 0x41:
     return "NEXYS 4 DDR (NO WIDGET)";
-  case 66:
+  case 0x42:
     return "NEXYS 4 DDR (WIDGET)";
-  case 253:
+  case 0x60:
+    return "QMTECH A100T";
+  case 0x61:
+    return "QMTECH A200T";
+  case 0x62:
+    return "QMTECH A325T";
+  case 0xfd:
     return "QMTECH WUKONG BOARD";
-  case 254:
+  case 0xfe:
     return "SIMULATED MEGA65";
-  case 255:
-    return "HARDWARE NOT SPECIFIED";
   default:
     snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X", code_buffer[0]);
     return tempstr32;
