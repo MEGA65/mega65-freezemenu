@@ -829,7 +829,7 @@ int main(int argc, char** argv)
   predraw_freeze_menu();
   draw_freeze_menu(UPDATE_ALL);
 
-  fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_FORCE);
+  fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_NOCHECK);
 
   // Flush input buffer
   while (PEEK(0xD610U))
@@ -1205,7 +1205,7 @@ int main(int argc, char** argv)
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
         } break;
 
-        case 0xfe: // F14 - restore CHARSET from ROM
+        case 0xfe: // F14 - restore CHARSET from FILE
           {
             // clear screen first
             predraw_freeze_menu();
