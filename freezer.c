@@ -827,9 +827,11 @@ int main(int argc, char** argv)
 
   setup_menu_screen();
   predraw_freeze_menu();
+  //chargen fix needs happen before the thumbnail frame is loaded as it clobbers
+  //the thumbnail frame data.
+  fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_NOCHECK);
   draw_freeze_menu(UPDATE_ALL);
 
-  fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_NOCHECK);
 
   // Flush input buffer
   while (PEEK(0xD610U))
