@@ -32,7 +32,7 @@ static char SDessentials[][13] = {
  */
 #define BUFFER_LENGTH 254
 #define BUFFER_COLOUR 255
-static char buffer[BUFFER_LENGTH + 2], tempstr32[32], isNTSC = 0, hasRTC = 0;
+static char buffer[BUFFER_LENGTH + 2], tempstr32[32], isNTSC = 0, hasRTC = 0, m65model, m65submodel;
 static unsigned char code_buffer[512], ymd[3];
 
 /*
@@ -101,7 +101,9 @@ void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, c
  */
 void copy_hw_version()
 {
-  lcopy(0xFFD3629L, (long)code_buffer, 32);
+  lcopy(0xFFD3628L, (long)code_buffer, 33);
+  m65model = code_buffer[1];
+  m65submodel = (code_buffer[0] >> 4) & 0xf;
 }
 
 /*
@@ -110,27 +112,27 @@ void copy_hw_version()
  *   returns: string (tempstr32 or static)
  *   globals: buffer
  *
- * translate code_buffer[0] to model string
+ * translate m65model + m65submodel to model string
  *
  * get_hw_version must have been called to fill code_buffer
  */
 char* format_mega_model()
 {
-  switch (code_buffer[0]) {
+  switch (m65model) {
   case 0x01:
     return "MEGA65 R1";
   case 0x02:
     hasRTC = 1;
     return "MEGA65 R2";
   case 0x03:
-    hasRTC = 1;
-    return "MEGA65 R3";
   case 0x04:
-    hasRTC = 1;
-    return "MEGA65 R4";
   case 0x05:
+    // format new boards with model/submodel scheme
     hasRTC = 1;
-    return "MEGA65 R5";
+    strncpy(tempstr32, "MEGA65 R3 ", 31);
+    tempstr32[8] = 0x30 + m65model;
+    tempstr32[9] = m65submodel ? 0x40 + m65submodel : 32;
+    break;
   case 0x21:
     return "MEGAPHONE R1 PROTOTYPE";
   case 0x22:
@@ -152,9 +154,10 @@ char* format_mega_model()
   case 0xfe:
     return "SIMULATED MEGA65";
   default:
-    snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X", code_buffer[0]);
-    return tempstr32;
+    snprintf(tempstr32, 31, "UNKNOWN MODEL $%02X.%01X", m65model, m65submodel);
+    break;
   }
+  return tempstr32;
 }
 
 /*
@@ -226,7 +229,7 @@ char* format_datestamp(unsigned char offset, unsigned char msbmask)
 }
 
 /*
- * format_fpha_hash(offset, reverse) -> char *
+ * format_fpga_hash(offset, reverse) -> char *
  *
  *   offset: offset to the start of the FPGA fields (1-KEYBD, 7-ARTIX, 13-MAX10)
  *   msbmask: reverse byte order
@@ -463,6 +466,7 @@ unsigned char format_hickup_version(long addr, unsigned char* date)
 static unsigned char clock_init = 1, tod_buf[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 static unsigned char rtc_state = 0, rtc_last_state = 0, rtc_settle = 0, no_extrtc = 0;
 static unsigned char rtc_check = 1, rtc_ticking = 0, rtc_diff = 0, rtc_buf[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+static unsigned char rtc_pmu = 0xff;
 static unsigned short tod_ov = 0, rtc_ov = 0;
 static short tod_last = -1, tod_ticks = 0, rtc_ticks = 0;
 
@@ -509,6 +513,26 @@ unsigned char get_rtc_stats(unsigned char reinit)
   if (clock_init || reinit) {
     lcopy(0xffd7110l, (long)rtc_buf, 6);
     lcopy(0xffd3c08l, (long)tod_buf, 4);
+    if (m65model == 0x04 || m65model == 0x05) {
+      rtc_pmu = lpeek(0xffd71d0UL);
+      if (rtc_pmu != 0x23) {
+        // disable eeprom refresh
+        lpoke(0xffd7120UL, 0x04);
+        usleep(20000L); // need to wait for slow RTC getting updated
+        // set backup switchover mode to LSM, TCM 4.5V
+        lpoke(0xffd71d0UL, 0x23);
+        usleep(20000L);
+        // EECMD Update EEPROM
+        lpoke(0xffd714fUL, 0x11);
+        usleep(20000L);
+        // enable eeprom refresh
+        lpoke(0xffd7120UL, 0x00);
+        usleep(20000L);
+        rtc_pmu = lpeek(0xffd71d0UL);
+      }
+    }
+    else
+      rtc_pmu = 0xff;
     clock_init = 0;
     tod_ov = 0;
     rtc_ov = 0;
@@ -609,7 +633,7 @@ void format_extrtc_status(unsigned char status)
  */
 void display_rtc_status(unsigned char x, unsigned char y)
 {
-  unsigned char colour;
+  unsigned char colour, offs = 0xff;
 
   // write out rtc state
   format_extrtc_status(rtc_state);
@@ -625,18 +649,28 @@ void display_rtc_status(unsigned char x, unsigned char y)
           if (rtc_diff > 1) {
             if (no_extrtc && isNTSC)
               strcpy(buffer, "SLOW TICK, SLOW CIA TOD!");
-            else
+            else {
               strcpy(buffer, "SLOW TICK               ");
+              offs = 9;
+            }
             colour = 10;
           }
           else {
             strcpy(buffer, "TICKING                 ");
+            offs = 7;
             colour = 7;
           }
         }
         else {
           strcpy(buffer, "NOT TICKING             ");
+          offs = 11;
           colour = 10;
+        }
+        if (offs != 0xff && rtc_pmu != 0xff) {
+          if ((rtc_pmu & 0x30) == 0x20)
+            memcpy(buffer + offs, ", BACKUP ON", 11);
+          else
+            memcpy(buffer + offs, ", BACKUP OFF", 12);
         }
         write_text(x, y + 1, colour, buffer);
       }
@@ -658,8 +692,8 @@ void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, u
   // DEBUG output in the bottom line
   switch (mode) {
   case 1:
-    sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X", rtc_buf[7] & 0x7f, rtc_buf[6], rtc_ticks,
-        tod_buf[6] & 0x7f, tod_buf[5], tod_ticks, rtc_diff);
+    sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X PMU %02X",
+        rtc_buf[7] & 0x7f, rtc_buf[6], rtc_ticks, tod_buf[6] & 0x7f, tod_buf[5], tod_ticks, rtc_diff, rtc_pmu);
     if (rtc_state == 1)
       buffer[0] = 'I';
     else if (rtc_state == 2 || rtc_state == 3)
@@ -710,8 +744,8 @@ void draw_screen(void)
 
   // output fpga versions
   write_text(0, 5, 1, "ARTIX VERSION:");
-  write_text(15, 5, 7, format_fpga_hash(7, 0));
-  write_text(25, 5, 7, format_datestamp(7, 0xff));
+  write_text(15, 5, 7, format_fpga_hash(8, 0));
+  write_text(25, 5, 7, format_datestamp(8, 0xff));
   // save artix date for hickup date check
   artix_ymd[0] = ymd[0];
   artix_ymd[1] = ymd[1];
@@ -722,11 +756,15 @@ void draw_screen(void)
   }
 
   write_text(0, 6, 1, "MAX10 VERSION:");
-  write_text(15, 6, 7, format_fpga_hash(13, 1));
-  write_text(25, 6, 7, format_datestamp(13, 0x3f));
+  if (m65model > 0 && m65model < 4) {
+    write_text(15, 6, 7, format_fpga_hash(14, 1));
+    write_text(25, 6, 7, format_datestamp(14, 0x3f));
+  }
+  else
+    write_text(15, 6, 7, "FFFFFFFF  0000-00-00");
   write_text(0, 7, 1, "KEYBD VERSION:");
-  write_text(15, 7, 7, format_fpga_hash(1, 0));
-  write_text(25, 7, 7, format_datestamp(1, 0xff));
+  write_text(15, 7, 7, format_fpga_hash(2, 0));
+  write_text(25, 7, 7, format_datestamp(2, 0xff));
 
   // RTC (labels only, rest is done in mainloop)
   write_text(40, 5, 1, "RTC STATUS:");
