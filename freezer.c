@@ -170,7 +170,7 @@ unsigned char next_cpu_speed(void)
     break;
   case 3:
     // Make it 40MHz
-    freeze_poke(0xffd3030L, 0);
+    freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) | 0x40);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) | 0x10);
@@ -178,7 +178,7 @@ unsigned char next_cpu_speed(void)
   case 40:
   default:
     // Make it 1MHz
-    freeze_poke(0xffd3030L, 0);
+    freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     // we clear this, but we don't set it again
