@@ -127,6 +127,7 @@ char* format_mega_model()
   case 0x03:
   case 0x04:
   case 0x05:
+  case 0x06:
     // format new boards with model/submodel scheme
     hasRTC = 1;
     strncpy(tempstr32, "MEGA65 R3 ", 31);
@@ -515,12 +516,12 @@ unsigned char get_rtc_stats(unsigned char reinit)
     lcopy(0xffd3c08l, (long)tod_buf, 4);
     if (m65model == 0x04 || m65model == 0x05) {
       rtc_pmu = lpeek(0xffd71d0UL);
-      if (rtc_pmu != 0x23) {
+      if (rtc_pmu != 0x22) {
         // disable eeprom refresh
         lpoke(0xffd7120UL, 0x04);
         usleep(20000L); // need to wait for slow RTC getting updated
-        // set backup switchover mode to LSM, TCM 4.5V
-        lpoke(0xffd71d0UL, 0x23);
+        // set backup switchover mode to LSM, TCM 3V (Battery protection)
+        lpoke(0xffd71d0UL, 0x22);
         usleep(20000L);
         // EECMD Update EEPROM
         lpoke(0xffd714fUL, 0x11);
