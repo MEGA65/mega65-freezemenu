@@ -43,7 +43,15 @@ uint32_t find_thumbnail_offset(void)
 
   for (i = 0; i < freeze_region_count; i++) {
     region_length = freeze_region_list[i].region_length & REGION_LENGTH_MASK;
-    if (freeze_region_list[i].address_base == 0x0001000L) {
+    /* Thumbnail freezing has changed recently:
+       Previously the thumbnail was accessed indirectly, and had to be extracted to $1000 first,
+       and then frozen from there, and thus appeared to be at $1000.  
+       Now the thumbnail is direct mapped at $FFD4000, and is frozen directly from there.
+       For now, we will check for both.
+    */
+    if (freeze_region_list[i].address_base == 0x1000L        // older bitstreams use relocated address
+	|| freeze_region_list[i].address_base == 0xffd4000L  // newer bitstreams use real address
+	) {
       // Found it
       return freeze_slot_offset;
     }
