@@ -647,6 +647,9 @@ void select_mounted_disk_image(int diskid)
     store_selected_disk_image(diskid, disk_image);
   }
 
+  // go back to root, so other helpers can be loaded
+  mega65_dos_cdroot();
+
   predraw_freeze_menu();
   draw_freeze_menu(UPDATE_ALL);
 }
