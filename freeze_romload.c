@@ -337,9 +337,9 @@ unsigned char freeze_load_romarea(void)
           find_freeze_slot_start_sector(0); // we only work on slot 0!
           freeze_slot_start_sector = *(uint32_t*)0xD681U;
 
-          for (s = 0; s < (128 * 1024 / 512); s++) {
+          for (s = 0; s < 256; s++) { // ROM is 128k, devided by 512 byte sectors is 256 sectors to load
             // Write each sector to frozen memory
-            POKE(0xD020, PEEK(0xD020) + 1);
+            POKE(0xD020, (PEEK(0xD020) + 1) & 0xf);
             lcopy(0x40000L + 512L * (long)s, (long)buffer, 512);
             freeze_store_sector(0x20000L + ((long)s) * 512L, buffer);
           }
