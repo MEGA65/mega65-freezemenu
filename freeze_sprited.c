@@ -66,13 +66,13 @@
     * Consider SPRBPMEN for 16-color sprites
  */
 #include <cc65.h>
-#include "./mega65-libc/include/mega65/conio.h"
-#include "./mega65-libc/include/mega65/mouse.h"
-#include "./mega65-libc/include/mega65/hal.h"
+#include "../mega65-libc/cc65/include/conio.h"
+#include "../mega65-libc/cc65/include/mouse.h"
+#include "../mega65-libc/cc65/include/hal.h"
 #include <cbm.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "./mega65-libc/include/mega65/memory.h"
+#include "../mega65-libc/cc65/include/memory.h"
 #include "freezer.h"
 
 extern int errno;
