@@ -66,6 +66,7 @@ struct freeze_region_t {
 
 #define MAX_REGIONS (256 / sizeof(struct freeze_region_t))
 
+extern unsigned char not_in_root;
 extern struct freeze_region_t freeze_region_list[MAX_REGIONS];
 extern unsigned char freeze_region_count;
 

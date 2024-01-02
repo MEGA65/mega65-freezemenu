@@ -121,7 +121,8 @@ static unsigned char current_side = 0, entry_buffer[18] = "\"                 ";
 
 void display_error(unsigned char error)
 {
-  unsigned char i, *errstr;
+  unsigned char i;
+  char *errstr;
 
   POKE(0xD020U, 2);
   errstr = hyppoerror_to_screen(error);
@@ -523,14 +524,14 @@ void scan_directory(unsigned char drive_id)
   lcopy((unsigned long)"- NEW D81 DD IMAGE -", 0x40000L + (file_count * 64), 20);
   file_count++;
 
-  // no way to mount D65 yet...
-#if WITH_NEW_D65
+#if 0
   lcopy((unsigned long)"- NEW D65 HD IMAGE -", 0x40000L + (file_count * 64), 20);
   file_count++;
 #endif
 
   min_dir_entry = file_count;
 
+  not_in_root = 0;
   dir = opendir();
   dirent = readdir(dir);
   while (dirent && ((unsigned short)dirent != 0xffffU)) {
@@ -539,8 +540,11 @@ void scan_directory(unsigned char drive_id)
 
     // check DIR attribute of dirent
     if (dirent->d_type & 0x10) {
-
-      // File is a directory
+      // if there is a .. path, then we are in a subdir
+      if (!strcmp("..", dirent->d_name)) {
+        not_in_root = 1;
+        file_count--; // overwrite makedisk
+      }
       if (x < 60) {
         lfill(0x40000L + (file_count * 64), ' ', 64);
         lcopy((long)&dirent->d_name[0], 0x40000L + 1 + (file_count * 64), x);
@@ -631,7 +635,7 @@ char* freeze_select_disk_image(unsigned char drive_id)
     switch (x) {
     case 0x5f: // <- key at top left of key board
       // Go back up one directory
-      mega65_dos_chdir("..");
+      mega65_dos_chdir((unsigned char *)"..");
       file_count = 0;
       selection_number = 0;
       display_offset = 0;
@@ -671,7 +675,7 @@ char* freeze_select_disk_image(unsigned char drive_id)
       POKE(0xD020U, 0);
       if (disk_name_return[0] == '/') {
         // Its a directory
-        mega65_dos_chdir(&disk_name_return[1]);
+        mega65_dos_chdir((unsigned char *)&disk_name_return[1]);
         file_count = 0;
         selection_number = 0;
         display_offset = 0;

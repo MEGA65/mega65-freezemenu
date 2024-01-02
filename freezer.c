@@ -13,7 +13,8 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
-unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
+unsigned char* freeze_menu = (unsigned char *)
+                             "        MEGA65 FREEZE MENU V0.2.1       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
@@ -30,6 +31,7 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
                              " C(R)T EMU:     OFF  (V)IDEO:    NTSC60 "
                              "cccccccccccccccccccccccccccccccccccccccc"
+#define TOOLS_MENU_OFFSET (9 * 40)
                              " M - MONITOR         L - LOAD ROM/CHAR  "
                              " A - AUDIO & VOLUME                     "
                              " S - SPRITE EDITOR                      "
@@ -57,6 +59,11 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
 #define D81_IMAGE1_NAME_OFFSET (24 * 40 + 22)
                              "~~~~~~~~~~~~~~~~~~~~                    "
                              "\0";
+unsigned char* freeze_root_warn = (unsigned char *)
+                             " NEED TO CHANGE CURRENT DIR TO ROOT TO  "
+                             " START TOOL! THIS WILL BREAK DISK IMAGE "
+                             " MOUNTS FROM SUBDIRS!    PROCEED (Y/N)? "
+                             "\0";
 
 // name of the file that is loaded by charset restore F14
 #define DEFAULT_CHARSET "CHARSET.M65"
@@ -64,6 +71,7 @@ unsigned char* freeze_menu = "        MEGA65 FREEZE MENU V0.2.1       "
 
 static unsigned short i;
 unsigned char rom_changed = 0;
+unsigned char not_in_root = 0;
 #ifdef WITH_TOUCH
 signed char swipe_dir = 0;
 #endif
@@ -214,7 +222,7 @@ void draw_thumbnail(void)
   uint32_t thumbnail_sector = find_thumbnail_offset();
 
   // Can't find thumbnail area?  Then show no thumbnail
-  if (thumbnail_sector == 0xFFFFFFFFL) {
+  if (thumbnail_sector == 0xFFFFFFFFUL) {
     lfill(0x50000L, 0, 10 * 6 * 64);
     return;
   }
@@ -310,6 +318,22 @@ void predraw_freeze_menu(void)
 #define UPDATE_THUMB   0x40
 #define UPDATE_CHGSLOT 0x80
 // clang-format on
+
+void copy_convert_to_screen(unsigned char *data, short offset)
+{
+  offset <<= 1;
+
+  for (i = 0; data[i]; i++)
+    if (data[i] != '~') { // skip thumb area
+      if ((data[i] >= 'A') && (data[i] <= 'Z'))
+        POKE(SCREEN_ADDRESS + i * 2 + 0 + offset, data[i] - 0x40);
+      else if ((data[i] >= 'a') && (data[i] <= 'z'))
+        POKE(SCREEN_ADDRESS + i * 2 + 0 + offset, data[i] - 0x20);
+      else
+        POKE(SCREEN_ADDRESS + i * 2 + 0 + offset, data[i]);
+      POKE(SCREEN_ADDRESS + i * 2 + 1 + offset, 0);
+    }
+}
 
 void draw_freeze_menu(unsigned char part)
 {
@@ -470,16 +494,7 @@ void draw_freeze_menu(unsigned char part)
   // Freezer can't use printf() etc, because C64 ROM has not started, so ZP will be a mess
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
-  for (i = 0; freeze_menu[i]; i++)
-    if (freeze_menu[i] != '~') { // skip thumb area
-      if ((freeze_menu[i] >= 'A') && (freeze_menu[i] <= 'Z'))
-        POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i] - 0x40);
-      else if ((freeze_menu[i] >= 'a') && (freeze_menu[i] <= 'z'))
-        POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i] - 0x20);
-      else
-        POKE(SCREEN_ADDRESS + i * 2 + 0, freeze_menu[i]);
-      POKE(SCREEN_ADDRESS + i * 2 + 1, 0);
-    }
+  copy_convert_to_screen(freeze_menu, 0);
 
   // Draw the thumbnail surround area
   if (part & UPDATE_THUMB) {
@@ -505,7 +520,7 @@ void draw_freeze_menu(unsigned char part)
     }
 
     // only load new image if needed
-    if (thumb_frame != last_thumb_frame) {
+    if (!not_in_root && thumb_frame != last_thumb_frame) { // only load a frame if we are in the root
       while (thumb_frame > -1) {
         if (!read_file_from_sdcard(thumb_frame_name[thumb_frame], 0x052000L))
           break;
@@ -737,6 +752,34 @@ void fix_chargen_area(unsigned char flags)
       POKE(0xD021U, 6);
     }
   }
+}
+
+void start_freezer_tool(char *toolfile)
+{
+  char x = 0, start_tool = 0;
+
+  if (not_in_root) {
+    copy_convert_to_screen(freeze_root_warn, TOOLS_MENU_OFFSET);
+
+    while (!start_tool) {
+      while (!(x = PEEK(0xD610U)));
+      POKE(0xD610U, 0);
+      switch (x) {
+        case 'y':
+        case 'Y':
+          mega65_dos_cdroot();
+          start_tool = 1;
+          break;
+        case 'n':
+        case 'N':
+        case 0x1b:
+        case 0x03:
+          draw_freeze_menu(UPDATE_TOP);
+          return;
+      }
+    }
+  }
+  mega65_dos_exechelper(toolfile);
 }
 
 #ifdef __CC65__
@@ -978,17 +1021,17 @@ int main(int argc, char** argv)
 
         case 'M':
         case 'm': // Monitor
-          mega65_dos_exechelper("MONITOR.M65");
+          start_freezer_tool("MONITOR.M65");
           break;
 
         case 'A':
         case 'a': // Audio mixer
-          mega65_dos_exechelper("AUDIOMIX.M65");
+          start_freezer_tool("AUDIOMIX.M65");
           break;
 
         case 'S':
         case 's': // Sprite Editor
-          mega65_dos_exechelper("SPRITED.M65");
+          start_freezer_tool("SPRITED.M65");
           break;
 
         case 'J':
@@ -1221,7 +1264,7 @@ int main(int argc, char** argv)
           break;
 
         case 0x1f: // HELP MEGAINFO
-          mega65_dos_exechelper("MEGAINFO.M65");
+          start_freezer_tool("MEGAINFO.M65");
           break;
 
         case 'R':
@@ -1239,7 +1282,7 @@ int main(int argc, char** argv)
           break;
         case 'L':
         case 'l':
-          mega65_dos_exechelper("ROMLOAD.M65");
+          start_freezer_tool("ROMLOAD.M65");
           break;
         case 'X':
         case 'x': // Poke finder
