@@ -1105,9 +1105,9 @@ static void ShowHelp()
   // clang-format off
   const char* fileKeys[] = {
     "  file / txfer     ",
-    "load             f5",
-    "save raw       f7,r",
-    "save basic     f7,b",
+    "(not impl)       f5", // load
+    "(not impl)     f7,r", // save raw
+    "(not impl)     f7,b", // save basic
     "fetch slot       f9",
     "store slot      f11",
     "exit             f3",
@@ -1119,8 +1119,8 @@ static void ShowHelp()
     "line              l",
     "box               x",
     "filled box      s-x",
-    "not implemented   o",
-    "not implemented s-o",
+    "(not impl)        o", // circle
+    "(not impl)      s-o", // filled circle
   };
 
   const char* colorKeys[] = {
@@ -1143,16 +1143,16 @@ static void ShowHelp()
     "change type       *",
     "toggle h-expand   h",
     "toggle v-expand   v",
-    "toggle x-width    \x1e",
+    "(not impl)        \x1e", // toggle x-width
     "copy sprite  ctrl+c",
-    "horz flip    ctrl+h",
-    "vert flip    ctrl+v",
+    "(not impl)   ctrl+h", // horz flip
+    "(not impl)   ctrl+v", // vert flip
   };
 
   const char* displayKeys[] = {
     "     display       ",
     "aspect ratio  alt+r",
-    "25/50-line    alt+d",
+    "(not impl)    alt+d", // 25/50-line
   };
 
   const char* tipsNtricks[] = {
@@ -1432,16 +1432,17 @@ static void MainLoop()
       break;
 
     case '@': // 94: // Up-arrow
-      POKE(LOCAL_REG_SPRX64EN, PEEK(LOCAL_REG_SPRX64EN) ^ (1 << PREVIEW_SPRITE_NUM));
-      FREEZE_POKE(REG_SPRX64EN, FREEZE_PEEK(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
-      g_state.redrawFlags = REDRAW_SB_ALL;
-      g_state.updateCursorXFn = PEEK(LOCAL_REG_SPRX64EN) & (1 << PREVIEW_SPRITE_NUM) ? UpdateCursorXMSB : UpdateCursorX;
-      UpdateAndFullRedraw(FALSE);
-      UpdateSpritePreview();
+      // TODO: Disabled until we can fix it; issue #77
+      // POKE(LOCAL_REG_SPRX64EN, PEEK(LOCAL_REG_SPRX64EN) ^ (1 << PREVIEW_SPRITE_NUM));
+      // FREEZE_POKE(REG_SPRX64EN, FREEZE_PEEK(REG_SPRX64EN) ^ (1 << g_state.spriteNumber));
+      // g_state.redrawFlags = REDRAW_SB_ALL;
+      // g_state.updateCursorXFn = PEEK(LOCAL_REG_SPRX64EN) & (1 << PREVIEW_SPRITE_NUM) ? UpdateCursorXMSB : UpdateCursorX;
+      // UpdateAndFullRedraw(FALSE);
+      // UpdateSpritePreview();
       break;
 
     case 3: // CTRL-C
-      Ask("copy sprite to? ", buf, 1);
+      Ask("copy sprite to (0-7)? ", buf, 1);
       if (buf[0] >= '0' && buf[0] <= '7') {
         BYTE toSprite = buf[0] - 48;
         if (SPRITE_SIZE_BYTES(toSprite) == g_state.spriteSizeBytes) {
@@ -1473,10 +1474,11 @@ static void MainLoop()
       break;
 
     case 8: // CTRL-H  (Horz flip)
+      // TODO: implement; issue #78
       break;
 
     case 22: // CTRL-V  (Vert flip)
-
+      // TODO: implement; issue #78
       break;
 
       /* ------------------------------- COLOR GROUP -------------------------- */
@@ -1517,8 +1519,9 @@ static void MainLoop()
       /* ------------------------- DISPLAY GROUP --------------------------------------- */
 
     case 240: // ALT-D
-      setscreensize(80, 50);
-      UpdateAndFullRedraw(FALSE);
+      // TODO: Disabled until we can fix it; issue #74
+      // setscreensize(80, 50);
+      // UpdateAndFullRedraw(FALSE);
       break;
 
     case 174: // ALT-R
@@ -1536,15 +1539,16 @@ static void MainLoop()
       break;
 
     case 0xF5: // F5 LOAD
-      Ask("enter file name to load: ", buf, 19);
+      // TODO: implement
+      // Ask("enter file name to load: ", buf, 19);
       break;
 
     case 0xF7: // F7 SAVE
-      Ask("enter file name to save: ", buf, 19);
-
+      // TODO: implement
+      // Ask("enter file name to save: ", buf, 19);
       break;
 
-    case 0xF9: // Fetch from slot
+    case 0xF9: // F9 Fetch from slot
       UpdateAndFullRedraw(TRUE);
       break;
 
