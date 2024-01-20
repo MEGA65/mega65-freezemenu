@@ -1,3 +1,22 @@
+# Operating System detection and conditional compile options
+
+ifeq ($(OS),Windows_NT)
+    OSYSTEM := Windows
+else
+    OSYSTEM := $(shell sh -c 'uname 2>/dev/null || echo Unknown')
+endif
+
+ifeq ($(OSYSTEM),Windows) # MS Windows
+    GCOPT +=
+endif
+
+ifeq ($(OSYSTEM),Darwin) # Apple macOS
+    GCOPT += -I/opt/homebrew/include -L/opt/homebrew/lib
+endif
+
+ifeq ($(OSYSTEM),Linux) # Linux
+    GCOPT += -I/usr/local/include -L/usr/local/lib
+endif
 
 ifdef USE_LOCAL_CC65
 	# use locally installed binary (requires cc65 to be in the $PATH)
@@ -175,11 +194,11 @@ ascii.h:	tools/asciih
 
 tools/pngprepare:	tools/pngprepare.c
 	$(info ======== Making: $@)
-	$(CC) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare tools/pngprepare.c -lpng
+	$(CC) $(GCOPT) -o tools/pngprepare tools/pngprepare.c -lpng
 
 tools/thumbnail-surround-formatter:
 	$(info ======== Making: $@)
-	gcc -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
+	gcc $(GCOPT) -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
 FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
