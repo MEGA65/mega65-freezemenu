@@ -13,12 +13,16 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
+unsigned char* freeze_menu_bar = (unsigned char *)
+                             "F3-RESUME F5-RESET             HELP-INFO"
+                             "F3-LOAD F5-RESET F7-SAVE SLOT  HELP-INFO";
+
 unsigned char* freeze_menu = (unsigned char *)
                              "        MEGA65 FREEZE MENU V0.3.0       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
-                             "F3-LOAD   F5-RESET F7-SAVE HELP-MEGAINFO"
+                             "F3-RESUME F5-RESET             HELP-INFO"
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define CPU_MODE_OFFSET (5 * 40 + 13)
 #define JOY_SWAP_OFFSET (5 * 40 + 36)
@@ -34,7 +38,7 @@ unsigned char* freeze_menu = (unsigned char *)
 #define TOOLS_MENU_OFFSET (9 * 40)
                              " M - MONITOR         L - LOAD ROM/CHAR  "
                              " A - AUDIO & VOLUME                     "
-                             " S - SPRITE EDITOR                      "
+                             " S - SPRITE EDITOR   HELP - MEGAINFO    "
                              "cccccccccccccccccccccccccccccccccccccccc"
                              "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
@@ -349,16 +353,15 @@ void draw_freeze_menu(unsigned char part)
   if (part & UPDATE_TOP) {
 
     if (slot_number) {
-      lcopy((unsigned long)"F3-LOAD  ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
+      lcopy((unsigned long)freeze_menu_bar + 40, (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 40);
       lcopy((unsigned long)" FREEZE SLOT:      ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
       // Display slot ID as decimal
       screen_decimal((unsigned long)&freeze_menu[SLOT_NUMBER_OFFSET], slot_number);
     }
     else {
+      lcopy((unsigned long)freeze_menu_bar, (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 40);
       if (rom_changed)
-        lcopy((unsigned long)"         ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
-      else
-        lcopy((unsigned long)"F3-RESUME", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
+        lfill((unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], ' ', 9);
 
       // Display "- PAUSED STATE -"
       lcopy((unsigned long)" - PAUSED STATE -   ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
