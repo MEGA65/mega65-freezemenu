@@ -609,17 +609,17 @@ void test_audio(unsigned char advanced_view)
       switch (sid_num) {
       case 0:
       case 1:
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
-        break;
-      case 2:
-      case 3:
         lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
         lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+        break;
+      case 2:
+      case 3:
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
         break;
       }
     }
