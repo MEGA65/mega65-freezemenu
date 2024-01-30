@@ -45,18 +45,18 @@ unsigned char* audio_menu_simple = "         MEGA65 AUDIO MIXER MENU        "
                                    "         LEFT OUTPUT CHANNEL:           "
                                    "        cccccccccccccccccccccccccccccccc"
                                    "    MASTERb                             "
-                                   "   SID 3+4b                             "
+                                   " L SID 3+4b                             "
+                                   " R SID 1+2b                             "
                                    " LEFT DIGIb                             "
-                                   "   SID 1+2b                             "
                                    "RIGHT DIGIb                             "
                                    "SFX OPL FMb                             "
                                    "                                        "
                                    "        RIGHT OUTPUT CHANNEL:           "
                                    "        cccccccccccccccccccccccccccccccc"
                                    "    MASTERb                             "
-                                   "   SID 3+4b                             "
+                                   " L SID 3+4b                             "
+                                   " R SID 1+2b                             "
                                    " LEFT DIGIb                             "
-                                   "   SID 1+2b                             "
                                    "RIGHT DIGIb                             "
                                    "SFX OPL FMb                             "
                                    " cccccccccccccccccccccccccccccccccccccc "
@@ -606,21 +606,20 @@ void test_audio(unsigned char advanced_view)
       }
     }
     else {
-      switch (note) {
+      switch (sid_num) {
       case 0:
-      case 2:
-      case 4:
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 18 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
-        break;
       case 1:
-      case 3:
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 18 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
+        break;
+      case 2:
+      case 3:
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
         break;
       }
     }
@@ -674,7 +673,7 @@ void test_audio(unsigned char advanced_view)
   POKE(0xD478U, 0x0);
 
   // Reset all sids
-  //lfill(0xffd3400, 0, 0x100);
+  lfill(0xffd3400, 0, 0x80);
 }
 
 unsigned char cin;
