@@ -13,7 +13,7 @@
 
 unsigned char* audio_menu = (unsigned char *)
                             "         MEGA65 AUDIO MIXER MENU        "
-                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2022  "
+                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
                             " cccccccccccccccccccccccccccccccccccccc "
                             "        LFT RGT PH1 PH2 BTL BTR HDL HDR "
                             "        cccccccccccccccccccccccccccccccc"
@@ -41,7 +41,7 @@ unsigned char* audio_menu = (unsigned char *)
 
 unsigned char* audio_menu_simple = (unsigned char *)
                                    "         MEGA65 AUDIO MIXER MENU        "
-                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2022  "
+                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
                                    " cccccccccccccccccccccccccccccccccccccc "
                                    "                                        "
                                    "         LEFT OUTPUT CHANNEL:           "
