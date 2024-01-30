@@ -1000,20 +1000,24 @@ int main(int argc, char** argv)
             draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           }
           break;
+        case ',':
+          slot_number -= 90;
         case 0x11: // Cursor down
+          slot_number -= 9;
         case 0x9D: // Cursor left
-          if (slot_number)
-            slot_number--;
-          else
+          slot_number--;
+          if (slot_number >= get_freeze_slot_count()) // unsigned!
             slot_number = get_freeze_slot_count() - 1;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           break;
+        case '.':
+          slot_number += 90;
         case 0x91: // Cursor up
+          slot_number += 9;
         case 0x1D: // Cursor right
-          if ((slot_number + 1) < get_freeze_slot_count())
-            slot_number++;
-          else
+          slot_number++;
+          if (slot_number >= get_freeze_slot_count())
             slot_number = 0;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
