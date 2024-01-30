@@ -335,6 +335,7 @@ void set_amplifier(unsigned char leftRight, unsigned short v)
 void change_db(unsigned char row, unsigned char change)
 {
   // clang-format off
+  // this is all HDL/HDR (HDMI) channels
   switch (row) {
   case  0: c = 0xde; break;
   case  1: c = 0xc0; break;
@@ -364,6 +365,9 @@ void change_db(unsigned char row, unsigned char change)
   v = minus_db_table[db];
   audioxbar_setcoefficient(c + 0, v & 0xff);
   audioxbar_setcoefficient(c + 1, v >> 8);
+  // change LFT/RGT (audio jack) to the same value in simple mixer!
+  audioxbar_setcoefficient(c - 0xc0, v & 0xff);
+  audioxbar_setcoefficient(c - 0xc0 + 1, v >> 8);
 
   if (row == 0)
     set_amplifier(0, v);
