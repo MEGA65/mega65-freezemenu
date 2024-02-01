@@ -14,15 +14,15 @@
 #include "fdisk_fat32.h"
 
 unsigned char* freeze_menu_bar = (unsigned char *)
-                             "F3-RESUME F5-RESET             HELP-INFO"
-                             "F3-LOAD F5-RESET F7-SAVE SLOT  HELP-INFO";
+                             "F3-RESUME    F5-RESET      HELP-MEGAINFO"
+                             "F3-LOAD SLOT F7-SAVE SLOT  HELP-MEGAINFO";
 
 unsigned char* freeze_menu = (unsigned char *)
                              "        MEGA65 FREEZE MENU V0.3.0       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
-                             "F3-RESUME F5-RESET             HELP-INFO"
+                             "F3-RESUME    F5-RESET      HELP-MEGAINFO"
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define CPU_MODE_OFFSET (5 * 40 + 13)
 #define JOY_SWAP_OFFSET (5 * 40 + 36)
@@ -1164,7 +1164,9 @@ int main(int argc, char** argv)
           break;
 
         case 0xf5: // F5 = Reset
-        {
+          // reset only works for slot 0!
+          if (slot_number != 0)
+            goto invalid_function;
           // Set C64 memory map, PC to reset vector and resume
           freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
           freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
@@ -1178,13 +1180,12 @@ int main(int argc, char** argv)
             freeze_poke(0xFFD3640U + c, 0);
           // Turn off extended graphics mode, only keep palemu
           freeze_poke(0xFFD3054U, freeze_peek(0xFFD3054U) & 0x20);
-        }
           // fall through
         case 0xf3: // F3 = resume
         case 0xf4: // RESUME even if ROM changed
           // if rom changed, slot 0 resume is disabled, reset is required
           if (c == 0xf3 && slot_number == 0 && rom_changed)
-            break;
+            goto invalid_function;
           // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
           POKE(0xD689, origD689);
 
@@ -1298,6 +1299,7 @@ int main(int argc, char** argv)
         case 'k':
         case 'K': // Sprite killer
         default:
+invalid_function:
           // For invalid or unimplemented functions flash the border and screen
           POKE(0xD020U, 1);
           POKE(0xD021U, 1);
