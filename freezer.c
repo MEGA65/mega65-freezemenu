@@ -167,33 +167,35 @@ unsigned char next_cpu_speed(void)
 {
   switch (detect_cpu_speed()) {
   case 1:
-    // Make it 2MHz
+    // Make it 2MHz: 2MHZ && !FAST && !VFAST
     // ffd0030 is a special register to access the C128 D030.0 bit
     freeze_poke(0xffd0030L, 1);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     return 1;
   case 2:
-    // Make it 3.5MHz
+    // Make it 3.5MHz: !2MHZ && FAST && !VFAST
     freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     break;
   case 3:
-    // Make it 40MHz
+    // Make it 40MHz: !2MHZ && FAST && VFAST
     freeze_poke(0xffd0030L, 0);
-    freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
+    freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) | 0x40);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) | 0x10);
     break;
   case 40:
   default:
-    // Make it 1MHz
+    // Make it 1MHz: !2MHZ && !FAST && !VFAST
     freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
-    // we clear this, but we don't set it again
+    // If a program forced 40 MHz via POKE 0,65, the Hypervisor flag at
+    // ffd367d is set, and is overriding the other flags. Clear it.
+    // The Freezer itself does not set this.
     freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     return 1;
   }
