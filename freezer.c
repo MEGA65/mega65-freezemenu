@@ -13,12 +13,16 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
+unsigned char* freeze_menu_bar = (unsigned char *)
+                             "F3-RESUME    F5-RESET      HELP-MEGAINFO"
+                             "F3-LOAD SLOT F7-SAVE SLOT  HELP-MEGAINFO";
+
 unsigned char* freeze_menu = (unsigned char *)
-                             "        MEGA65 FREEZE MENU V0.2.1       "
+                             "        MEGA65 FREEZE MENU V0.3.0       "
                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
-                             "F3-LOAD   F5-RESET F7-SAVE HELP-MEGAINFO"
+                             "F3-RESUME    F5-RESET      HELP-MEGAINFO"
                              "cccccccccccccccccccccccccccccccccccccccc"
 #define CPU_MODE_OFFSET (5 * 40 + 13)
 #define JOY_SWAP_OFFSET (5 * 40 + 36)
@@ -34,7 +38,7 @@ unsigned char* freeze_menu = (unsigned char *)
 #define TOOLS_MENU_OFFSET (9 * 40)
                              " M - MONITOR         L - LOAD ROM/CHAR  "
                              " A - AUDIO & VOLUME                     "
-                             " S - SPRITE EDITOR                      "
+                             " S - SPRITE EDITOR   HELP - MEGAINFO    "
                              "cccccccccccccccccccccccccccccccccccccccc"
                              "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
@@ -163,33 +167,35 @@ unsigned char next_cpu_speed(void)
 {
   switch (detect_cpu_speed()) {
   case 1:
-    // Make it 2MHz
+    // Make it 2MHz: 2MHZ && !FAST && !VFAST
     // ffd0030 is a special register to access the C128 D030.0 bit
     freeze_poke(0xffd0030L, 1);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     return 1;
   case 2:
-    // Make it 3.5MHz
+    // Make it 3.5MHz: !2MHZ && FAST && !VFAST
     freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     break;
   case 3:
-    // Make it 40MHz
+    // Make it 40MHz: !2MHZ && FAST && VFAST
     freeze_poke(0xffd0030L, 0);
-    freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
+    freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) | 0x40);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) | 0x40);
     // freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) | 0x10);
     break;
   case 40:
   default:
-    // Make it 1MHz
+    // Make it 1MHz: !2MHZ && !FAST && !VFAST
     freeze_poke(0xffd0030L, 0);
     freeze_poke(0xffd3031L, freeze_peek(0xffd3031L) & 0xbf);
     freeze_poke(0xffd3054L, freeze_peek(0xffd3054L) & 0xbf);
-    // we clear this, but we don't set it again
+    // If a program forced 40 MHz via POKE 0,65, the Hypervisor flag at
+    // ffd367d is set, and is overriding the other flags. Clear it.
+    // The Freezer itself does not set this.
     freeze_poke(0xffd367dL, freeze_peek(0xffd367dL) & 0xef);
     return 1;
   }
@@ -349,16 +355,15 @@ void draw_freeze_menu(unsigned char part)
   if (part & UPDATE_TOP) {
 
     if (slot_number) {
-      lcopy((unsigned long)"F3-LOAD  ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
+      lcopy((unsigned long)freeze_menu_bar + 40, (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 40);
       lcopy((unsigned long)" FREEZE SLOT:      ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
       // Display slot ID as decimal
       screen_decimal((unsigned long)&freeze_menu[SLOT_NUMBER_OFFSET], slot_number);
     }
     else {
+      lcopy((unsigned long)freeze_menu_bar, (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 40);
       if (rom_changed)
-        lcopy((unsigned long)"         ", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
-      else
-        lcopy((unsigned long)"F3-RESUME", (unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], 9);
+        lfill((unsigned long)&freeze_menu[LOAD_RESUME_OFFSET], ' ', 9);
 
       // Display "- PAUSED STATE -"
       lcopy((unsigned long)" - PAUSED STATE -   ", (unsigned long)&freeze_menu[FREEZE_SLOT_OFFSET], 19);
@@ -1000,20 +1005,24 @@ int main(int argc, char** argv)
             draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           }
           break;
+        case ',':
+          slot_number -= 90;
         case 0x11: // Cursor down
+          slot_number -= 9;
         case 0x9D: // Cursor left
-          if (slot_number)
-            slot_number--;
-          else
+          slot_number--;
+          if (slot_number >= get_freeze_slot_count()) // unsigned!
             slot_number = get_freeze_slot_count() - 1;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
           break;
+        case '.':
+          slot_number += 90;
         case 0x91: // Cursor up
+          slot_number += 9;
         case 0x1D: // Cursor right
-          if ((slot_number + 1) < get_freeze_slot_count())
-            slot_number++;
-          else
+          slot_number++;
+          if (slot_number >= get_freeze_slot_count())
             slot_number = 0;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
@@ -1157,7 +1166,9 @@ int main(int argc, char** argv)
           break;
 
         case 0xf5: // F5 = Reset
-        {
+          // reset only works for slot 0!
+          if (slot_number != 0)
+            goto invalid_function;
           // Set C64 memory map, PC to reset vector and resume
           freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
           freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
@@ -1171,13 +1182,12 @@ int main(int argc, char** argv)
             freeze_poke(0xFFD3640U + c, 0);
           // Turn off extended graphics mode, only keep palemu
           freeze_poke(0xFFD3054U, freeze_peek(0xFFD3054U) & 0x20);
-        }
           // fall through
         case 0xf3: // F3 = resume
         case 0xf4: // RESUME even if ROM changed
           // if rom changed, slot 0 resume is disabled, reset is required
           if (c == 0xf3 && slot_number == 0 && rom_changed)
-            break;
+            goto invalid_function;
           // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
           POKE(0xD689, origD689);
 
@@ -1291,6 +1301,7 @@ int main(int argc, char** argv)
         case 'k':
         case 'K': // Sprite killer
         default:
+invalid_function:
           // For invalid or unimplemented functions flash the border and screen
           POKE(0xD020U, 1);
           POKE(0xD021U, 1);

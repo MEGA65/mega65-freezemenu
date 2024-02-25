@@ -11,8 +11,9 @@
 
 #ifdef WITH_AUDIOMIXER
 
-unsigned char* audio_menu = "         MEGA65 AUDIO MIXER MENU        "
-                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2022  "
+unsigned char* audio_menu = (unsigned char *)
+                            "         MEGA65 AUDIO MIXER MENU        "
+                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
                             " cccccccccccccccccccccccccccccccccccccc "
                             "        LFT RGT PH1 PH2 BTL BTR HDL HDR "
                             "        cccccccccccccccccccccccccccccccc"
@@ -38,25 +39,26 @@ unsigned char* audio_menu = "         MEGA65 AUDIO MIXER MENU        "
                             " F3 - SIMPLE MODE,  M - TOGGLE MIC MUTE "
                             "\0";
 
-unsigned char* audio_menu_simple = "         MEGA65 AUDIO MIXER MENU        "
-                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2022  "
+unsigned char* audio_menu_simple = (unsigned char *)
+                                   "         MEGA65 AUDIO MIXER MENU        "
+                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
                                    " cccccccccccccccccccccccccccccccccccccc "
                                    "                                        "
                                    "         LEFT OUTPUT CHANNEL:           "
                                    "        cccccccccccccccccccccccccccccccc"
                                    "    MASTERb                             "
-                                   "   SID 3+4b                             "
+                                   " L SID 3+4b                             "
+                                   " R SID 1+2b                             "
                                    " LEFT DIGIb                             "
-                                   "   SID 1+2b                             "
                                    "RIGHT DIGIb                             "
                                    "SFX OPL FMb                             "
                                    "                                        "
                                    "        RIGHT OUTPUT CHANNEL:           "
                                    "        cccccccccccccccccccccccccccccccc"
                                    "    MASTERb                             "
-                                   "   SID 3+4b                             "
+                                   " L SID 3+4b                             "
+                                   " R SID 1+2b                             "
                                    " LEFT DIGIb                             "
-                                   "   SID 1+2b                             "
                                    "RIGHT DIGIb                             "
                                    "SFX OPL FMb                             "
                                    " cccccccccccccccccccccccccccccccccccccc "
@@ -73,6 +75,7 @@ void audioxbar_setcoefficient(uint8_t n, uint8_t value)
   // Now wait at least 16 cycles for it to settle
   POKE(0xD020U, PEEK(0xD020U));
   POKE(0xD020U, PEEK(0xD020U));
+  POKE(0xD020U, PEEK(0xD020U));
 
   POKE(0xD6F5U, value);
 }
@@ -85,13 +88,14 @@ uint8_t audioxbar_getcoefficient(uint8_t n)
   // Now wait at least 16 cycles for it to settle
   POKE(0xD020U, PEEK(0xD020U));
   POKE(0xD020U, PEEK(0xD020U));
+  POKE(0xD020U, PEEK(0xD020U));
 
   return PEEK(0xD6F5U);
 }
 
 static uint8_t c, value, select_row, select_column, simple_row;
-static uint8_t mute_save[4];
-static uint16_t i;
+static uint8_t mute_save[8];
+static uint16_t i, j;
 
 void draw_advanced_mixer(void)
 {
@@ -247,20 +251,22 @@ void draw_db_bar(unsigned char line, unsigned int val)
   }
 
   // And the annotation to the right
-  bar_addr += 24;
+  bar_addr += 23;
   if (!db) {
-    snprintf(msg, 10, " 0DB");
+    snprintf((char *)msg, 10, "  0DB");
     for (i = 0; msg[i]; i++)
       POKE(bar_addr + i, msg[i]);
-    for (; i < 5; i++)
-      POKE(bar_addr + i, ' ');
   }
   else {
     i = 0;
-    POKE(bar_addr + i, '-');
-    i++;
     if (db > 79)
       db = 79;
+    if (db < 10) {
+      POKE(bar_addr, ' ');
+      bar_addr++;
+    }
+    POKE(bar_addr, '-');
+    i++;
     for (; numbers[db][i - 1]; i++)
       POKE(bar_addr + i, numbers[db][i - 1]);
     POKE(bar_addr + i, 'D');
@@ -335,6 +341,7 @@ void set_amplifier(unsigned char leftRight, unsigned short v)
 void change_db(unsigned char row, unsigned char change)
 {
   // clang-format off
+  // this is all HDL/HDR (HDMI) channels
   switch (row) {
   case  0: c = 0xde; break;
   case  1: c = 0xc0; break;
@@ -355,7 +362,7 @@ void change_db(unsigned char row, unsigned char change)
   v |= audioxbar_getcoefficient(c + 1) << 8;
   val_to_db(v);
   if (change == 0) { // minus 1
-    if (db < 80)
+    if (db < 39)
       db++;
   } else { // plus 1
     if (db)
@@ -364,6 +371,9 @@ void change_db(unsigned char row, unsigned char change)
   v = minus_db_table[db];
   audioxbar_setcoefficient(c + 0, v & 0xff);
   audioxbar_setcoefficient(c + 1, v >> 8);
+  // change LFT/RGT (audio jack) to the same value in simple mixer!
+  audioxbar_setcoefficient(c - 0xc0, v & 0xff);
+  audioxbar_setcoefficient(c - 0xc0 + 1, v >> 8);
 
   if (row == 0)
     set_amplifier(0, v);
@@ -374,76 +384,87 @@ void change_db(unsigned char row, unsigned char change)
 void swap_coefficients(unsigned char a, unsigned char b)
 {
   v = audioxbar_getcoefficient(a);
+  v |= audioxbar_getcoefficient(a + 1) << 8;
   v2 = audioxbar_getcoefficient(b);
-  audioxbar_setcoefficient(a, v2);
-  audioxbar_setcoefficient(b, v);
+  v2 |= audioxbar_getcoefficient(b + 1) << 8;
+  audioxbar_setcoefficient(a, v2 & 0xff);
+  audioxbar_setcoefficient(b, v & 0xff);
+  audioxbar_setcoefficient(a + 1, v2 >> 8);
+  audioxbar_setcoefficient(b + 1, v >> 8);
 }
 
 void stereo_swap(void)
 {
   // Swap left and right sides
-  swap_coefficients(0xc0, 0xe2);
-  swap_coefficients(0xc1, 0xe3);
-  swap_coefficients(0xc2, 0xe0);
-  swap_coefficients(0xc3, 0xe1);
-  swap_coefficients(0xd0, 0xf2);
-  swap_coefficients(0xd1, 0xf3);
-  swap_coefficients(0xd2, 0xf0);
-  swap_coefficients(0xd3, 0xf1);
+  // HDMI
+  swap_coefficients(0xc0, 0xe0);
+  swap_coefficients(0xc2, 0xe2);
+  swap_coefficients(0xd0, 0xf0);
+  swap_coefficients(0xd2, 0xf2);
+  swap_coefficients(0xdc, 0xfc);
+  // JACK
+  swap_coefficients(0x00, 0x20);
+  swap_coefficients(0x02, 0x22);
+  swap_coefficients(0x10, 0x30);
+  swap_coefficients(0x12, 0x32);
+  swap_coefficients(0x1c, 0x3c);
 }
 
 void stereo_toggle(void)
 {
+  // very simple check if the values of HDL for the sids are the same
   v = audioxbar_getcoefficient(0xc0);
   v2 = audioxbar_getcoefficient(0xc2);
   if (v == v2) {
-    v = 3;
-    v2 = 12;
+    v = minus_db_table[4];
+    v2 = minus_db_table[8];
   }
   else {
-    v = 6;
-    v2 = 6;
+    v = v2 = minus_db_table[6];
   }
 
   // Make stereo with 12dB difference between left and right
-  for (i = 0; i < 0x20; i += 0x20) {
-    if (i & 0x20) {
+  for (j = 0; j < 4; j++) {
+    i = j * 0x20;
+    if (j > 1) // HDL/HDR
+      i += 0x80;
+    if (!(i & 0x20)) {
       // Left side output
 
       // Left SID
-      audioxbar_setcoefficient(0x00 + i, minus_db_table[v] & 0xff);
-      audioxbar_setcoefficient(0x01 + i, minus_db_table[v] >> 8);
+      audioxbar_setcoefficient(0x00 + i, v & 0xff);
+      audioxbar_setcoefficient(0x01 + i, v >> 8);
       // Right SID
-      audioxbar_setcoefficient(0x02 + i, minus_db_table[v2] & 0xff);
-      audioxbar_setcoefficient(0x03 + i, minus_db_table[v2] >> 8);
+      audioxbar_setcoefficient(0x02 + i, v2 & 0xff);
+      audioxbar_setcoefficient(0x03 + i, v2 >> 8);
       // Left Digi
-      audioxbar_setcoefficient(0x10 + i, minus_db_table[v] & 0xff);
-      audioxbar_setcoefficient(0x11 + i, minus_db_table[v] >> 8);
+      audioxbar_setcoefficient(0x10 + i, v & 0xff);
+      audioxbar_setcoefficient(0x11 + i, v >> 8);
       // Right Digi
-      audioxbar_setcoefficient(0x12 + i, minus_db_table[v2] & 0xff);
-      audioxbar_setcoefficient(0x13 + i, minus_db_table[v2] >> 8);
+      audioxbar_setcoefficient(0x12 + i, v2 & 0xff);
+      audioxbar_setcoefficient(0x13 + i, v2 >> 8);
       // OPL SFX FM
-      audioxbar_setcoefficient(0x1c + i, minus_db_table[v] & 0xff);
-      audioxbar_setcoefficient(0x1d + i, minus_db_table[v] >> 8);
+      audioxbar_setcoefficient(0x1c + i, v & 0xff);
+      audioxbar_setcoefficient(0x1d + i, v >> 8);
     }
     else {
       // Right side output
 
       // Left SID
-      audioxbar_setcoefficient(0x00 + i, minus_db_table[v2] & 0xff);
-      audioxbar_setcoefficient(0x01 + i, minus_db_table[v2] >> 8);
+      audioxbar_setcoefficient(0x00 + i, v2 & 0xff);
+      audioxbar_setcoefficient(0x01 + i, v2 >> 8);
       // Right SID
-      audioxbar_setcoefficient(0x02 + i, minus_db_table[v] & 0xff);
-      audioxbar_setcoefficient(0x03 + i, minus_db_table[v] >> 8);
+      audioxbar_setcoefficient(0x02 + i, v & 0xff);
+      audioxbar_setcoefficient(0x03 + i, v >> 8);
       // Left Digi
-      audioxbar_setcoefficient(0x10 + i, minus_db_table[v2] & 0xff);
-      audioxbar_setcoefficient(0x11 + i, minus_db_table[v2] >> 8);
+      audioxbar_setcoefficient(0x10 + i, v2 & 0xff);
+      audioxbar_setcoefficient(0x11 + i, v2 >> 8);
       // Right Digi
-      audioxbar_setcoefficient(0x12 + i, minus_db_table[v] & 0xff);
-      audioxbar_setcoefficient(0x13 + i, minus_db_table[v] >> 8);
+      audioxbar_setcoefficient(0x12 + i, v & 0xff);
+      audioxbar_setcoefficient(0x13 + i, v >> 8);
       // OPL SFX FM
-      audioxbar_setcoefficient(0x1c + i, minus_db_table[v] & 0xff);
-      audioxbar_setcoefficient(0x1d + i, minus_db_table[v] >> 8);
+      audioxbar_setcoefficient(0x1c + i, v & 0xff);
+      audioxbar_setcoefficient(0x1d + i, v >> 8);
     }
   }
 }
@@ -606,21 +627,20 @@ void test_audio(unsigned char advanced_view)
       }
     }
     else {
-      switch (note) {
+      switch (sid_num) {
       case 0:
-      case 2:
-      case 4:
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 18 * 80, 80);
+      case 1:
         lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
         lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
+        lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
         break;
-      case 1:
+      case 2:
       case 3:
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 9 * 80, 80);
-        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 18 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 7 * 80, 80);
         lcopy((long)db_bar_highlight, COLOUR_RAM_ADDRESS + 16 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 8 * 80, 80);
+        lcopy((long)db_bar_lowlight, COLOUR_RAM_ADDRESS + 17 * 80, 80);
         break;
       }
     }
@@ -674,7 +694,7 @@ void test_audio(unsigned char advanced_view)
   POKE(0xD478U, 0x0);
 
   // Reset all sids
-  //lfill(0xffd3400, 0, 0x100);
+  lfill(0xffd3400, 0, 0x80);
 }
 
 unsigned char cin;
@@ -800,7 +820,7 @@ void do_audio_mixer(void)
       db_bar_highlight[i + 1] = 8;
       db_bar_lowlight[i + 1] = 7;
     }
-    else if (i >= 54 && i < 70) {
+    else if (i >= 54 && i < 68) {
       db_bar_highlight[i + 1] = 2;
       db_bar_lowlight[i + 1] = 10;
     }
@@ -874,20 +894,32 @@ void do_audio_mixer(void)
       case 'm':
       case 'M': // Mute
         if (audioxbar_getcoefficient(0xfe)) {
-          mute_save[0] = audioxbar_getcoefficient(0xfe);
-          mute_save[1] = audioxbar_getcoefficient(0xff);
-          mute_save[2] = audioxbar_getcoefficient(0xde);
-          mute_save[3] = audioxbar_getcoefficient(0xdf);
-          audioxbar_setcoefficient(0xfe, 0);
-          audioxbar_setcoefficient(0xff, 0);
+          mute_save[0] = audioxbar_getcoefficient(0x1e);
+          mute_save[1] = audioxbar_getcoefficient(0x1f);
+          mute_save[2] = audioxbar_getcoefficient(0x3e);
+          mute_save[3] = audioxbar_getcoefficient(0x3f);
+          mute_save[4] = audioxbar_getcoefficient(0xde);
+          mute_save[5] = audioxbar_getcoefficient(0xdf);
+          mute_save[6] = audioxbar_getcoefficient(0xfe);
+          mute_save[7] = audioxbar_getcoefficient(0xff);
+          audioxbar_setcoefficient(0x1e, 0);
+          audioxbar_setcoefficient(0x1f, 0);
+          audioxbar_setcoefficient(0x3e, 0);
+          audioxbar_setcoefficient(0x3f, 0);
           audioxbar_setcoefficient(0xde, 0);
           audioxbar_setcoefficient(0xdf, 0);
+          audioxbar_setcoefficient(0xfe, 0);
+          audioxbar_setcoefficient(0xff, 0);
         }
         else {
-          audioxbar_setcoefficient(0xfe, mute_save[0]);
-          audioxbar_setcoefficient(0xff, mute_save[1]);
-          audioxbar_setcoefficient(0xde, mute_save[2]);
-          audioxbar_setcoefficient(0xdf, mute_save[3]);
+          audioxbar_setcoefficient(0x1e, mute_save[0]);
+          audioxbar_setcoefficient(0x1f, mute_save[1]);
+          audioxbar_setcoefficient(0x3e, mute_save[2]);
+          audioxbar_setcoefficient(0x3f, mute_save[3]);
+          audioxbar_setcoefficient(0xde, mute_save[4]);
+          audioxbar_setcoefficient(0xdf, mute_save[5]);
+          audioxbar_setcoefficient(0xfe, mute_save[6]);
+          audioxbar_setcoefficient(0xff, mute_save[7]);
         }
         break;
       default:

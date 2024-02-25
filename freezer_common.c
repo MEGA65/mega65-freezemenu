@@ -176,6 +176,15 @@ char *detect_rom(void)
 
 unsigned char detect_cpu_speed(void)
 {
+  // Technically this is more correct, involving the 2 MHz flag:
+  //   FORCE || (VFAST && (FAST || 2MHZ)) -> 40 MHz
+  //
+  // if ((freeze_peek(0xffd367dL) & 0x10) ||
+  //     (freeze_peek(0xffd3054L) & 0x40) &&
+  //         ((freeze_peek(0xffd3031L) & 0x40) ||
+  //          (freeze_peek(0xffd0030L) & 0x01)))
+  //    return 40;
+
   if (freeze_peek(0xffd367dL) & 0x10)
     return 40;
   if (freeze_peek(0xffd3054L) & 0x40)
@@ -239,14 +248,14 @@ void screen_of_death(char* msg)
 
   // No sprites
   POKE(0xD015U,0x00);
-  
+
   // Normal video mode (but preserve CRT emulation etc)
   POKE(0xD054U,PEEK(0xD054)&0xA8);
 
   // Reset colour palette to normal for black and white
   POKE(0xD100U,0x00);  POKE(0xD200U,0x00);  POKE(0xD300U,0x00);
   POKE(0xD101U,0xFF);  POKE(0xD201U,0xFF);  POKE(0xD301U,0xFF);
-  
+
   POKE(0xD020U,0); POKE(0xD021U,0);
 
   // Reset CPU IO ports

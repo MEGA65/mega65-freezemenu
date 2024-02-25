@@ -17,10 +17,11 @@
 // clang-format off
 static char SDessentials[][13] = {
   "FREEZER.M65",
+  "ETHLOAD.M65",
   "MEGAINFO.M65",
-  "ONBOARD.M65",
   "MONITOR.M65",
   "MAKEDISK.M65",
+  "ROMLOAD.M65",
   "AUDIOMIX.M65",
   "SPRITED.M65",
   ""
@@ -514,7 +515,7 @@ unsigned char get_rtc_stats(unsigned char reinit)
   if (clock_init || reinit) {
     lcopy(0xffd7110l, (long)rtc_buf, 6);
     lcopy(0xffd3c08l, (long)tod_buf, 4);
-    if (m65model == 0x04 || m65model == 0x05) {
+    if (m65model >= 0x04 && m65model <= 0x06) {
       rtc_pmu = lpeek(0xffd71d0UL);
       if (rtc_pmu != 0x22) {
         // disable eeprom refresh
@@ -756,16 +757,16 @@ void draw_screen(void)
     write_text(19, 1, 256 + 24, "UPDATE CORE FOR EXTERNAL RTC SUPPORT!");
   }
 
-  write_text(0, 6, 1, "MAX10 VERSION:");
-  if (m65model > 0 && m65model < 4) {
-    write_text(15, 6, 7, format_fpga_hash(14, 1));
-    write_text(25, 6, 7, format_datestamp(14, 0x3f));
+  write_text(0, 6, 1, "KEYBD VERSION:");
+  write_text(15, 6, 7, format_fpga_hash(2, 0));
+  write_text(25, 6, 7, format_datestamp(2, 0xff));
+
+  if (m65model > 0x00 && m65model < 0x04) {
+    // only mega65r1-3 have a MAX10 FPGA, it was removed for mega65r4
+    write_text(0, 7, 1, "MAX10 VERSION:");
+    write_text(15, 7, 7, format_fpga_hash(14, 1));
+    write_text(25, 7, 7, format_datestamp(14, 0x3f));
   }
-  else
-    write_text(15, 6, 7, "FFFFFFFF  0000-00-00");
-  write_text(0, 7, 1, "KEYBD VERSION:");
-  write_text(15, 7, 7, format_fpga_hash(2, 0));
-  write_text(25, 7, 7, format_datestamp(2, 0xff));
 
   // RTC (labels only, rest is done in mainloop)
   write_text(40, 5, 1, "RTC STATUS:");

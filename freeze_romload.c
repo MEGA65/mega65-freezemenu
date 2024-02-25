@@ -141,7 +141,7 @@ void copy_line_to_screen(long dest, char *src, unsigned int length)
 
 void draw_file_list(void)
 {
-  unsigned addr = SCREEN_ADDRESS;
+  unsigned addr = SCREEN_ADDRESS + 4;
   unsigned char i, x;
   unsigned char name[64];
   // First, clear the screen
@@ -159,18 +159,18 @@ void draw_file_list(void)
       // Real line
       lcopy(0x40000U + ((display_offset + i) << 6), (unsigned long)name, 64);
 
-      for (x = 0; x < 20; x++) {
+      for (x = 0; x < 32; x++) {
         if ((name[x] >= 'A' && name[x] <= 'Z') || (name[x] >= 'a' && name[x] <= 'z'))
           POKE(addr + (x << 1), name[x] & 0x1f);
         else
           POKE(addr + (x << 1), name[x]);
       }
     }
-    else {
+/*    else {
       // Blank dummy entry
       for (x = 0; x < 40; x++)
         POKE(addr + (x << 1), ' ');
-    }
+    }*/
     if ((display_offset + i) == selection_number) {
       // Highlight the row
       lcopy((long)highlight_row, COLOUR_RAM_ADDRESS + (i * 80), 40);
@@ -186,47 +186,61 @@ void draw_file_list(void)
 void scan_directory(void)
 {
   unsigned char x, dir;
+  short last_dir = -1, dir_pos, i;
   struct m65_dirent* dirent;
 
   file_count = 0;
 
   closeall();
 
-  // Add the pseudo disks
-  lcopy((unsigned long)"- NO CHANGE -         ", 0x40000L + (file_count * 64), 20);
-  file_count++;
-
   dir = opendir();
   dirent = readdir(dir);
   while (dirent && ((unsigned short)dirent != 0xffffU)) {
 
     x = strlen(dirent->d_name);
+    // only accept 32 characters max!
+    if (x > 32)
+      goto next_entry;
 
     // check DIR attribute of dirent
     if (dirent->d_type & 0x10) {
-
       // File is a directory
-      if (x < 60) {
-        lfill(0x40000L + (file_count * 64), ' ', 64);
-        lcopy((long)&dirent->d_name[0], 0x40000L + 1 + (file_count * 64), x);
+      // limit filename length and skip '.' directory
+      if (strcmp(dirent->d_name, ".")) {
+        // keep directories at the top, and
+        // always put ROMS dir at the very top
+        if (!strcmp(dirent->d_name, "ROMS"))
+          dir_pos = 0;
+        else
+          dir_pos = last_dir + 1;
+        if (file_count && dir_pos != file_count) {
+          for (i = file_count; i > dir_pos; i--)
+            lcopy(0x40000L + (i * 64), 0x40040L + (i * 64), 64); // can't reverse copy!
+        }
+        lfill(0x40000L + (dir_pos * 64), ' ', 64);
+        lcopy((long)&dirent->d_name[0], 0x40000L + 1 + (dir_pos * 64), x);
         // Put / at the start of directory names to make them obviously different
-        lpoke(0x40000L + (file_count * 64), '/');
-        // Don't list "." directory pointer
-        if (strcmp(".", dirent->d_name))
-          file_count++;
-      }
-    }
-    else if (x > 4) {
-      if ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) ||    // ROM Files
-          (!strncmp(&dirent->d_name[x - 4], ".CHR", 4)) ||    // 8x8 CHaRacter Set FONT files
-          (!strncmp(&dirent->d_name[x - 4], ".TCR", 4))) {    // 8x16 tall CHaRacter Set FONT files
-        // File is a ROM or a CHaRset
-        lfill(0x40000L + (file_count * 64), ' ', 64);
-        lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
+        lpoke(0x40000L + (dir_pos * 64), '/');
+        last_dir++;
         file_count++;
       }
     }
+    else if (x > 4 &&
+             ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) ||    // ROM Files
+              (!strncmp(&dirent->d_name[x - 4], ".BIN", 4)) ||    // ROM Files
+              (!strncmp(&dirent->d_name[x - 4], ".CHR", 4)) ||    // 8x8 CHaRacter Set FONT files
+              (!strncmp(&dirent->d_name[x - 4], ".TCR", 4)) ||    // 8x16 Tall ChaRacter Set FONT files
+              (!strncmp(&dirent->d_name[x - 4], ".rom", 4)) ||    // ROM Files
+              (!strncmp(&dirent->d_name[x - 4], ".bin", 4)) ||    // ROM Files
+              (!strncmp(&dirent->d_name[x - 4], ".chr", 4)) ||    // 8x8 CHaRacter Set FONT files
+              (!strncmp(&dirent->d_name[x - 4], ".tcr", 4)))) {   // 8x16 Tall ChaRacter Set FONT files
+      // File is a ROM or a CHaRset
+      lfill(0x40000L + (file_count * 64), ' ', 64);
+      lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
+      file_count++;
+    }
 
+next_entry:
     dirent = readdir(dir);
   }
 
@@ -285,6 +299,7 @@ unsigned char freeze_load_romarea(void)
 
     switch (x) {
     case 0x03: // RUN-STOP = make no change
+    case 0x1b: // ESC
       return 0;
     case 0x5f: // <- key at top left of key board
       // Go back up one directory
@@ -310,8 +325,7 @@ unsigned char freeze_load_romarea(void)
           break;
         }
 
-      // Try to mount it, with border black while working
-      POKE(0xD020U, 0);
+      // Is it a directory?
       if (rom_name_return[0] == '/') {
         // Its a directory
         mega65_dos_chdir(&rom_name_return[1]);
@@ -322,11 +336,12 @@ unsigned char freeze_load_romarea(void)
         draw_file_list();
       }
       else {
-        if (!selection_number)
-          return 0;
-
         // XXX - Actually do loading of ROM / ROM diff file
-        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM")) {
+        POKE(0xD020U, 0);
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM") ||
+            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".BIN") ||
+            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".rom") ||
+            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".bin")) {
           int s;
           // Load normal ROM file
           // Begin by loading the file at $40000-$5FFFF
@@ -339,16 +354,19 @@ unsigned char freeze_load_romarea(void)
 
           for (s = 0; s < 256; s++) { // ROM is 128k, devided by 512 byte sectors is 256 sectors to load
             // Write each sector to frozen memory
-            POKE(0xD020, (PEEK(0xD020) + 1) & 0xf);
+            POKE(0xD020U, (PEEK(0xD020U) + 1) & 0xf);
             lcopy(0x40000L + 512L * (long)s, (long)buffer, 512);
             freeze_store_sector(0x20000L + ((long)s) * 512L, buffer);
           }
-          POKE(0xD020, 0x00);
+          POKE(0xD020U, 6);
 
           return 1;
         }
         
-        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR") || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR")) {
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR") ||
+            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR") ||
+            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".chr") ||
+            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".tcr")) {
           unsigned char cg_7a_set = 0, cg_7a_mask = 0xff;
           unsigned char cg_54_set = 0, cg_54_mask = 0xff;
           unsigned short i;
@@ -388,19 +406,26 @@ unsigned char freeze_load_romarea(void)
         }
       }
       break;
-    case 0x11:
-    case 0x9d: // Cursor down or left
-      POKE(0xD020U, 6);
+    
+    case 0x13: // HOME
+      selection_number = 0;
+      break;
+    case 0x93: // Shift-HOME
+      selection_number = file_count - 1;
+      break;
+    case 0x1d: // Cursor right, next page
+      selection_number += 22;
+    case 0x11: // Cursor down, one down
       selection_number++;
       if (selection_number >= file_count)
-        selection_number = 0;
+        selection_number = file_count - 1;
       break;
-    case 0x91:
-    case 0x1d: // Cursor up or right
-      POKE(0xD020U, 6);
+    case 0x9d: // Cursor left, prev page
+      selection_number -= 22;
+    case 0x91: // Cursor up, one up
       selection_number--;
       if (selection_number < 0)
-        selection_number = file_count - 1;
+        selection_number = 0;
       break;
     }
 
@@ -467,7 +492,7 @@ void user_reset_prompt(void)
     unfreeze_slot(0);
 
     while (1)
-      POKE(0xD020, PEEK(0xD020) + 1);
+      POKE(0xD020U, (PEEK(0xD020U) + 1) & 0xf);
   }
 }
 
