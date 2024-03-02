@@ -214,7 +214,7 @@ void scan_directory(void)
         else
           dir_pos = last_dir + 1;
         if (file_count && dir_pos != file_count) {
-          for (i = file_count; i > dir_pos; i--)
+          for (i = file_count - 1; i >= dir_pos; i--)
             lcopy(0x40000L + (i * 64), 0x40040L + (i * 64), 64); // can't reverse copy!
         }
         lfill(0x40000L + (dir_pos * 64), ' ', 64);
