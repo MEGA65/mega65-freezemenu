@@ -38,7 +38,7 @@ unsigned char* freeze_menu = (unsigned char *)
 #define TOOLS_MENU_OFFSET (9 * 40)
                              " M - MONITOR         L - LOAD ROM/CHAR  "
                              " A - AUDIO & VOLUME                     "
-                             " S - SPRITE EDITOR   HELP - MEGAINFO    "
+                             " S - SPRITE EDITOR                      "
                              "cccccccccccccccccccccccccccccccccccccccc"
                              "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
