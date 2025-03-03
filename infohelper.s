@@ -29,18 +29,18 @@ _hyppo_getversion:
 	clv	
 
 	;; Copy Result
-        phy
+	phy
 	ldy #0
 	sta (ptr1),y
 	iny
-        txa
-        sta (ptr1),y
-        iny
-        pla
-        sta (ptr1),y
-        iny
-        tza
-        sta (ptr1),y
+	txa
+	sta (ptr1),y
+	iny
+	pla
+	sta (ptr1),y
+	iny
+	tza
+	sta (ptr1),y
 
 	jsr incsp2  ; remove the char* arg from the stack
 
