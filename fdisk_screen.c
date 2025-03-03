@@ -2,17 +2,15 @@
 #include "fdisk_memory.h"
 #include "ascii.h"
 
-extern unsigned char* charset;
+extern unsigned char *charset;
 
 long screen_line_address = SCREEN_ADDRESS;
 char screen_column = 0;
 
-unsigned char* footer_messages[FOOTER_MAX + 1] = {
-  "MEGA65 FREEZE MONITOR V00.01 :     X - RETURN TO FREEZE MENU, M - DISPLAY MEMORY",
+char *footer_messages[FOOTER_MAX + 1] = { "MEGA65 FREEZE MONITOR V00.01 :     X - RETURN TO FREEZE MENU, M - DISPLAY MEMORY",
   "MEGA65 SPRITE EDITOR V00.01 :        1 - CLEAR, 2- DRAW ETC, H - HELP, F3 - EXIT",
   "                                                                                ",
-  "A FATAL ERROR HAS OCCURRED, SORRY.                                              "
-};
+  "A FATAL ERROR HAS OCCURRED, SORRY.                                              " };
 
 unsigned char screen_hex_buffer[6];
 
@@ -62,7 +60,7 @@ unsigned char screen_decimal_digits[16][5] = { { 0, 0, 0, 0, 1 }, { 0, 0, 0, 0, 
   { 0, 0, 0, 1, 6 }, { 0, 0, 0, 3, 2 }, { 0, 0, 0, 6, 4 }, { 0, 0, 1, 2, 8 }, { 0, 0, 2, 5, 6 }, { 0, 0, 5, 1, 2 },
   { 0, 1, 0, 2, 4 }, { 0, 2, 0, 4, 8 }, { 0, 4, 0, 9, 6 }, { 0, 8, 1, 9, 2 }, { 1, 6, 3, 8, 4 }, { 3, 2, 7, 6, 8 } };
 
-void write_line_len(char* s, char col, char length)
+void write_line_len(char *s, char col, char length)
 {
   char len = 0;
   // Work out length, and convert from ASCII to PETSCII
@@ -76,7 +74,7 @@ void write_line_len(char* s, char col, char length)
   write_line_raw(s, col, length);
 }
 
-void write_line_raw(char* s, char col, char length)
+void write_line_raw(char *s, char col, char length)
 {
   lcopy((long)&s[0], screen_line_address + col, length);
   screen_line_address += 80;
@@ -90,7 +88,7 @@ void write_line_raw(char* s, char col, char length)
 }
 
 char stemp[80];
-void write_line(char* s, char col)
+void write_line(char *s, char col)
 {
   char len = 0;
   // Copy string so that it doesn't get modified if the caller doesn't expect it
@@ -197,7 +195,7 @@ void setup_screen(void)
   POKE(0xD054U, (PEEK(0xD054) & 0xa8) | 0x00);
 
   // 80-column mode, fast CPU, extended attributes enable
-  *((unsigned char*)0xD031) = 0xe0;
+  *((unsigned char *)0xD031) = 0xe0;
 
   // 80 columns requires $D016 = $C9 to be properly positioned
   POKE(0xD016U, 0xC9);
@@ -205,13 +203,13 @@ void setup_screen(void)
   // Put screen memory somewhere (2KB required)
   // We are using $8000-$87FF for screen
   // Using custom charset @ $A000
-  *(unsigned char*)0xD018U = (((CHARSET_ADDRESS - 0x8000U) >> 11) << 1) + (((SCREEN_ADDRESS - 0x8000U) >> 10) << 4);
+  *(unsigned char *)0xD018U = (((CHARSET_ADDRESS - 0x8000U) >> 11) << 1) + (((SCREEN_ADDRESS - 0x8000U) >> 10) << 4);
 
   // VIC RAM Bank to $8000-$BFFF
-  v = *(unsigned char*)0xDD00U;
+  v = *(unsigned char *)0xDD00U;
   v &= 0xfc;
   v |= 0x01;
-  *(unsigned char*)0xDD00U = v;
+  *(unsigned char *)0xDD00U = v;
 
   // Screen colours
   POKE(0xD020U, 0);
@@ -242,7 +240,7 @@ void screen_colour_line(unsigned char line, unsigned char colour)
 
 static unsigned char i;
 
-void fatal_error(unsigned char* filename, unsigned int line_number)
+void fatal_error(unsigned char *filename, unsigned int line_number)
 {
   display_footer(FOOTER_FATAL);
   for (i = 0; filename[i]; i++)
@@ -267,7 +265,7 @@ void set_screen_attributes(long p, unsigned char count, unsigned char attr)
   }
 }
 
-char read_line(char* buffer, unsigned char maxlen)
+char read_line(char *buffer, unsigned char maxlen)
 {
   char len = 0;
   char c;
@@ -280,7 +278,7 @@ char read_line(char* buffer, unsigned char maxlen)
     POKE(0xD610U, 0);
 
   while (len < maxlen) {
-    c = *(unsigned char*)0xD610U; // read char
+    c = *(unsigned char *)0xD610U; // read char
 
 #if 0
     reverse ^=0x20;
@@ -349,8 +347,8 @@ char read_line(char* buffer, unsigned char maxlen)
       // XXX we clear all keys here, and work around a bug that causes crazy
       // fast key repeating. This can be turned back into acknowledging the
       // single key again later
-      while (*(unsigned char*)0xD610U) {
-        *(unsigned char*)0xd610U = 1;
+      while (*(unsigned char *)0xD610U) {
+        *(unsigned char *)0xd610U = 1;
       }
     }
   }

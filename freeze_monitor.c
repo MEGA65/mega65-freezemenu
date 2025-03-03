@@ -60,7 +60,7 @@ uint32_t mon_address = 0;
 char output_buffer[80];
 
 unsigned char mon_sector[512];
-uint32_t mon_sector_num = 0xffffffff;
+uint32_t mon_sector_num = 0xffffffffUL;
 
 void show_memory_line(uint32_t addr)
 {
@@ -72,7 +72,7 @@ void show_memory_line(uint32_t addr)
   format_hex((long)&output_buffer[1], addr, 7);
   output_buffer[8] = ' ';
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Memory that isn't saved
     for (i = 0; i < 65; i++)
       output_buffer[9 + i] = "<UNMAPPED OR UNFROZEN MEMORY>                                    "[i] & 0x3f;
@@ -124,7 +124,7 @@ void set_memory()
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(mon_address);
   unsigned char i;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     write_line("? UNMAPPED OR UNFROZEN ADDRESS  ERROR", 0);
     recolour_last_line(2);
     return;
@@ -252,7 +252,7 @@ void show_registers(void)
 
   lfill((long)output_buffer, ' ', 80);
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     write_line("? FROZEN REGISTERS NOT FOUND  ERROR", 0);
     recolour_last_line(2);
   }
@@ -407,13 +407,13 @@ void freeze_monitor(void)
   show_registers();
 
   while (1) {
-    read_line(screen_line_buffer, 80);
+    read_line((char *)screen_line_buffer, 80);
     screen_line_buffer[79] = 0;
-    write_line(screen_line_buffer, 0);
+    write_line((char *)screen_line_buffer, 0);
 
     // Skip initial char for parsing routines
     screen_line_offset = 1;
-    screen_line_length = strlen(screen_line_buffer);
+    screen_line_length = strlen((char *)screen_line_buffer);
 
     // Command syntax purposely matches that of the Matrix Mode / UART monitor to avoid confusion
     switch (screen_line_buffer[0]) {

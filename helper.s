@@ -27,10 +27,10 @@ _freezer_m65:
 _mega65_geterrorcode:
 	;; short mega65_geterrorcode();
 	;; Call hypervisor trap
-	LDA #$38    ; hyppo_geterrorcode - returns errorcode in A
-	STA $D642   ; trigger hypervisor trap
-	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
-	RTS
+	lda #$38    ; hyppo_geterrorcode - returns errorcode in A
+	sta $D642   ; trigger hypervisor trap
+	clv         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	rts
 
 _mega65_dos_exechelper:
 	;; char mega65_dos_exechelper(char *image_name);
@@ -62,8 +62,8 @@ _mega65_dos_exechelper:
 	ldy #>$0100
 	ldx #<$0100
 	lda #$2E     		; dos_setname Hypervisor trap
-	STA $D640		; Do hypervisor trap
-	NOP			; Wasted instruction slot required following hyper trap instruction
+	sta $D640		; Do hypervisor trap
+	clv			; Wasted instruction slot required following hyper trap instruction
 	;; XXX Check for error (carry would be clear)
 
 	; close all files to work around hyppo file descriptor leak bug
@@ -106,10 +106,10 @@ _mega65_dos_exechelper:
 	bra @NameCopy
 	
 	;; as this is effectively like exec() on unix, it can only return an error
-	LDA #$01
-	LDX #$00
+	lda #$01
+	ldx #$00
 	
-	RTS
+	rts
 
 loadfile_routine:
 	; Now load the file to $07ff
@@ -169,34 +169,34 @@ attachLoadFN:
 	ldy #>$0400
 	ldx #<$0400
 	lda #$2E     		; dos_setname Hypervisor trap
-	STA $D640		; Do hypervisor trap
-	NOP			; Wasted instruction slot required following hyper trap instruction
+	sta $D640		; Do hypervisor trap
+	clv			; Wasted instruction slot required following hyper trap instruction
 	bcc @attachError
 
 	;; Try to attach it
-	LDA attachHyppoCmd
-	STA $D640
-	NOP
+	lda attachHyppoCmd
+	sta $D640
+	clv
 
 @attachError:
 	;; save error code from hyppo call
-	PHA
+	pha
 	;; save flags
-	PHP
+	php
 
-	JSR incsp2  ; remove the char* arg from the stack
+	jsr incsp2  ; remove the char* arg from the stack
 	
 	;; if carry is clear, return error code from A
-	PLA
-	AND #$01
-	BNE @noAttachError
-	PLA
-	RTS
+	pla
+	and #$01
+	bne @noAttachError
+	pla
+	rts
 @noAttachError:
-	PLA
-	LDA #$0		; zero out error code = success
+	pla
+	lda #$0		; zero out error code = success
 
-	RTS
+	rts
 
 _mega65_dos_chdir:
 	;; char mega65_dos_chdir(char *dir_name);
@@ -227,109 +227,109 @@ _mega65_dos_chdir:
 	ldy #>$0400
 	ldx #<$0400
 	lda #$2E     		; dos_setname Hypervisor trap
-	STA $D640		; Do hypervisor trap
-	NOP			; Wasted instruction slot required following hyper trap instruction
+	sta $D640		; Do hypervisor trap
+	clv			; Wasted instruction slot required following hyper trap instruction
 	bcc @direntNotFound
 
 	;; Find the file
-	LDA #$34
-	STA $D640
-	NOP
-	BCC @direntNotFound
+	lda #$34
+	sta $D640
+	clv
+	bcc @direntNotFound
 
 	;; Try to change directory to it
-	LDA #$0C
-	STA $D640
-	NOP
+	lda #$0C
+	sta $D640
+	clv
 
 @direntNotFound:
 	;; store flags
-	PHP
+	php
 	
 	jsr incsp2  ; remove the char* arg from the stack
 
 	;; return inverted carry flag, so result of 0 = success
-	PLA
-	AND #$01
-	EOR #$01
-	LDX #$00
+	pla
+	and #$01
+	eor #$01
+	ldx #$00
 	
-	RTS
+	rts
 	
 _mega65_dos_cdroot:
 	;; char mega65_dos_cdroot();
 	;; Call hypervisor trap
-	LDA #$04    ; hyppo_dos_getcurrentdrive - returns drive number in A
-	STA $D640   ; trigger hypervisor trap
-	CLV
-	BCC chroot_error
-	TAX         ; next need drive in X
-	LDA #$3C    ; hyppo_dos_cdrootdir - returns errorcode in A
-	STA $D640   ; trigger hypervisor trap
-	CLV
-	BCC chroot_error
-	LDA #$00
-	RTS
+	lda #$04    ; hyppo_dos_getcurrentdrive - returns drive number in A
+	sta $D640   ; trigger hypervisor trap
+	clv
+	bcc chroot_error
+	tax         ; next need drive in X
+	lda #$3C    ; hyppo_dos_cdrootdir - returns errorcode in A
+	sta $D640   ; trigger hypervisor trap
+	clv
+	bcc chroot_error
+	lda #$00
+	rts
 chroot_error:
-	LDA #$01
-	RTS
+	lda #$01
+	rts
 
 	
 _unfreeze_slot:	
 
 	;; Move 16-bit address from A/X to X/Y
-	PHX
-	TAY
-	PLA
-	TAX
+	phx
+	tay
+	pla
+	tax
 
 	;; Call hypervisor trap
-	LDA #$12    ; subfunction for syspart trap to unfreeze from a slot
-	STA $D642   ; trigger hypervisor trap
-	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
-	RTS
+	lda #$12    ; subfunction for syspart trap to unfreeze from a slot
+	sta $D642   ; trigger hypervisor trap
+	clv         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	rts
 
 _get_freeze_slot_count:	
 
 	;; Call hypervisor trap
-	LDA #$16    ; subfunction for syspart trap to get freeze region list
-	STA $D642   ; trigger hypervisor trap
-	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	lda #$16    ; subfunction for syspart trap to get freeze region list
+	sta $D642   ; trigger hypervisor trap
+	clv         ; dead slot after hypervisor call that must be there to workaround CPU bug
 
 	txa
 	phy
 	plx
 	
-	RTS	
+	rts
 	
 _fetch_freeze_region_list_from_hypervisor:
 
 	;; Move 16-bit address from A/X to X/Y
-	PHX
-	TAX
-	PLA
-	TAY
+	phx
+	tax
+	pla
+	tay
 
 	;; Call hypervisor trap
-	LDA #$14    ; subfunction for syspart trap to get freeze region list
-	STA $D642   ; trigger hypervisor trap
-	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
-	RTS
+	lda #$14    ; subfunction for syspart trap to get freeze region list
+	sta $D642   ; trigger hypervisor trap
+	clv         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	rts
 
 _find_freeze_slot_start_sector:	
 
 	;; Move 16-bit address from A/X to X/Y
 	;; XXX - We had to swap the X/Y byte order around for this to work: Why???
-	PHX
-	TAY
-	PLA
-	TAX
+	phx
+	tay
+	pla
+	tax
 
 	;; Call hypervisor trap
-	LDA #$10    ; subfunction for syspart trap to put start sector of freeze slot into $D681-$D684
-	STA $D642   ; trigger hypervisor trap
-	NOP         ; dead slot after hypervisor call that must be there to workaround CPU bug
-	RTS
+	lda #$10    ; subfunction for syspart trap to put start sector of freeze slot into $D681-$D684
+	sta $D642   ; trigger hypervisor trap
+	clv         ; dead slot after hypervisor call that must be there to workaround CPU bug
+	rts
 	
 
 _read_file_from_sdcard:
@@ -368,8 +368,8 @@ _read_file_from_sdcard:
 	ldy #>$0400
 	ldx #<$0400
 	lda #$2E     		; dos_setname Hypervisor trap
-	STA $D640		; Do hypervisor trap
-	NOP			; Wasted instruction slot required following hyper trap instruction
+	sta $D640		; Do hypervisor trap
+	clv			; Wasted instruction slot required following hyper trap instruction
 	bcc @readfileError
 
 	;; Get Load address into $00ZZYYXX
@@ -388,49 +388,48 @@ _read_file_from_sdcard:
 	tay
 
 	;; Ask hypervisor to do the load
-	LDA #$36
-	STA $D640		
-	NOP
+	lda #$36
+	sta $D640
+	clv
 
 @readfileError:
 	;; store flags
-	PHP
+	php
 
 	jsr incsp6
 
 	;; return inverted carry flag, so result of 0 = success
-	PLA
-	AND #$01
-	EOR #$01
-	LDX #$00
-	LDZ #$00
+	pla
+	and #$01
+	eor #$01
+	ldx #$00
+	ldz #$00
 	
-	RTS
+	rts
 
 _closeall:
 	; close all files to work around hyppo file descriptor leak bug
 	lda #$22
 	sta $d640
-	nop
-
+	clv
 	rts
 	
 	;; closedir takes file descriptor as argument (appears in A)
 _closedir:
-	TAX
-	LDA #$16
-	STA $D640
-	NOP
-	LDX #$00
-	RTS
+	tax
+	lda #$16
+	sta $D640
+	clv
+	ldx #$00
+	rts
 	
 	;; Opendir takes no arguments and returns File descriptor in A
 _opendir:
-	LDA #$12
-	STA $D640
-	NOP
-	LDX #$00
-	RTS
+	lda #$12
+	sta $D640
+	clv
+	ldx #$00
+	rts
 
 	;; readdir takes the file descriptor returned by opendir as argument
 	;; and gets a pointer to a MEGA65 DOS dirent structure.
@@ -460,21 +459,22 @@ _readdir:
 	plx
 	ldy #>$0400 		; write dirent to $0400 
 	lda #$14
-	STA $D640
-	NOP
+	sta $D640
+	clv
 
 	bcs @readDirSuccess
 
 	;;  Return end of directory
 	lda #$00
 	ldx #$00
-	RTS
+	rts
 
 @readDirSuccess:
 	
 	;;  Copy file name
 	ldx #$3f
-@l2:	lda $0400,x
+@l2:
+	lda $0400,x
 	sta _readdir_dirent+4+2+4+2,x
 	dex
 	bpl @l2
@@ -485,7 +485,8 @@ _readdir:
 
 	;; Inode = cluster from offset 64+1+12 = 77
 	ldx #$03
-@l3:	lda $0477,x
+@l3:
+	lda $0477,x
 	sta _readdir_dirent+0,x
 	dex
 	bpl @l3
@@ -494,7 +495,8 @@ _readdir:
 	
 	;; d_reclen we preload with the length of the file (this saves calling stat() on the MEGA65)
 	ldx #3
-@l4:	lda $0400+64+1+12+4,x
+@l4:
+	lda $0400+64+1+12+4,x
 	sta _readdir_dirent+4+2,x
 	dex
 	bpl @l4
@@ -508,7 +510,7 @@ _readdir:
 	lda #<_readdir_dirent
 	ldx #>_readdir_dirent
 	
-	RTS
+	rts
 
 _readdir_dirent:
 	.dword 0   		; d_ino

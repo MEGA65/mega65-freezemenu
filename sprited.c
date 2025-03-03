@@ -46,12 +46,10 @@ void setup_menu_screen(void)
 
 unsigned short i;
 
-struct process_descriptor_t process_descriptor;
-
 #ifdef __CC65__
 void main(void)
 #else
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 #endif
 {
 #ifdef __CC65__

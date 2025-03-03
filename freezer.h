@@ -9,17 +9,17 @@
 // #define WITH_TOUCH
 
 unsigned char mega65_geterrorcode(void);
-char cdecl mega65_dos_chdir(unsigned char* dirname);
+char cdecl mega65_dos_chdir(unsigned char *dirname);
 char cdecl mega65_dos_cdroot();
-char cdecl mega65_dos_d81attach0(char* image_name);
-char cdecl mega65_dos_d81attach1(char* image_name);
-char cdecl mega65_dos_exechelper(char* filename);
+char cdecl mega65_dos_d81attach0(char *image_name);
+char cdecl mega65_dos_d81attach1(char *image_name);
+char cdecl mega65_dos_exechelper(char *filename);
 void fetch_freeze_region_list_from_hypervisor(unsigned short);
 unsigned char find_freeze_slot_start_sector(unsigned short);
-char cdecl read_file_from_sdcard(char* filename, uint32_t load_address);
+char cdecl read_file_from_sdcard(char *filename, uint32_t load_address);
 void unfreeze_slot(unsigned short);
 unsigned char opendir(void);
-struct m65_dirent* readdir(unsigned char);
+struct m65_dirent *readdir(unsigned char);
 void closedir(unsigned char);
 void closeall(void);
 
@@ -27,16 +27,16 @@ void freeze_monitor(void);
 
 #define INTERNAL_DRIVE_0 "- INTERNAL 3.5\" -   "
 #define INTERNAL_DRIVE_1 "- 1565 DRIVE 1 -    "
-char* freeze_select_disk_image(unsigned char drive_id);
+char *freeze_select_disk_image(unsigned char drive_id);
 
 void request_freeze_region_list(void);
 uint32_t address_to_freeze_slot_offset(uint32_t address);
 uint32_t find_thumbnail_offset(void);
 unsigned char freeze_peek(uint32_t addr);
 void freeze_poke(uint32_t addr, unsigned char v);
-unsigned char freeze_fetch_sector(uint32_t addr, unsigned char* buffer);
+unsigned char freeze_fetch_sector(uint32_t addr, unsigned char *buffer);
 unsigned char freeze_fetch_sector_partial(uint32_t addr, uint32_t dest, unsigned int count);
-unsigned char freeze_store_sector(uint32_t addr, unsigned char* buffer);
+unsigned char freeze_store_sector(uint32_t addr, unsigned char *buffer);
 unsigned char freeze_store_sector_partial(uint32_t addr, uint32_t src, unsigned int count);
 unsigned short get_freeze_slot_count(void);
 void do_audio_mixer(void);

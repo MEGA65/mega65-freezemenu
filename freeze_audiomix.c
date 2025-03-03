@@ -11,61 +11,59 @@
 
 #ifdef WITH_AUDIOMIXER
 
-unsigned char* audio_menu = (unsigned char *)
-                            "         MEGA65 AUDIO MIXER MENU        "
-                            "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
-                            " cccccccccccccccccccccccccccccccccccccc "
-                            "        LFT RGT PH1 PH2 BTL BTR HDL HDR "
-                            "        cccccccccccccccccccccccccccccccc"
-                            "   SIDLb                                "
-                            "   SIDRb                                "
-                            " PHONE1b                                "
-                            " PHONE2b                                "
-                            "BTOOTHLb                                "
-                            "BTOOTHRb                                "
-                            "LINEINLb                                "
-                            "LINEINRb                                "
-                            "  DIGILb                                "
-                            "  DIGIRb                                "
-                            "  MIC0Lb                                "
-                            "  MIC0Rb                                "
-                            "  MIC1Lb                                "
-                            "  MIC1Rb                                "
-                            " OPL FMb                                "
-                            " MASTERb                                "
-                            " cccccccccccccccccccccccccccccccccccccc "
-                            " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
-                            " +/- ADJUST VALUE,    0/* - FAST ADJUST "
-                            " F3 - SIMPLE MODE,  M - TOGGLE MIC MUTE "
-                            "\0";
+unsigned char *audio_menu = (unsigned char *)"         MEGA65 AUDIO MIXER MENU        "
+                                             "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
+                                             " cccccccccccccccccccccccccccccccccccccc "
+                                             "        LFT RGT PH1 PH2 BTL BTR HDL HDR "
+                                             "        cccccccccccccccccccccccccccccccc"
+                                             "   SIDLb                                "
+                                             "   SIDRb                                "
+                                             " PHONE1b                                "
+                                             " PHONE2b                                "
+                                             "BTOOTHLb                                "
+                                             "BTOOTHRb                                "
+                                             "LINEINLb                                "
+                                             "LINEINRb                                "
+                                             "  DIGILb                                "
+                                             "  DIGIRb                                "
+                                             "  MIC0Lb                                "
+                                             "  MIC0Rb                                "
+                                             "  MIC1Lb                                "
+                                             "  MIC1Rb                                "
+                                             " OPL FMb                                "
+                                             " MASTERb                                "
+                                             " cccccccccccccccccccccccccccccccccccccc "
+                                             " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
+                                             " +/- ADJUST VALUE,    0/* - FAST ADJUST "
+                                             " F3 - SIMPLE MODE,  M - TOGGLE MIC MUTE "
+                                             "\0";
 
-unsigned char* audio_menu_simple = (unsigned char *)
-                                   "         MEGA65 AUDIO MIXER MENU        "
-                                   "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
-                                   " cccccccccccccccccccccccccccccccccccccc "
-                                   "                                        "
-                                   "         LEFT OUTPUT CHANNEL:           "
-                                   "        cccccccccccccccccccccccccccccccc"
-                                   "    MASTERb                             "
-                                   " L SID 3+4b                             "
-                                   " R SID 1+2b                             "
-                                   " LEFT DIGIb                             "
-                                   "RIGHT DIGIb                             "
-                                   "SFX OPL FMb                             "
-                                   "                                        "
-                                   "        RIGHT OUTPUT CHANNEL:           "
-                                   "        cccccccccccccccccccccccccccccccc"
-                                   "    MASTERb                             "
-                                   " L SID 3+4b                             "
-                                   " R SID 1+2b                             "
-                                   " LEFT DIGIb                             "
-                                   "RIGHT DIGIb                             "
-                                   "SFX OPL FMb                             "
-                                   " cccccccccccccccccccccccccccccccccccccc "
-                                   " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
-                                   " +/- VOL, S - STEREO/MONO, W - SWAP L/R "
-                                   " F3 - EXIT, M - MUTE, A - ADVANCED MODE "
-                                   "\0";
+unsigned char *audio_menu_simple = (unsigned char *)"         MEGA65 AUDIO MIXER MENU        "
+                                                    "  (C) FLINDERS UNI, M.E.G.A. 2018-2024  "
+                                                    " cccccccccccccccccccccccccccccccccccccc "
+                                                    "                                        "
+                                                    "         LEFT OUTPUT CHANNEL:           "
+                                                    "        cccccccccccccccccccccccccccccccc"
+                                                    "    MASTERb                             "
+                                                    " L SID 3+4b                             "
+                                                    " R SID 1+2b                             "
+                                                    " LEFT DIGIb                             "
+                                                    "RIGHT DIGIb                             "
+                                                    "SFX OPL FMb                             "
+                                                    "                                        "
+                                                    "        RIGHT OUTPUT CHANNEL:           "
+                                                    "        cccccccccccccccccccccccccccccccc"
+                                                    "    MASTERb                             "
+                                                    " L SID 3+4b                             "
+                                                    " R SID 1+2b                             "
+                                                    " LEFT DIGIb                             "
+                                                    "RIGHT DIGIb                             "
+                                                    "SFX OPL FMb                             "
+                                                    " cccccccccccccccccccccccccccccccccccccc "
+                                                    " T - TEST SOUND, CURSOR KEYS - NAVIGATE "
+                                                    " +/- VOL, S - STEREO/MONO, W - SWAP L/R "
+                                                    " F3 - EXIT, M - MUTE, A - ADVANCED MODE "
+                                                    "\0";
 
 void audioxbar_setcoefficient(uint8_t n, uint8_t value)
 {
@@ -103,12 +101,12 @@ void draw_advanced_mixer(void)
   uint8_t colour;
 
   // debug output gray
-  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 5, 12);
-  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 7, 12);
-  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 11, 12);
-  lpoke(COLOUR_RAM_ADDRESS + 3*80 + 13, 12);
-  audio_menu[3*40 + 2] = nybl_to_screen(select_column);
-  audio_menu[3*40 + 3] = nybl_to_screen(select_row);
+  lpoke(COLOUR_RAM_ADDRESS + 3 * 80 + 5, 12);
+  lpoke(COLOUR_RAM_ADDRESS + 3 * 80 + 7, 12);
+  lpoke(COLOUR_RAM_ADDRESS + 3 * 80 + 11, 12);
+  lpoke(COLOUR_RAM_ADDRESS + 3 * 80 + 13, 12);
+  audio_menu[3 * 40 + 2] = nybl_to_screen(select_column);
+  audio_menu[3 * 40 + 3] = nybl_to_screen(select_row);
 
   c = 0;
   do {
@@ -143,8 +141,8 @@ void draw_advanced_mixer(void)
     }
     if (colour == 1) {
       // debug output
-      audio_menu[3*40 + 5] = nybl_to_screen(c >> 4);
-      audio_menu[3*40 + 6] = nybl_to_screen(c);
+      audio_menu[3 * 40 + 5] = nybl_to_screen(c >> 4);
+      audio_menu[3 * 40 + 6] = nybl_to_screen(c);
     }
 
     lpoke(COLOUR_RAM_ADDRESS + offset + offset + 1, colour);
@@ -364,7 +362,8 @@ void change_db(unsigned char row, unsigned char change)
   if (change == 0) { // minus 1
     if (db < 39)
       db++;
-  } else { // plus 1
+  }
+  else { // plus 1
     if (db)
       db--;
   }
@@ -687,7 +686,8 @@ void test_audio(unsigned char advanced_view)
     POKE(0xD478U, frames);
   }
   */
-  while (PEEK(0xD012U) != 0x80);
+  while (PEEK(0xD012U) != 0x80)
+    ;
   POKE(0xD418U, 0x0);
   POKE(0xD438U, 0x0);
   POKE(0xD458U, 0x0);

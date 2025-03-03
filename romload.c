@@ -41,8 +41,6 @@ void setup_menu_screen(void)
   lfill(0xff80000U, 1, 2000);
 }
 
-struct process_descriptor_t process_descriptor;
-
 // Left/right do left/right
 // fire = F3
 // down = disk menu
@@ -80,7 +78,7 @@ void poll_touch_panel(void)
 #ifdef __CC65__
 void main(void)
 #else
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 #endif
 {
 #ifdef __CC65__
@@ -117,7 +115,7 @@ int main(int argc, char** argv)
   // Now find the start sector of the slot, and make a copy for safe keeping
   slot_number = 0;
   find_freeze_slot_start_sector(slot_number);
-  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
   // SD or SDHC card?
   if (PEEK(0xD680U) & 0x10)

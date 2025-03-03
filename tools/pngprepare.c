@@ -29,14 +29,14 @@ png_byte bit_depth;
 png_structp png_ptr;
 png_infop info_ptr;
 int number_of_passes;
-png_bytep* row_pointers;
+png_bytep *row_pointers;
 
-FILE* infile;
-FILE* outfile;
+FILE *infile;
+FILE *outfile;
 
 /* ============================================================= */
 
-void abort_(const char* s, ...)
+void abort_(const char *s, ...)
 {
   va_list args;
   va_start(args, s);
@@ -48,7 +48,7 @@ void abort_(const char* s, ...)
 
 /* ============================================================= */
 
-void read_png_file(char* file_name)
+void read_png_file(char *file_name)
 {
   unsigned char header[8]; // 8 is the maximum size that can be checked
 
@@ -96,9 +96,9 @@ void read_png_file(char* file_name)
   if (setjmp(png_jmpbuf(png_ptr)))
     abort_("[read_png_file] Error during read_image");
 
-  row_pointers = (png_bytep*)malloc(sizeof(png_bytep) * height);
+  row_pointers = (png_bytep *)malloc(sizeof(png_bytep) * height);
   for (y = 0; y < height; y++)
-    row_pointers[y] = (png_byte*)malloc(png_get_rowbytes(png_ptr, info_ptr));
+    row_pointers[y] = (png_byte *)malloc(png_get_rowbytes(png_ptr, info_ptr));
 
   png_read_image(png_ptr, row_pointers);
 
@@ -112,7 +112,7 @@ void read_png_file(char* file_name)
 
 /* ============================================================= */
 
-void process_file(int mode, char* outputfilename)
+void process_file(int mode, char *outputfilename)
 {
   int multiplier = -1;
   if (png_get_color_type(png_ptr, info_ptr) == PNG_COLOR_TYPE_RGB)
@@ -145,9 +145,9 @@ void process_file(int mode, char* outputfilename)
       fprintf(stderr, "Logo images must be 64x64\n");
     }
     for (y = 0; y < height; y++) {
-      png_byte* row = row_pointers[y];
+      png_byte *row = row_pointers[y];
       for (x = 0; x < width; x++) {
-        png_byte* ptr = &(row[x * multiplier]);
+        png_byte *ptr = &(row[x * multiplier]);
         int r = ptr[0], g = ptr[1], b = ptr[2]; // a=ptr[3];
 
         // Compute colour cube colour
@@ -193,12 +193,12 @@ void process_file(int mode, char* outputfilename)
     int spots[8][8];
 
     for (y = 0; y < height; y++) {
-      png_byte* row = row_pointers[y];
+      png_byte *row = row_pointers[y];
       int byte = 0;
       int yy = y & 7;
 
       for (x = 0; x < width; x++) {
-        png_byte* ptr = &(row[x * multiplier]);
+        png_byte *ptr = &(row[x * multiplier]);
         int r = ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
 
         if (x < 8) {
@@ -264,9 +264,9 @@ void process_file(int mode, char* outputfilename)
         total++;
 
         for (yy = y; yy < y + 8; yy++) {
-          png_byte* row = row_pointers[yy];
+          png_byte *row = row_pointers[yy];
           for (xx = x; xx < x + 8; xx++) {
-            png_byte* ptr = &(row[xx * multiplier]);
+            png_byte *ptr = &(row[xx * multiplier]);
             int r = ptr[0], g = ptr[1], b = ptr[2]; // , a=ptr[3];
             int c = r + 256 * g + 65536 * b;
             this_tile[yy - y][xx - x] = c;
@@ -329,7 +329,7 @@ void process_file(int mode, char* outputfilename)
 
 /* ============================================================= */
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   if (argc != 4) {
     fprintf(stderr, "Usage: program_name <logo|charrom> <file_in> <file_out>\n");

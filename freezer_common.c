@@ -95,79 +95,83 @@ char *detect_rom(void)
     return mega65_rom_name;
   }
 
-#define COPY_AND_RETURN_ROM(X) { strcpy(mega65_rom_name, X); return mega65_rom_name; }
-
-/*
-  The C64 ROM part can't really work without a real C64 cpu,
-  so it is save to return UNKNOWN for now
-
-  // entering C64 region
-  mega65_rom_type = MEGA65_ROM_C64;
-
-  if (freeze_peek(0x2e47dL) == 'J') {
-    // Probably jiffy dos
-    if (freeze_peek(0x2e535L) == 0x06)
-      COPY_AND_RETURN_ROM("SX64 JIFFY ")
-    else
-      COPY_AND_RETURN_ROM("C64 JIFFY  ")
+#define COPY_AND_RETURN_ROM(X)                                                                                              \
+  {                                                                                                                         \
+    strcpy(mega65_rom_name, X);                                                                                             \
+    return mega65_rom_name;                                                                                                 \
   }
 
-  // Else guess using detection routines from detect_roms.c
-  // These were built using a combination of the ROMs from zimmers.net/pub/c64/firmware,
-  // the RetroReplay ROM collection, and the JiffyDOS ROMs
-  if (freeze_peek(0x2e449L) == 0x2e)
-    COPY_AND_RETURN_ROM("C64GS      ")
-  if (freeze_peek(0x2e119L) == 0xc9)
-    COPY_AND_RETURN_ROM("C64 REV1   ")
-  if (freeze_peek(0x2e67dL) == 0xb0)
-    COPY_AND_RETURN_ROM("C64 REV2 JP")
-  if (freeze_peek(0x2ebaeL) == 0x5b)
-    COPY_AND_RETURN_ROM("C64 REV3 DK")
-  if (freeze_peek(0x2e0efL) == 0x28)
-    COPY_AND_RETURN_ROM("C64 SCAND  ")
-  if (freeze_peek(0x2ebf3L) == 0x40)
-    COPY_AND_RETURN_ROM("C64 SWEDEN ")
-  if (freeze_peek(0x2e461L) == 0x20)
-    COPY_AND_RETURN_ROM("CYCLONE 1.0")
-  if (freeze_peek(0x2e4a4L) == 0x41)
-    COPY_AND_RETURN_ROM("DOLPHIN 1.0")
-  if (freeze_peek(0x2e47fL) == 0x52)
-    COPY_AND_RETURN_ROM("DOLPHIN 2AU")
-  if (freeze_peek(0x2eed7L) == 0x2c)
-    COPY_AND_RETURN_ROM("DOLPHIN 2P1")
-  if (freeze_peek(0x2e7d2L) == 0x6b)
-    COPY_AND_RETURN_ROM("DOLPHIN 2P2")
-  if (freeze_peek(0x2e4a6L) == 0x32)
-    COPY_AND_RETURN_ROM("DOLPHIN 2P3")
-  if (freeze_peek(0x2e0f9L) == 0xaa)
-    COPY_AND_RETURN_ROM("DOLPHIN 3.0")
-  if (freeze_peek(0x2e462L) == 0x45)
-    COPY_AND_RETURN_ROM("DOSROM V1.2")
-  if (freeze_peek(0x2e472L) == 0x20)
-    COPY_AND_RETURN_ROM("MERCRY3 PAL")
-  if (freeze_peek(0x2e16dL) == 0x84)
-    COPY_AND_RETURN_ROM("MERCRY NTSC")
-  if (freeze_peek(0x2e42dL) == 0x4c)
-    COPY_AND_RETURN_ROM("PET 4064   ")
-  if (freeze_peek(0x2e1d9L) == 0xa6)
-    COPY_AND_RETURN_ROM("SX64 CROACH")
-  if (freeze_peek(0x2eba9L) == 0x2d)
-    COPY_AND_RETURN_ROM("SX64 SCAND ")
-  if (freeze_peek(0x2e476L) == 0x2a)
-    COPY_AND_RETURN_ROM("TRBOACS 2.6")
-  if (freeze_peek(0x2e535L) == 0x07)
-    COPY_AND_RETURN_ROM("TRBOACS 3P1")
-  if (freeze_peek(0x2e176L) == 0x8d)
-    COPY_AND_RETURN_ROM("TRBOASC 3P2")
-  if (freeze_peek(0x2e42aL) == 0x72)
-    COPY_AND_RETURN_ROM("TRBOPROC US")
-  if (freeze_peek(0x2e4acL) == 0x81)
-    COPY_AND_RETURN_ROM("C64C 251913")
-  if (freeze_peek(0x2e479L) == 0x2a)
-    COPY_AND_RETURN_ROM("C64 REV2   ")
-  if (freeze_peek(0x2e535L) == 0x06)
-    COPY_AND_RETURN_ROM("SX64 REV4  ")
-*/
+  /*
+    The C64 ROM part can't really work without a real C64 cpu,
+    so it is save to return UNKNOWN for now
+
+    // entering C64 region
+    mega65_rom_type = MEGA65_ROM_C64;
+
+    if (freeze_peek(0x2e47dL) == 'J') {
+      // Probably jiffy dos
+      if (freeze_peek(0x2e535L) == 0x06)
+        COPY_AND_RETURN_ROM("SX64 JIFFY ")
+      else
+        COPY_AND_RETURN_ROM("C64 JIFFY  ")
+    }
+
+    // Else guess using detection routines from detect_roms.c
+    // These were built using a combination of the ROMs from zimmers.net/pub/c64/firmware,
+    // the RetroReplay ROM collection, and the JiffyDOS ROMs
+    if (freeze_peek(0x2e449L) == 0x2e)
+      COPY_AND_RETURN_ROM("C64GS      ")
+    if (freeze_peek(0x2e119L) == 0xc9)
+      COPY_AND_RETURN_ROM("C64 REV1   ")
+    if (freeze_peek(0x2e67dL) == 0xb0)
+      COPY_AND_RETURN_ROM("C64 REV2 JP")
+    if (freeze_peek(0x2ebaeL) == 0x5b)
+      COPY_AND_RETURN_ROM("C64 REV3 DK")
+    if (freeze_peek(0x2e0efL) == 0x28)
+      COPY_AND_RETURN_ROM("C64 SCAND  ")
+    if (freeze_peek(0x2ebf3L) == 0x40)
+      COPY_AND_RETURN_ROM("C64 SWEDEN ")
+    if (freeze_peek(0x2e461L) == 0x20)
+      COPY_AND_RETURN_ROM("CYCLONE 1.0")
+    if (freeze_peek(0x2e4a4L) == 0x41)
+      COPY_AND_RETURN_ROM("DOLPHIN 1.0")
+    if (freeze_peek(0x2e47fL) == 0x52)
+      COPY_AND_RETURN_ROM("DOLPHIN 2AU")
+    if (freeze_peek(0x2eed7L) == 0x2c)
+      COPY_AND_RETURN_ROM("DOLPHIN 2P1")
+    if (freeze_peek(0x2e7d2L) == 0x6b)
+      COPY_AND_RETURN_ROM("DOLPHIN 2P2")
+    if (freeze_peek(0x2e4a6L) == 0x32)
+      COPY_AND_RETURN_ROM("DOLPHIN 2P3")
+    if (freeze_peek(0x2e0f9L) == 0xaa)
+      COPY_AND_RETURN_ROM("DOLPHIN 3.0")
+    if (freeze_peek(0x2e462L) == 0x45)
+      COPY_AND_RETURN_ROM("DOSROM V1.2")
+    if (freeze_peek(0x2e472L) == 0x20)
+      COPY_AND_RETURN_ROM("MERCRY3 PAL")
+    if (freeze_peek(0x2e16dL) == 0x84)
+      COPY_AND_RETURN_ROM("MERCRY NTSC")
+    if (freeze_peek(0x2e42dL) == 0x4c)
+      COPY_AND_RETURN_ROM("PET 4064   ")
+    if (freeze_peek(0x2e1d9L) == 0xa6)
+      COPY_AND_RETURN_ROM("SX64 CROACH")
+    if (freeze_peek(0x2eba9L) == 0x2d)
+      COPY_AND_RETURN_ROM("SX64 SCAND ")
+    if (freeze_peek(0x2e476L) == 0x2a)
+      COPY_AND_RETURN_ROM("TRBOACS 2.6")
+    if (freeze_peek(0x2e535L) == 0x07)
+      COPY_AND_RETURN_ROM("TRBOACS 3P1")
+    if (freeze_peek(0x2e176L) == 0x8d)
+      COPY_AND_RETURN_ROM("TRBOASC 3P2")
+    if (freeze_peek(0x2e42aL) == 0x72)
+      COPY_AND_RETURN_ROM("TRBOPROC US")
+    if (freeze_peek(0x2e4acL) == 0x81)
+      COPY_AND_RETURN_ROM("C64C 251913")
+    if (freeze_peek(0x2e479L) == 0x2a)
+      COPY_AND_RETURN_ROM("C64 REV2   ")
+    if (freeze_peek(0x2e535L) == 0x06)
+      COPY_AND_RETURN_ROM("SX64 REV4  ")
+  */
 
   // set some flags
   mega65_rom_type = MEGA65_ROM_UNKNOWN;
@@ -233,7 +237,7 @@ unsigned char petscii_to_screen(unsigned char petscii)
 
 // static char* deadly_haiku[3] = { "Error consumes all", "As sand erodes rock and stone", "Now also your mind" };
 
-void screen_of_death(char* msg)
+void screen_of_death(char *msg)
 {
   // TODO: This is broken, obviously...
 #if 0
