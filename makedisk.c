@@ -88,7 +88,7 @@ void draw_box(
   lpoke(SCREEN_ADDRESS + y2 * 80 + x2 * 2 + 1, 0);
 }
 
-void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char* t)
+void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char *t)
 {
   unsigned char ofs = 0, x, c;
   for (x = x1; t[x - x1]; x++) {
@@ -104,7 +104,7 @@ void write_text(unsigned char x1, unsigned char y1, unsigned char colour, char* 
   }
 }
 
-void input_text(unsigned char x1, unsigned char y1, unsigned char len, unsigned char colour, char* out)
+void input_text(unsigned char x1, unsigned char y1, unsigned char len, unsigned char colour, char *out)
 {
   unsigned char ofs = 0, x, c;
   for (x = x1; x < (x1 + len); x++) {
@@ -168,7 +168,7 @@ char hexchar(unsigned char v)
   return 0x41 + v - 10;
 }
 
-void hexout(char* m, unsigned long v, int n)
+void hexout(char *m, unsigned long v, int n)
 {
   if (!n)
     return;
@@ -209,7 +209,7 @@ unsigned char to_hex(unsigned char i)
   return 0x41 + i - 10;
 }
 
-void format_disk_image(unsigned long file_sector, char* diskname, unsigned char isD65)
+void format_disk_image(unsigned long file_sector, char *diskname, unsigned char isD65)
 {
   unsigned char i;
   unsigned short s;
@@ -351,7 +351,7 @@ void do_make_disk_image(unsigned char isD65)
     slot_number = PEEK(0x3C0) + (PEEK(0x3C1) << 8L);
     request_freeze_region_list();
     find_freeze_slot_start_sector(slot_number);
-    freeze_slot_start_sector = *(uint32_t*)0xD681U;
+    freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
     // Replace disk image name in process descriptor block
     for (i = 0; (i < 32) && filename[i]; i++)
@@ -371,7 +371,7 @@ void do_make_disk_image(unsigned char isD65)
 #ifdef __CC65__
 void main(void)
 #else
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 #endif
 {
 #ifdef __CC65__
@@ -408,7 +408,7 @@ int main(int argc, char** argv)
   // Now find the start sector of the slot, and make a copy for safe keeping
   slot_number = 0;
   find_freeze_slot_start_sector(slot_number);
-  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
   // SD or SDHC card?
   if (PEEK(0xD680U) & 0x10)

@@ -6,8 +6,8 @@
 #include "fdisk_screen.h"
 #include "ascii.h"
 
-#define POKE(X, Y) (*(unsigned char*)(X)) = Y
-#define PEEK(X) (*(unsigned char*)(X))
+#define POKE(X, Y) (*(unsigned char *)(X)) = Y
+#define PEEK(X) (*(unsigned char *)(X))
 
 const long sd_sectorbuffer = 0xffd6e00L;
 const uint16_t sd_ctl = 0xd680L;
@@ -18,7 +18,7 @@ unsigned char sdhc_card = 0;
 uint8_t hal_border_flicker = 0;
 
 // Tell utilpacker what our display name is
-const char* prop_m65u_name = "PROP.M65U.NAME=SDCARD FDISK+FORMAT UTILITY";
+const char *prop_m65u_name = "PROP.M65U.NAME=SDCARD FDISK+FORMAT UTILITY";
 
 void usleep(uint32_t micros)
 {

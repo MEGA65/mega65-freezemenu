@@ -42,8 +42,6 @@ void setup_menu_screen(void)
   lfill(0xff80000U, 1, 2000);
 }
 
-struct process_descriptor_t process_descriptor;
-
 // Left/right do left/right
 // fire = F3
 // down = disk menu
@@ -81,7 +79,7 @@ void poll_touch_panel(void)
 #ifdef __CC65__
 void main(void)
 #else
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 #endif
 {
 #ifdef __CC65__

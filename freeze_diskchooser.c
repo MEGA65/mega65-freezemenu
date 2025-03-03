@@ -32,9 +32,9 @@ short file_count = 0, min_dir_entry = 0;
 short selection_number = 0;
 short display_offset = 0;
 
-char* reading_disk_list_message = "SCANNING DIRECTORY ...";
+char *reading_disk_list_message = "SCANNING DIRECTORY ...";
 
-char* diskchooser_instructions = "  SELECT DISK IMAGE, THEN PRESS RETURN  "
+char *diskchooser_instructions = "  SELECT DISK IMAGE, THEN PRESS RETURN  "
                                  "  OR PRESS RUN/STOP TO LEAVE UNCHANGED  "
                                  "UNMOUNT CURRENT  ";
 
@@ -52,60 +52,60 @@ unsigned char joy_to_key_disk[32] = {
 };
 
 static char default_error[] = "ERROR CODE XX";
-char* hyppoerror_to_screen(unsigned char error)
+char *hyppoerror_to_screen(unsigned char error)
 {
   // don't add to many errors, this is lot of space!
   switch (error) {
-  /*
-    case 0x07:
-      return "READ TIMEOUT";
-    case 0x11:
-      return "ILLEGAL VALUE";
-  */
-    case 0x20:
-      return "READ ERROR";
-  /*
-    case 0x21:
-      return "WRITE ERROR";
-    case 0x80:
-      return "NO SUCH DRIVE";
-    case 0x81:
-      return "NAME TO LONG";
-    case 0x82:
-      return "NOT IMPLEMENTED";
-    case 0x83:
-      return "FILE TO LONG";
-    case 0x84:
-      return "TO MANY OPEN FILES";
-  */
-    case 0x85:
-      return "INVALID CLUSTER";
-  /*
-    case 0x86:
-      return "IS A DIRECTORY";
-    case 0x87:
-      return "NOT A DIRECTORY";
-  */
-    case 0x88:
-      return "FILE NOT FOUND";
-  /*
-    case 0x89:
-      return "INVALID FILE DESCR";
-  */
-    case 0x8a:
-      return "WRONG IMAGE LENGTH";
-    case 0x8b:
-      return "IMAGE FRAGMENTED";
-  /*
-    case 0x8c:
-      return "NO SPACE LEFT";
-    case 0x8d:
-      return "FILE EXISTS";
-    case 0x8e:
-      return "DIRECTORY FULL";
-    case 0xff:
-      return "NO SUCH TRAP / EOF";
-  */
+    /*
+      case 0x07:
+        return "READ TIMEOUT";
+      case 0x11:
+        return "ILLEGAL VALUE";
+    */
+  case 0x20:
+    return "READ ERROR";
+    /*
+      case 0x21:
+        return "WRITE ERROR";
+      case 0x80:
+        return "NO SUCH DRIVE";
+      case 0x81:
+        return "NAME TO LONG";
+      case 0x82:
+        return "NOT IMPLEMENTED";
+      case 0x83:
+        return "FILE TO LONG";
+      case 0x84:
+        return "TO MANY OPEN FILES";
+    */
+  case 0x85:
+    return "INVALID CLUSTER";
+    /*
+      case 0x86:
+        return "IS A DIRECTORY";
+      case 0x87:
+        return "NOT A DIRECTORY";
+    */
+  case 0x88:
+    return "FILE NOT FOUND";
+    /*
+      case 0x89:
+        return "INVALID FILE DESCR";
+    */
+  case 0x8a:
+    return "WRONG IMAGE LENGTH";
+  case 0x8b:
+    return "IMAGE FRAGMENTED";
+    /*
+      case 0x8c:
+        return "NO SPACE LEFT";
+      case 0x8d:
+        return "FILE EXISTS";
+      case 0x8e:
+        return "DIRECTORY FULL";
+      case 0xff:
+        return "NO SUCH TRAP / EOF";
+    */
   }
   default_error[11] = (error >> 4) + (((error >> 4) < 10) ? 0x30 : 0x37);
   default_error[12] = (error & 0xf) + (((error & 0xf) < 10) ? 0x30 : 0x37);
@@ -142,7 +142,8 @@ void draw_directory_entry(unsigned char screen_row)
     POKE(SCREEN_ADDRESS + (screen_row * 80) + (21 * 2) + (i * 2), entry_buffer[i]);
 
   lcopy((unsigned long)dir_line_colour, COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2), 4);
-  lcopy(COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2), COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2) + 4, (19 * 2 - 4));
+  lcopy(COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2), COLOUR_RAM_ADDRESS + (screen_row * 80) + (21 * 2) + 4,
+      (19 * 2 - 4));
 }
 
 unsigned char next_directory_entry(void)
@@ -151,24 +152,25 @@ unsigned char next_directory_entry(void)
 
   if (disk_type == DISK_TYPE_D81 || disk_type == DISK_TYPE_D64) {
     // D81 || D64
-    i = PEEK(0xD087U); // track next dir
-    c = PEEK(0xD087U); // sector next dir
-    if (next_sector == 255) { // only first two bytes of sector count!
+    i = PEEK(0xD087U);              // track next dir
+    c = PEEK(0xD087U);              // sector next dir
+    if (next_sector == 255) {       // only first two bytes of sector count!
       if (i > 0 && c > 1 && c < 41) // track 0 means end of dir
         next_sector = c;
       else
         next_sector = 254; // first two bytes of sector read
     }
     type = PEEK(0xD087U); // file type
-    c = PEEK(0xD087U); // track file
-    c = PEEK(0xD087U); // sector file
+    c = PEEK(0xD087U);    // track file
+    c = PEEK(0xD087U);    // sector file
     // now 16 char filename
     if (type) { // valid
       entry_buffer[17] = ' ';
       for (i = 1; i < 17; i++)
         entry_buffer[i] = petscii_to_screen(PEEK(0xD087U));
-      for (; (entry_buffer[i] & 0xbf) == ' ' && i > 1; i--); // this might be 0x20 or 0x60
-      entry_buffer[i+1] = '"';
+      for (; (entry_buffer[i] & 0xbf) == ' ' && i > 1; i--)
+        ; // this might be 0x20 or 0x60
+      entry_buffer[i + 1] = '"';
 
       // skip rest up to 32 bytes
       for (i = 0; i < 11; i++)
@@ -188,7 +190,7 @@ void draw_entries(void)
 
   // next_sector = 255 -> first entry of sector to be read
   // next_sector = 254 -> first already read, no valid dir pointer
-  // next_sector < 41  -> next dir sector 
+  // next_sector < 41  -> next dir sector
   next_sector = 255;
   for (i = 0; i < entries; i++) {
     if (next_directory_entry()) {
@@ -272,29 +274,29 @@ unsigned char draw_directory_contents(unsigned char drive_id)
   // d68b.6/7 -> d65 flag
   disk_type = ((PEEK(0xd68b) >> (5 + drive_id)) & 0x2) | ((PEEK(0xd68a) >> (6 + drive_id)) & 0x1);
   switch (disk_type) {
-    case DISK_TYPE_D81:
-      dir_track = 39;
-      current_side = 0;
-      current_sector = 1;
-      skip_bytes = 4;
-      break;
-    case DISK_TYPE_D64:
-      dir_track = 8;
-      current_side = 1;
-      current_sector = 9;
-      skip_bytes = 256 + 0x90;
-      break;
-    case DISK_TYPE_D65:
-    case DISK_TYPE_D71:
-      // write_entry
-      return 1; // not supported
+  case DISK_TYPE_D81:
+    dir_track = 39;
+    current_side = 0;
+    current_sector = 1;
+    skip_bytes = 4;
+    break;
+  case DISK_TYPE_D64:
+    dir_track = 8;
+    current_side = 1;
+    current_sector = 9;
+    skip_bytes = 256 + 0x90;
+    break;
+  case DISK_TYPE_D65:
+  case DISK_TYPE_D71:
+    // write_entry
+    return 1; // not supported
   }
 
   // Mounted disk, so now get the directory.
 
   // Read T40 S1 (sectors begin at 1, not 0)
   POKE(0xD080U, 0x60 | drive_id); // motor and LED on, and select correct drive
-  POKE(0xD081U, 0x20); // Wait for motor spin up
+  POKE(0xD081U, 0x20);            // Wait for motor spin up
 
   if (!read_sector_with_cancel())
     goto exit_with_motor_off;
@@ -503,8 +505,8 @@ void draw_disk_image_list(void)
 void scan_directory(unsigned char drive_id)
 {
   unsigned char x, dir;
-  char* ptr;
-  struct m65_dirent* dirent;
+  char *ptr;
+  struct m65_dirent *dirent;
 
   file_count = 0;
 
@@ -572,16 +574,14 @@ void scan_directory(unsigned char drive_id)
   closedir(dir);
 }
 
-char* freeze_select_disk_image(unsigned char drive_id)
+char *freeze_select_disk_image(unsigned char drive_id)
 {
   unsigned char x;
   char err;
   int idle_time = 0;
 
   // if working with drive 1, we will be
-  if (drive_id == 1) {
-
-  }
+  if (drive_id == 1) { }
 
   file_count = 0;
   selection_number = 0;
@@ -759,7 +759,7 @@ char* freeze_select_disk_image(unsigned char drive_id)
           // knows where we are, and to make sure the drive head is
           // sitting properly.
           POKE(0xD080U, 0x60 | drive_id); // motor and LED on
-          POKE(0xD081U, 0x20); // Wait for motor spin up
+          POKE(0xD081U, 0x20);            // Wait for motor spin up
 
           while (!(PEEK(0xD082) & 0x01)) {
             POKE(0xD081, 0x10);

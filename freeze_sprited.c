@@ -76,7 +76,7 @@
 #include "freezer.h"
 
 extern int errno;
-//#define SPRITED_STANDALONE
+// #define SPRITED_STANDALONE
 #define PAGE_SIZE 256
 #define LOCAL_VIC_BASE 0xD000
 #ifdef SPRITED_STANDALONE
@@ -236,7 +236,7 @@ static APPSTATE g_state;
 void UpdateSpriteParameters(BOOL);
 void SetDrawTool(BYTE);
 void SetRedrawFullCanvas(void);
-void SetEffectiveToolRect(RECT*);
+void SetEffectiveToolRect(RECT *);
 void SetupTextPalette(void);
 void UpdateCursorX(void);
 void UpdateCursorY(void);
@@ -318,7 +318,7 @@ static const BYTE editCursorColorMap[16] = { COLOUR_BLACK, COLOUR_BLUE, COLOUR_B
   COLOUR_GREY3, COLOUR_LIGHTGREEN, COLOUR_WHITE, COLOUR_WHITE, COLOUR_LIGHTGREEN, COLOUR_GREY3, COLOUR_GREY2, COLOUR_GREY1,
   COLOUR_RED, COLOUR_BROWN, COLOUR_BLUE };
 
-static void SetRect(RECT* rc, BYTE left, BYTE top, BYTE right, BYTE bottom)
+static void SetRect(RECT *rc, BYTE left, BYTE top, BYTE right, BYTE bottom)
 {
   rc->left = left;
   rc->right = right;
@@ -334,7 +334,7 @@ static void Initialize()
   // --- Freezer slot setup
 
   find_freeze_slot_start_sector(0);
-  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
   request_freeze_region_list();
 
@@ -890,7 +890,7 @@ static void DrawCanvas()
   g_state.redrawFlags &= ~REDRAW_TOOL_PREVIEW;
 }
 
-void SetEffectiveToolRect(RECT* rc)
+void SetEffectiveToolRect(RECT *rc)
 {
   SetRect(rc, MIN(g_state.toolOrgX, g_state.cursorX), MIN(g_state.toolOrgY, g_state.cursorY),
       MAX(g_state.toolOrgX, g_state.cursorX), MAX(g_state.toolOrgY, g_state.cursorY));
@@ -1054,7 +1054,7 @@ static void DrawSidebar()
   g_state.redrawFlags = REDRAW_SB_NONE;
 }
 
-static void Ask(const char* question, char* outbuffer, unsigned char maxlen)
+static void Ask(const char *question, char *outbuffer, unsigned char maxlen)
 {
   gotoy(SCREEN_ROWS - 1);
   revers(1);
@@ -1084,7 +1084,7 @@ static BYTE LoadRawData(const BYTE name[16])
 #pragma warn(unused-param, pop)
 // clang-format on
 
-static void PrintKeyGroup(const char* list[], BYTE count, BYTE x, BYTE y)
+static void PrintKeyGroup(const char *list[], BYTE count, BYTE x, BYTE y)
 {
   register BYTE i = 0;
   gotoxy(x, y);

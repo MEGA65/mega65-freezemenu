@@ -15,9 +15,9 @@ short display_offset = 0;
 
 unsigned char buffer[512];
 
-char* reading_disk_list_message = "SCANNING DIRECTORY ...";
+char *reading_disk_list_message = "SCANNING DIRECTORY ...";
 
-char* diskchooser_instructions = "SELECT A ROM FILE, PRESS RETURN TO LOAD,"
+char *diskchooser_instructions = "SELECT A ROM FILE, PRESS RETURN TO LOAD,"
                                  "  OR PRESS RUN/STOP TO LEAVE UNCHANGED  ";
 
 char *rom_reset_screen = "YOU HAVE LOADED THE ROM FILE            "
@@ -166,11 +166,11 @@ void draw_file_list(void)
           POKE(addr + (x << 1), name[x]);
       }
     }
-/*    else {
-      // Blank dummy entry
-      for (x = 0; x < 40; x++)
-        POKE(addr + (x << 1), ' ');
-    }*/
+    /*    else {
+          // Blank dummy entry
+          for (x = 0; x < 40; x++)
+            POKE(addr + (x << 1), ' ');
+        }*/
     if ((display_offset + i) == selection_number) {
       // Highlight the row
       lcopy((long)highlight_row, COLOUR_RAM_ADDRESS + (i * 80), 40);
@@ -187,7 +187,7 @@ void scan_directory(void)
 {
   unsigned char x, dir;
   short last_dir = -1, dir_pos, i;
-  struct m65_dirent* dirent;
+  struct m65_dirent *dirent;
 
   file_count = 0;
 
@@ -225,22 +225,22 @@ void scan_directory(void)
         file_count++;
       }
     }
-    else if (x > 4 &&
-             ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) ||    // ROM Files
-              (!strncmp(&dirent->d_name[x - 4], ".BIN", 4)) ||    // ROM Files
-              (!strncmp(&dirent->d_name[x - 4], ".CHR", 4)) ||    // 8x8 CHaRacter Set FONT files
-              (!strncmp(&dirent->d_name[x - 4], ".TCR", 4)) ||    // 8x16 Tall ChaRacter Set FONT files
-              (!strncmp(&dirent->d_name[x - 4], ".rom", 4)) ||    // ROM Files
-              (!strncmp(&dirent->d_name[x - 4], ".bin", 4)) ||    // ROM Files
-              (!strncmp(&dirent->d_name[x - 4], ".chr", 4)) ||    // 8x8 CHaRacter Set FONT files
-              (!strncmp(&dirent->d_name[x - 4], ".tcr", 4)))) {   // 8x16 Tall ChaRacter Set FONT files
+    else if (x > 4
+             && ((!strncmp(&dirent->d_name[x - 4], ".ROM", 4)) ||  // ROM Files
+                 (!strncmp(&dirent->d_name[x - 4], ".BIN", 4)) ||  // ROM Files
+                 (!strncmp(&dirent->d_name[x - 4], ".CHR", 4)) ||  // 8x8 CHaRacter Set FONT files
+                 (!strncmp(&dirent->d_name[x - 4], ".TCR", 4)) ||  // 8x16 Tall ChaRacter Set FONT files
+                 (!strncmp(&dirent->d_name[x - 4], ".rom", 4)) ||  // ROM Files
+                 (!strncmp(&dirent->d_name[x - 4], ".bin", 4)) ||  // ROM Files
+                 (!strncmp(&dirent->d_name[x - 4], ".chr", 4)) ||  // 8x8 CHaRacter Set FONT files
+                 (!strncmp(&dirent->d_name[x - 4], ".tcr", 4)))) { // 8x16 Tall ChaRacter Set FONT files
       // File is a ROM or a CHaRset
       lfill(0x40000L + (file_count * 64), ' ', 64);
       lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
       file_count++;
     }
 
-next_entry:
+  next_entry:
     dirent = readdir(dir);
   }
 
@@ -252,7 +252,7 @@ next_entry:
  *
  * lets the user select a ROM like file from the SDcard
  * and loads it into frozen memory
- * 
+ *
  * returns 1 with the whole ROM was replaced and the user
  * should be prompted for a direct reset
  */
@@ -304,7 +304,7 @@ unsigned char freeze_load_romarea(void)
     case 0x5f: // <- key at top left of key board
       // Go back up one directory
 
-      mega65_dos_chdir("..");
+      mega65_dos_chdir((unsigned char *)"..");
       file_count = 0;
       selection_number = 0;
       display_offset = 0;
@@ -328,7 +328,7 @@ unsigned char freeze_load_romarea(void)
       // Is it a directory?
       if (rom_name_return[0] == '/') {
         // Its a directory
-        mega65_dos_chdir(&rom_name_return[1]);
+        mega65_dos_chdir((unsigned char *)&rom_name_return[1]);
         file_count = 0;
         selection_number = 0;
         display_offset = 0;
@@ -338,10 +338,10 @@ unsigned char freeze_load_romarea(void)
       else {
         // XXX - Actually do loading of ROM / ROM diff file
         POKE(0xD020U, 0);
-        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM") ||
-            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".BIN") ||
-            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".rom") ||
-            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".bin")) {
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".ROM")
+            || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".BIN")
+            || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".rom")
+            || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".bin")) {
           int s;
           // Load normal ROM file
           // Begin by loading the file at $40000-$5FFFF
@@ -350,7 +350,7 @@ unsigned char freeze_load_romarea(void)
           // Then progressively save it into the frozen memory
           request_freeze_region_list();
           find_freeze_slot_start_sector(0); // we only work on slot 0!
-          freeze_slot_start_sector = *(uint32_t*)0xD681U;
+          freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
           for (s = 0; s < 256; s++) { // ROM is 128k, devided by 512 byte sectors is 256 sectors to load
             // Write each sector to frozen memory
@@ -362,11 +362,11 @@ unsigned char freeze_load_romarea(void)
 
           return 1;
         }
-        
-        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR") ||
-            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR") ||
-            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".chr") ||
-            !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".tcr")) {
+
+        if (!strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".CHR")
+            || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".TCR")
+            || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".chr")
+            || !strcmp(&rom_name_return[strlen(rom_name_return) - 4], ".tcr")) {
           unsigned char cg_7a_set = 0, cg_7a_mask = 0xff;
           unsigned char cg_54_set = 0, cg_54_mask = 0xff;
           unsigned short i;
@@ -377,13 +377,13 @@ unsigned char freeze_load_romarea(void)
 
           request_freeze_region_list();
           find_freeze_slot_start_sector(0); // we only work on slot 0!
-          freeze_slot_start_sector = *(uint32_t*)0xD681U;
+          freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
           if (freeze_region_flags & FREEZE_REGION_HAS_CHARGEN)
             // only put that into the slot, if HYPPO supports it!
             for (i = 0; i < 8; i++) {
-              lcopy(0x40000L + 512L*i, (long)sector_buffer, 512);
-              freeze_store_sector(CHARGEN_ADDRESS + 512L*i, NULL);
+              lcopy(0x40000L + 512L * i, (long)sector_buffer, 512);
+              freeze_store_sector(CHARGEN_ADDRESS + 512L * i, NULL);
             }
 
           // set or reset TALL character bit depending on charset extension
@@ -393,7 +393,8 @@ unsigned char freeze_load_romarea(void)
             cg_54_mask ^= 0x20;
             cg_7a_set |= 0x10;
             cg_7a_mask ^= 0x10;
-          } else {
+          }
+          else {
             cg_7a_set |= 0x00;
             cg_7a_mask ^= 0x10;
           }
@@ -406,7 +407,7 @@ unsigned char freeze_load_romarea(void)
         }
       }
       break;
-    
+
     case 0x13: // HOME
       selection_number = 0;
       break;
@@ -452,11 +453,11 @@ void user_reset_prompt(void)
   unsigned char x = 0;
 
   clear_screen(25);
-  copy_line_to_screen(SCREEN_ADDRESS + 80, rom_reset_screen, 12*80);
-  copy_line_to_screen(SCREEN_ADDRESS + 3*80 + 8, rom_name_return, 32);
-  copy_line_to_screen(SCREEN_ADDRESS + 4*80 + 34, detect_rom(), 11);
+  copy_line_to_screen(SCREEN_ADDRESS + 80, rom_reset_screen, 12 * 80);
+  copy_line_to_screen(SCREEN_ADDRESS + 3 * 80 + 8, rom_name_return, 32);
+  copy_line_to_screen(SCREEN_ADDRESS + 4 * 80 + 34, detect_rom(), 11);
 
-  while (x != 'Y' && x!= 'y' && x != 'N' && x != 'n') {
+  while (x != 'Y' && x != 'y' && x != 'N' && x != 'n') {
     x = PEEK(0xD610U);
 
     if (!x) {

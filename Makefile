@@ -11,9 +11,16 @@ else
 	CL65=	cc65/bin/cl65
 endif
 
-MEGA65LIBCDIR=	../mega65-libc/cc65
-MEGA65LIBCLIB=	$(MEGA65LIBCDIR)/libmega65.a
-MEGA65LIBCINC=	-I$(MEGA65LIBCDIR)/include
+# check if we are building against the old version of libc, still having cc65 as a toplevel dir
+ifneq ($(wildcard ../mega65-libc/cc65/*),)
+	MEGA65LIBCDIR=	../mega65-libc/cc65
+	MEGA65LIBCLIB=	$(MEGA65LIBCDIR)/libmega65.a
+	MEGA65LIBCINC=	-I$(MEGA65LIBCDIR)/include
+else
+	MEGA65LIBCDIR= ../mega65-libc
+	MEGA65LIBCLIB= $(MEGA65LIBCDIR)/libmega65.a
+	MEGA65LIBCINC= -I$(MEGA65LIBCDIR)/include/mega65
+endif
 
 #COPTS=	-t c64 -O -Or -Oi -Os --cpu 65c02 -Icc65/include
 COPTS=	-t c64 -Os --cpu 65c02 -Icc65/include
@@ -51,7 +58,6 @@ ASSFILES=	freezer.s \
 		charset.s \
 		helper.s \
 		freezer_common.s
-
 
 MONASSFILES=	monitor.s \
 		freeze_monitor.s \
@@ -133,17 +139,17 @@ $(MEGA65LIBCLIB):
 	make -C $(MEGA65LIBCDIR) all
 	make -C $(MEGA65LIBCDIR) clean
 
-%.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
-	$(info ======== Making: $@)
-	$(CC65) $(MEGA65LIBCINC) $(COPTS) --add-source -o $@ $<
-
-MAKE_VERSION= \
+version.s: .git/HEAD gitversion.sh
 	@if [ -z "$(DO_MKVER)" ] || [ "$(DO_MKVER)" -eq "1" ] ; then \
 	echo "Retrieving Git version string... (set env-var DO_MKVER=0 to turn this behaviour off)" ; \
 	echo '.segment "CODE"' > version.s ; \
 	echo '_version:' >> version.s ; \
 	echo "  .asciiz \"v:`./gitversion.sh`\"" >> version.s ; \
 	fi
+
+%.s:	%.c $(HEADERS) $(DATAFILES) $(CC65)
+	$(info ======== Making: $@)
+	$(CC65) $(MEGA65LIBCINC) $(COPTS) --add-source -o $@ $<
 
 # $9000 (screen) - $07ff
 MAX_SIZE=34817
@@ -187,45 +193,38 @@ tools/thumbnail-surround-formatter: tools/thumbnail-surround-formatter.c
 	$(info ======== Making: $@)
 	gcc -g -Wall -o tools/thumbnail-surround-formatter tools/thumbnail-surround-formatter.c -lpng
 
-FREEZER.M65:	$(ASSFILES) $(DATAFILES) $(CC65) *.h
+FREEZER.M65:	version.s $(ASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 version.s $(ASSFILES)
 	$(CHECKSIZE)
 
-AUDIOMIX.M65:	$(AMASSFILES) $(DATAFILES) $(CC65) *.h
+AUDIOMIX.M65:	version.s $(AMASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 version.s $(AMASSFILES)
 	$(CHECKSIZE)
 
-MONITOR.M65:	$(MONASSFILES) $(DATAFILES) $(CC65) *.h
+MONITOR.M65:	version.s $(MONASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l monitor.list -m monitor.map -o MONITOR.M65 version.s $(MONASSFILES)
 	$(CHECKSIZE)
 
-MAKEDISK.M65:	$(MDASSFILES) $(DATAFILES) $(CC65) *.h
+MAKEDISK.M65:	version.s $(MDASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 version.s $(MDASSFILES)
 	$(CHECKSIZE)
 
-SPRITED.M65:	$(SEASSFILES) $(DATAFILES) $(CC65) *.h $(MEGA65LIBCLIB)
+SPRITED.M65:	version.s $(SEASSFILES) $(DATAFILES) $(CC65) *.h $(MEGA65LIBCLIB)
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 version.s $(SEASSFILES) $(MEGA65LIBCLIB)
 	$(CHECKSIZE)
 
-ROMLOAD.M65:	$(RLASSFILES) $(DATAFILES) $(CC65) *.h
+ROMLOAD.M65:	version.s $(RLASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES)
 	$(CHECKSIZE)
 
-MEGAINFO.M65:	$(MIASSFILES) $(DATAFILES) $(CC65) *.h
+MEGAINFO.M65:	version.s $(MIASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(MAKE_VERSION)
 	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES)
 	$(CHECKSIZE)
 
@@ -251,12 +250,13 @@ format:
 	done; \
 	find . -type d \( $${submodules:3} \) -prune -false -o \( -iname '*.h' -o -iname '*.c' -o -iname '*.cpp' \) -print | xargs clang-format --style=file -i --verbose
 
-.PHONY: clean cleangen version.s
+.PHONY: clean cleangen
 
 clean: cleangen
 	rm -f $(FILES) \
 	*.o *.map *.list *.lbl \
 	freezer.s \
+	freezer_common.s \
 	freeze_*.s \
 	frozen_*.s \
 	fdisk_*.s \

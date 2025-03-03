@@ -45,7 +45,7 @@ static unsigned char code_buffer[512], ymd[3];
  *
  * writes text to the screen using colour. converts to screencode (upper)
  */
-void write_text(unsigned char x, unsigned char y, unsigned short colour, char* text)
+void write_text(unsigned char x, unsigned char y, unsigned short colour, char *text)
 {
   unsigned char i, c;
   for (i = 0; text[i]; i++) {
@@ -73,7 +73,7 @@ void write_text(unsigned char x, unsigned char y, unsigned short colour, char* t
  * writes text to the screen using colour. converts to screencode,
  * and all lower is displayed as upper
  */
-void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, char* text)
+void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, char *text)
 {
   unsigned char i, c;
   for (i = 0; text[i]; i++) {
@@ -117,7 +117,7 @@ void copy_hw_version()
  *
  * get_hw_version must have been called to fill code_buffer
  */
-char* format_mega_model()
+char *format_mega_model()
 {
   switch (m65model) {
   case 0x01:
@@ -177,7 +177,7 @@ char* format_mega_model()
  *
  * get_hw_version must have been called to fill code_buffer
  */
-char* format_datestamp(unsigned char offset, unsigned char msbmask)
+char *format_datestamp(unsigned char offset, unsigned char msbmask)
 {
   unsigned char m = 1;
   unsigned short y = 2020, ds;
@@ -243,7 +243,7 @@ char* format_datestamp(unsigned char offset, unsigned char msbmask)
  *
  * get_hw_version must have been called to fill code_buffer
  */
-char* format_fpga_hash(unsigned char offset, unsigned char reverse)
+char *format_fpga_hash(unsigned char offset, unsigned char reverse)
 {
   if (reverse)
     sprintf(buffer, "%02X%02X%02X%02X", code_buffer[offset + 2], code_buffer[offset + 3], code_buffer[offset + 4],
@@ -263,11 +263,11 @@ char* format_fpga_hash(unsigned char offset, unsigned char reverse)
  *
  * formats the ROM version. Tries to detect C64 ROMS.
  */
-char* format_rom_version(void)
+char *format_rom_version(void)
 {
   // we want to display the version in freeze slot 0!
   find_freeze_slot_start_sector(0);
-  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  freeze_slot_start_sector = *(uint32_t *)0xD681U;
   request_freeze_region_list();
 
   return detect_rom();
@@ -281,7 +281,7 @@ char* format_rom_version(void)
  *
  * fetches and formats hyppo and hdos version as a string '?.? / ?.?'
  */
-char* format_hyppo_version(void)
+char *format_hyppo_version(void)
 {
   unsigned char hyppo_version[4] = { 0xff, 0xff, 0xff, 0xff };
 
@@ -320,7 +320,7 @@ char* format_hyppo_version(void)
  * starting with 'v:20' and returns the next characters until a zero byte
  * compares to date (which should by artix ymd) and returns 0 if equal or newer
  */
-unsigned char format_util_version(long addr, unsigned char* date)
+unsigned char format_util_version(long addr, unsigned char *date)
 {
   unsigned short i, j = 0;
   unsigned char temp, result = 0, p;
@@ -385,11 +385,11 @@ unsigned char format_util_version(long addr, unsigned char* date)
  * search for GIT: in 40000 upwards
  * tries to parse date and compare to date[3]
  */
-unsigned char format_hickup_version(long addr, unsigned char* date)
+unsigned char format_hickup_version(long addr, unsigned char *date)
 {
   unsigned short p, i, j = 0;
-  char* needle = "GIT: ";
-  char* needle2 = ",20";
+  char *needle = "GIT: ";
+  char *needle2 = ",20";
 #define NEEDLE_LEN 5
 #define NEEDLE2_LEN 3
   unsigned char version_fail = 1, finished = 0, cmp_idx = 0, temp;
@@ -694,8 +694,8 @@ void display_rtc_debug(unsigned char x, unsigned char y, unsigned char colour, u
   // DEBUG output in the bottom line
   switch (mode) {
   case 1:
-    sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X PMU %02X",
-        rtc_buf[7] & 0x7f, rtc_buf[6], rtc_ticks, tod_buf[6] & 0x7f, tod_buf[5], tod_ticks, rtc_diff, rtc_pmu);
+    sprintf(buffer, " RTC %02X:%02X %04X TOD %02X:%02X %04X DIFF %04X PMU %02X", rtc_buf[7] & 0x7f, rtc_buf[6], rtc_ticks,
+        tod_buf[6] & 0x7f, tod_buf[5], tod_ticks, rtc_diff, rtc_pmu);
     if (rtc_state == 1)
       buffer[0] = 'I';
     else if (rtc_state == 2 || rtc_state == 3)

@@ -15,7 +15,7 @@ unsigned char fat_copies = 0;
 unsigned long sectors_per_fat = 0;
 unsigned long root_dir_cluster = 0;
 
-void mega65_serial_monitor_write(char* s)
+void mega65_serial_monitor_write(char *s)
 {
   while (*s) {
     // There is almost certainly a better way to do this, but it works.
@@ -38,7 +38,7 @@ char hexchar2(unsigned char v)
   return 0x41 + v - 10;
 }
 
-void hexout2(char* m, unsigned long v, int n)
+void hexout2(char *m, unsigned long v, int n)
 {
   if (!n)
     return;
@@ -76,9 +76,9 @@ void parse_partition_entry(const char i)
   uint32_t lba_start, lba_size;
 
   for (j = 0; j < 4; j++)
-    ((char*)&lba_start)[j] = sector_buffer[offset + 8 + j];
+    ((char *)&lba_start)[j] = sector_buffer[offset + 8 + j];
   for (j = 0; j < 4; j++)
-    ((char*)&lba_size)[j] = sector_buffer[offset + 12 + j];
+    ((char *)&lba_size)[j] = sector_buffer[offset + 12 + j];
 
   switch (id) {
   case 0x0b:
@@ -95,10 +95,10 @@ void parse_partition_entry(const char i)
     // hidden sectors @ $01c-$01f
     // sectors per FAT @ $024-$027
     for (j = 0; j < 4; j++)
-      ((char*)&sectors_per_fat)[j] = sector_buffer[0x24 + j];
+      ((char *)&sectors_per_fat)[j] = sector_buffer[0x24 + j];
     // cluster of root directort @ $02c-$02f
     for (j = 0; j < 4; j++)
-      ((char*)&root_dir_cluster)[j] = sector_buffer[0x2c + j];
+      ((char *)&root_dir_cluster)[j] = sector_buffer[0x2c + j];
     // $55 $AA signature @ $1fe-$1ff
 
     // FATs begin at partition + reserved sectors
@@ -166,7 +166,7 @@ unsigned char unbcd(unsigned char in)
   return bcd_work;
 }
 
-void getrtc(struct m65_tm* tm)
+void getrtc(struct m65_tm *tm)
 {
   if (!tm)
     return;
@@ -230,7 +230,7 @@ unsigned long fat32_follow_cluster(unsigned long cluster)
   unsigned long r;
   // Read out the cluster number from the FAT
   sdcard_readsector(fat1_sector + (cluster / 128));
-  r = *(unsigned long*)&sector_buffer[(cluster & 127) << 2];
+  r = *(unsigned long *)&sector_buffer[(cluster & 127) << 2];
   return r;
 }
 
@@ -244,20 +244,20 @@ unsigned long fat32_allocate_cluster(unsigned long cluster)
   for (fat_sector_num = 0; fat_sector_num < (fat2_sector - fat1_sector); fat_sector_num++) {
     sdcard_readsector(fat1_sector + fat_sector_num);
     for (i = 0; i < 512; i += 4) {
-      if (*(unsigned long*)&sector_buffer[i] == 0)
+      if (*(unsigned long *)&sector_buffer[i] == 0)
         break;
     }
     if (i < 512) {
       // Found new free cluster, so place end-of-chain marker on it
       new_cluster = fat_sector_num * 128 + (i >> 2);
-      *(unsigned long*)&sector_buffer[i] = 0x0fffffff;
+      *(unsigned long *)&sector_buffer[i] = 0x0fffffff;
       sdcard_writesector(fat1_sector + fat_sector_num, 0);
       sdcard_writesector(fat2_sector + fat_sector_num, 0);
 
       // chain old cluster to new cluster
       fat_sector_num = cluster / 128;
       sdcard_readsector(fat1_sector + fat_sector_num);
-      *(unsigned long*)&sector_buffer[(cluster & 127) << 2] = new_cluster;
+      *(unsigned long *)&sector_buffer[(cluster & 127) << 2] = new_cluster;
       sdcard_writesector(fat1_sector + fat_sector_num, 0);
       sdcard_writesector(fat2_sector + fat_sector_num, 0);
       return new_cluster;
@@ -280,7 +280,7 @@ unsigned long fat32_allocate_cluster(unsigned long cluster)
   XXX -- Should allow creation of files in sub-directories
 
 */
-long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, long fat1_sector, long fat2_sector)
+long fat32_create_contiguous_file(char *name, long size, long root_dir_sector, long fat1_sector, long fat2_sector)
 {
   unsigned char i, sn, len;
   unsigned short offset, j;
@@ -427,11 +427,11 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
     for (offset = 0; offset < 512; offset += 4) {
       if (((k << 7) + (offset >> 2)) < clusters) {
         // Write chain
-        *(unsigned long*)&sector_buffer[offset] = start_cluster + (k << 7) + (offset >> 2) + 1;
+        *(unsigned long *)&sector_buffer[offset] = start_cluster + (k << 7) + (offset >> 2) + 1;
       }
       if (((k << 7) + (offset >> 2)) == (clusters - 1)) {
         // Mark end of chain
-        *(unsigned long*)&sector_buffer[offset] = 0x0FFFFFF8;
+        *(unsigned long *)&sector_buffer[offset] = 0x0FFFFFF8;
       }
     }
     // Write FAT sector to both FATs
@@ -466,14 +466,14 @@ long fat32_create_contiguous_file(char* name, long size, long root_dir_sector, l
   j |= (tm.tm_min << 5);
   j |= (tm.tm_sec >> 1);
   // Create time 0x0e -- 0x0f
-  *(unsigned short*)&sector_buffer[free_dir_sector_ofs + 0x0e] = j;
+  *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x0e] = j;
   // Modify time 0x16 -- 0x17
   //  *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x16]=j;
   j = ((tm.tm_year - 80) << 9); // DOS is based on 1980, tm struct on 1900
   j |= (tm.tm_mon << 5);
   j |= tm.tm_mday;
   // Create date 0x10 -- 0x11
-  *(unsigned short*)&sector_buffer[free_dir_sector_ofs + 0x10] = j;
+  *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x10] = j;
   // Modify date 0x18 -- 0x19
   // *(unsigned short *)&sector_buffer[free_dir_sector_ofs + 0x18]=j;
   // Start cluster

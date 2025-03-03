@@ -7,7 +7,7 @@ void lpoke(long address, unsigned char value);
 void lcopy(long source_address, long destination_address, unsigned int count);
 void lcopy_safe(unsigned long src, unsigned long dst, unsigned int count);
 void lfill(long destination_address, unsigned char value, unsigned int count);
-#define POKE(X, Y) (*(unsigned char*)(X)) = Y
-#define PEEK(X) (*(unsigned char*)(X))
+#define POKE(X, Y) (*(unsigned char *)(X)) = Y
+#define PEEK(X) (*(unsigned char *)(X))
 
 #endif /* __FDISK_MEMORY_H__ */

@@ -3,15 +3,15 @@
 #include <strings.h>
 
 #define MAX_ROMS 256
-char* rom_names[MAX_ROMS] = { 0 };
+char *rom_names[MAX_ROMS] = { 0 };
 unsigned char roms[MAX_ROMS][8192];
 int roms_detected[MAX_ROMS];
 int rom_count = 0;
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   for (int i = 1; i < argc; i++) {
-    FILE* f = fopen(argv[i], "rb");
+    FILE *f = fopen(argv[i], "rb");
     if (!f) {
       fprintf(stderr, "Could not open ROM file '%s'\n", argv[i]);
     }

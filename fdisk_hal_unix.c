@@ -5,7 +5,7 @@
 
 #include "fdisk_hal.h"
 
-FILE* sdcard = NULL;
+FILE *sdcard = NULL;
 unsigned char hal_border_flicker = 0;
 
 void sdcard_visual_feedback(const uint8_t do_flicker)
@@ -48,7 +48,7 @@ uint32_t write_count = 0;
 
 void sdcard_writesector(const uint32_t sector_number)
 {
-  const uint8_t* buffer = sector_buffer;
+  const uint8_t *buffer = sector_buffer;
 
   fseek(sdcard, sector_number * 512LL, SEEK_SET);
   fwrite(buffer, 512, 1, sdcard);

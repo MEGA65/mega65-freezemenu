@@ -45,13 +45,13 @@ uint32_t find_thumbnail_offset(void)
     region_length = freeze_region_list[i].region_length & REGION_LENGTH_MASK;
     /* Thumbnail freezing has changed recently:
        Previously the thumbnail was accessed indirectly, and had to be extracted to $1000 first,
-       and then frozen from there, and thus appeared to be at $1000.  
+       and then frozen from there, and thus appeared to be at $1000.
        Now the thumbnail is direct mapped at $FFD4000, and is frozen directly from there.
        For now, we will check for both.
     */
-    if (freeze_region_list[i].address_base == 0x1000L        // older bitstreams use relocated address
-	|| freeze_region_list[i].address_base == 0xffd4000L  // newer bitstreams use real address
-	) {
+    if (freeze_region_list[i].address_base == 0x1000L       // older bitstreams use relocated address
+        || freeze_region_list[i].address_base == 0xffd4000L // newer bitstreams use real address
+    ) {
       // Found it
       return freeze_slot_offset;
     }
@@ -62,7 +62,7 @@ uint32_t find_thumbnail_offset(void)
     if (region_length & 0x1ff)
       freeze_slot_offset++;
   }
-  return 0xFFFFFFFFL;
+  return 0xFFFFFFFFUL;
 }
 
 /* Convert a requested address to a location in the freeze slot,
@@ -113,7 +113,7 @@ uint32_t address_to_freeze_slot_offset(uint32_t address)
       return freeze_slot_offset;
     }
   }
-  return 0xFFFFFFFFL;
+  return 0xFFFFFFFFUL;
 }
 
 unsigned char freeze_peek(uint32_t addr)
@@ -122,7 +122,7 @@ unsigned char freeze_peek(uint32_t addr)
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
   unsigned short offset;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Invalid / unfrozen memory
     return 0x55;
   }
@@ -139,13 +139,13 @@ unsigned char freeze_peek(uint32_t addr)
   return sector_buffer[offset & 0x1ff];
 }
 
-unsigned char freeze_fetch_sector(uint32_t addr, unsigned char* buffer)
+unsigned char freeze_fetch_sector(uint32_t addr, unsigned char *buffer)
 {
   // Find sector
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
   unsigned short offset;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Invalid / unfrozen memory
     return 0x55;
   }
@@ -171,7 +171,7 @@ unsigned char freeze_fetch_sector_partial(uint32_t addr, uint32_t dest, unsigned
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
   unsigned short offset;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Invalid / unfrozen memory
     return 0x55;
   }
@@ -194,13 +194,13 @@ unsigned char freeze_fetch_sector_partial(uint32_t addr, uint32_t dest, unsigned
   return 0;
 }
 
-unsigned char freeze_store_sector(uint32_t addr, unsigned char* buffer)
+unsigned char freeze_store_sector(uint32_t addr, unsigned char *buffer)
 {
   // Find sector
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
   unsigned short offset;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Invalid / unfrozen memory
     return 0x55;
   }
@@ -230,7 +230,7 @@ unsigned char freeze_store_sector_partial(uint32_t addr, uint32_t src, unsigned 
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
   unsigned short offset;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Invalid / unfrozen memory
     return 0x55;
   }
@@ -262,7 +262,7 @@ void freeze_poke(uint32_t addr, unsigned char v)
   uint32_t freeze_slot_offset = address_to_freeze_slot_offset(addr);
   unsigned short offset;
 
-  if (freeze_slot_offset == 0xFFFFFFFFL) {
+  if (freeze_slot_offset == 0xFFFFFFFFUL) {
     // Invalid / unfrozen memory
     return;
   }

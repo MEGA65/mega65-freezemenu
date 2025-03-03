@@ -13,61 +13,58 @@
 #include "fdisk_screen.h"
 #include "fdisk_fat32.h"
 
-unsigned char* freeze_menu_bar = (unsigned char *)
-                             "F3-RESUME    F5-RESET      HELP-MEGAINFO"
-                             "F3-LOAD SLOT F7-SAVE SLOT  HELP-MEGAINFO";
+unsigned char *freeze_menu_bar = (unsigned char *)"F3-RESUME    F5-RESET      HELP-MEGAINFO"
+                                                  "F3-LOAD SLOT F7-SAVE SLOT  HELP-MEGAINFO";
 
-unsigned char* freeze_menu = (unsigned char *)
-                             "        MEGA65 FREEZE MENU V0.3.0       "
-                             "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
-                             "cccccccccccccccccccccccccccccccccccccccc"
+unsigned char *freeze_menu = (unsigned char *)"        MEGA65 FREEZE MENU V0.3.0       "
+                                              "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
+                                              "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
-                             "F3-RESUME    F5-RESET      HELP-MEGAINFO"
-                             "cccccccccccccccccccccccccccccccccccccccc"
+                                              "F3-RESUME    F5-RESET      HELP-MEGAINFO"
+                                              "cccccccccccccccccccccccccccccccccccccccc"
 #define CPU_MODE_OFFSET (5 * 40 + 13)
 #define JOY_SWAP_OFFSET (5 * 40 + 36)
-                             " (C)PU MODE:   4510  (J)OY SWAP:    YES "
+                                              " (C)PU MODE:   4510  (J)OY SWAP:    YES "
 #define CPU_FREQ_OFFSET (6 * 40 + 13)
 #define CART_ENABLE_OFFSET (6 * 40 + 36)
-                             " CPU (F)REQ: 40 MHZ  CAR(T) ENABLE: YES "
+                                              " CPU (F)REQ: 40 MHZ  CAR(T) ENABLE: YES "
 // #define ROM_NAME_OFFSET (7 * 40 + 8)
 #define CRTEMU_MODE_OFFSET (7 * 40 + 16)
 #define VIDEO_MODE_OFFSET (7 * 40 + 33)
-                             " C(R)T EMU:     OFF  (V)IDEO:    NTSC60 "
-                             "cccccccccccccccccccccccccccccccccccccccc"
+                                              " C(R)T EMU:     OFF  (V)IDEO:    NTSC60 "
+                                              "cccccccccccccccccccccccccccccccccccccccc"
 #define TOOLS_MENU_OFFSET (9 * 40)
-                             " M - MONITOR         L - LOAD ROM/CHAR  "
-                             " A - AUDIO & VOLUME                     "
-                             " S - SPRITE EDITOR                      "
-                             "cccccccccccccccccccccccccccccccccccccccc"
-                             "~~~~~~~~~~~~~~~~~~~~                    "
+                                              " M - MONITOR         L - LOAD ROM/CHAR  "
+                                              " A - AUDIO & VOLUME                     "
+                                              " S - SPRITE EDITOR                      "
+                                              "cccccccccccccccccccccccccccccccccccccccc"
+                                              "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_NAME_OFFSET (14 * 40 + 21)
-                             "~~~~~~~~~~~~~~~~~~~~                    "
+                                              "~~~~~~~~~~~~~~~~~~~~                    "
 #define PROCESS_ROM_OFFSET (15 * 40 + 26)
-                             "~~~~~~~~~~~~~~~~~~~~ ROM:               "
+                                              "~~~~~~~~~~~~~~~~~~~~ ROM:               "
 #define PROCESS_ID_OFFSET (16 * 40 + 34)
 #define SLOT_NUMBER_OFFSET (17 * 40 + 34)
-                             "~~~~~~~~~~~~~~~~~~~~ TASK ID:           "
+                                              "~~~~~~~~~~~~~~~~~~~~ TASK ID:           "
 #define FREEZE_SLOT_OFFSET (17 * 40 + 20)
-                             "~~~~~~~~~~~~~~~~~~~~ FREEZE SLOT:       "
-                             "~~~~~~~~~~~~~~~~~~~~                    "
+                                              "~~~~~~~~~~~~~~~~~~~~ FREEZE SLOT:       "
+                                              "~~~~~~~~~~~~~~~~~~~~                    "
 
-                             "~~~~~~~~~~~~~~~~~~~~ (0) INTERNAL DRIVE:"
+                                              "~~~~~~~~~~~~~~~~~~~~ (0) INTERNAL DRIVE:"
 #define DRIVE0_NUM_OFFSET (20 * 40 + 35)
-                             "~~~~~~~~~~~~~~~~~~~~     (8) UNIT #     "
+                                              "~~~~~~~~~~~~~~~~~~~~     (8) UNIT #     "
 #define D81_IMAGE0_NAME_OFFSET (21 * 40 + 22)
-                             "~~~~~~~~~~~~~~~~~~~~                    "
-                             "~~~~~~~~~~~~~~~~~~~~ (1) EXTERNAL 1565: "
+                                              "~~~~~~~~~~~~~~~~~~~~                    "
+                                              "~~~~~~~~~~~~~~~~~~~~ (1) EXTERNAL 1565: "
 #define DRIVE1_NUM_OFFSET (23 * 40 + 35)
-                             "~~~~~~~~~~~~~~~~~~~~     (9) UNIT #     "
+                                              "~~~~~~~~~~~~~~~~~~~~     (9) UNIT #     "
 #define D81_IMAGE1_NAME_OFFSET (24 * 40 + 22)
-                             "~~~~~~~~~~~~~~~~~~~~                    "
-                             "\0";
-unsigned char* freeze_root_warn = (unsigned char *)
-                             " NEED TO CHANGE CURRENT DIR TO ROOT TO  "
-                             " START TOOL! THIS WILL BREAK DISK IMAGE "
-                             " MOUNTS FROM SUBDIRS!    PROCEED (Y/N)? "
-                             "\0";
+                                              "~~~~~~~~~~~~~~~~~~~~                    "
+                                              "\0";
+unsigned char *freeze_root_warn = (unsigned char *)" NEED TO CHANGE CURRENT DIR TO ROOT TO  "
+                                                   " START TOOL! THIS WILL BREAK DISK IMAGE "
+                                                   " MOUNTS FROM SUBDIRS!    PROCEED (Y/N)? "
+                                                   "\0";
 
 // name of the file that is loaded by charset restore F14
 #define DEFAULT_CHARSET "CHARSET.M65"
@@ -80,7 +77,7 @@ unsigned char not_in_root = 0;
 signed char swipe_dir = 0;
 #endif
 
-void topetsciiupper(char* str, int len);
+void topetsciiupper(char *str, int len);
 
 unsigned char colour_table[256];
 
@@ -347,7 +344,7 @@ void draw_freeze_menu(unsigned char part)
 
   if (part & UPDATE_CHGSLOT) {
     find_freeze_slot_start_sector(slot_number);
-    freeze_slot_start_sector = *(uint32_t*)0xD681U;
+    freeze_slot_start_sector = *(uint32_t *)0xD681U;
     request_freeze_region_list();
   }
 
@@ -439,7 +436,7 @@ void draw_freeze_menu(unsigned char part)
   */
   if ((part & UPDATE_PROCESS) || (part & UPDATE_DISK)) {
     lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
-    freeze_fetch_sector(0xFFFBD00L, (unsigned char*)&process_descriptor);
+    freeze_fetch_sector(0xFFFBD00L, (unsigned char *)&process_descriptor);
   }
 
   if (part & UPDATE_PROCESS) {
@@ -506,22 +503,22 @@ void draw_freeze_menu(unsigned char part)
     int8_t thumb_frame = F_M65;
 
     switch (mega65_rom_type) {
-      case MEGA65_ROM_C64:
+    case MEGA65_ROM_C64:
+      thumb_frame = F_C64;
+      break;
+    case MEGA65_ROM_C65:
+      thumb_frame = F_C65;
+      break;
+    case MEGA65_ROM_M65:
+      if (detect_cpu_speed() == 1)
         thumb_frame = F_C64;
-        break;
-      case MEGA65_ROM_C65:
-        thumb_frame = F_C65;
-        break;
-      case MEGA65_ROM_M65:
-        if (detect_cpu_speed() == 1)
-          thumb_frame = F_C64;
-        else
-          thumb_frame = F_M65;
-        break;
-      case MEGA65_ROM_OPENROM:
-      default:
+      else
         thumb_frame = F_M65;
-        break;
+      break;
+    case MEGA65_ROM_OPENROM:
+    default:
+      thumb_frame = F_M65;
+      break;
     }
 
     // only load new image if needed
@@ -537,7 +534,7 @@ void draw_freeze_menu(unsigned char part)
     // Work out where the tile data begins
     if (thumb_frame > -1 && thumb_frame != last_thumb_frame) {
       uint32_t screen_data_start;
-      unsigned short* tile_num;
+      unsigned short *tile_num;
 
       screen_data_start = 0x52000L + 0x300L + 0x40L;
       tile_offset = (screen_data_start >> 6);
@@ -549,7 +546,7 @@ void draw_freeze_menu(unsigned char part)
         lcopy(screen_data_start + (y << 6), SCREEN_ADDRESS + (13 * 80) + (y * 80), (19 * 2));
         // Add tile number based on data starting at $52040 = $1481
         for (x = 0; x < 19; x++) {
-          tile_num = (unsigned short*)(SCREEN_ADDRESS + (13 * 80) + (y * 80) + (x << 1));
+          tile_num = (unsigned short *)(SCREEN_ADDRESS + (13 * 80) + (y * 80) + (x << 1));
           if (*tile_num)
             (*tile_num) += tile_offset;
           else
@@ -573,8 +570,9 @@ void draw_freeze_menu(unsigned char part)
     draw_thumbnail();
     for (x = 0; x < 9; x++)
       for (y = 0; y < 6; y++) {
-        POKE(SCREEN_ADDRESS + (80 * 13) + ((thumb_xoff + x) * 2) + ((thumb_yoff + y) * 80) + 0, x * 6 + y); // $50000 base address
-        POKE(SCREEN_ADDRESS + (80 * 13) + ((thumb_xoff + x) * 2) + ((thumb_yoff + y) * 80) + 1, 0x14);      // $50000 base address
+        POKE(SCREEN_ADDRESS + (80 * 13) + ((thumb_xoff + x) * 2) + ((thumb_yoff + y) * 80) + 0,
+            x * 6 + y);                                                                                // $50000 base address
+        POKE(SCREEN_ADDRESS + (80 * 13) + ((thumb_xoff + x) * 2) + ((thumb_yoff + y) * 80) + 1, 0x14); // $50000 base address
       }
   }
 
@@ -590,7 +588,7 @@ char tweak(char c)
   return c & 0x5f;
 }
 
-void topetsciiupper(char* str, int len)
+void topetsciiupper(char *str, int len)
 {
   int i;
   for (i = 0; i < len; i++)
@@ -636,7 +634,7 @@ void poll_touch_panel(void)
 }
 #endif
 
-void store_selected_disk_image(int diskid, char* disk_image)
+void store_selected_disk_image(int diskid, char *disk_image)
 {
   int disk_img_name_loc = diskid ? 0x35 : 0x15;
   int disk_img_name_length_loc = diskid ? 0x14 : 0x13;
@@ -654,7 +652,7 @@ void store_selected_disk_image(int diskid, char* disk_image)
 
 void select_mounted_disk_image(int diskid)
 {
-  char* disk_image = freeze_select_disk_image(diskid);
+  char *disk_image = freeze_select_disk_image(diskid);
 
   // Restore freeze region offset list to $0400 screen
   request_freeze_region_list();
@@ -707,9 +705,9 @@ void debug_region_list()
 }
 #endif
 
-#define CHARGEN_FIXMEM  0x01 // write char data to chargen memory
+#define CHARGEN_FIXMEM 0x01  // write char data to chargen memory
 #define CHARGEN_FIXSLOT 0x02 // write char data to slot storage
-#define CHARGEN_FORCE   0x40 // if check can't load region, do fix anyway
+#define CHARGEN_FORCE 0x40   // if check can't load region, do fix anyway
 #define CHARGEN_NOCHECK 0x80 // don't execute check, always fix
 void fix_chargen_area(unsigned char flags)
 {
@@ -721,7 +719,8 @@ void fix_chargen_area(unsigned char flags)
   if (!(flags & CHARGEN_NOCHECK)) {
     if (!freeze_fetch_sector(CHARGEN_ADDRESS, NULL))
       // check if everything is zero
-      for (i = 0; i < 512 && !sector_buffer[i]; i++);
+      for (i = 0; i < 512 && !sector_buffer[i]; i++)
+        ;
     else
       // error while reading sector (old core?)
       i = (flags & CHARGEN_FORCE) ? 512 : 0;
@@ -744,8 +743,8 @@ void fix_chargen_area(unsigned char flags)
       // should we also fix the slot?
       if (flags & CHARGEN_FIXSLOT)
         for (i = 0; i < 8; i++) {
-          lcopy(charset_start + 512L*i, (long)sector_buffer, 512);
-          freeze_store_sector(CHARGEN_ADDRESS + 512L*i, NULL);
+          lcopy(charset_start + 512L * i, (long)sector_buffer, 512);
+          freeze_store_sector(CHARGEN_ADDRESS + 512L * i, NULL);
         }
     }
     else {
@@ -767,20 +766,21 @@ void start_freezer_tool(char *toolfile)
     copy_convert_to_screen(freeze_root_warn, TOOLS_MENU_OFFSET);
 
     while (!start_tool) {
-      while (!(x = PEEK(0xD610U)));
+      while (!(x = PEEK(0xD610U)))
+        ;
       POKE(0xD610U, 0);
       switch (x) {
-        case 'y':
-        case 'Y':
-          mega65_dos_cdroot();
-          start_tool = 1;
-          break;
-        case 'n':
-        case 'N':
-        case 0x1b:
-        case 0x03:
-          draw_freeze_menu(UPDATE_TOP);
-          return;
+      case 'y':
+      case 'Y':
+        mega65_dos_cdroot();
+        start_tool = 1;
+        break;
+      case 'n':
+      case 'N':
+      case 0x1b:
+      case 0x03:
+        draw_freeze_menu(UPDATE_TOP);
+        return;
       }
     }
   }
@@ -790,7 +790,7 @@ void start_freezer_tool(char *toolfile)
 #ifdef __CC65__
 void main(void)
 #else
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 #endif
 {
   unsigned char drive_state;
@@ -808,9 +808,9 @@ int main(int argc, char** argv)
 
   // check border for return codes from other helpers
   switch (PEEK(0xD020U)) {
-    case 0x83:
-      rom_changed = 1;
-      break;
+  case 0x83:
+    rom_changed = 1;
+    break;
   }
 
   // Bank out BASIC ROM, leave KERNAL and IO in
@@ -818,8 +818,8 @@ int main(int argc, char** argv)
   POKE(0x01, 0x36);
 
   // Disable Cartridge ROM
-  lpoke(0xFFD37FDL, lpeek(0xFFD37FDL) | 0xC0); //Ensure forced exrom & game are high=disabled
-  lpoke(0xFFD37FBL, lpeek(0xFFD37FBL) & 0xFD); //Disable cartridge (core will use forced values above for exrom/game)
+  lpoke(0xFFD37FDL, lpeek(0xFFD37FDL) | 0xC0); // Ensure forced exrom & game are high=disabled
+  lpoke(0xFFD37FBL, lpeek(0xFFD37FBL) & 0xFD); // Disable cartridge (core will use forced values above for exrom/game)
 
   // No decimal mode!
   __asm__("cld");
@@ -854,7 +854,7 @@ int main(int argc, char** argv)
   // Now find the start sector of the slot, and make a copy for safe keeping
   slot_number = 0;
   find_freeze_slot_start_sector(slot_number);
-  freeze_slot_start_sector = *(uint32_t*)0xD681U;
+  freeze_slot_start_sector = *(uint32_t *)0xD681U;
 
   // SD or SDHC card?
   if (PEEK(0xD680U) & 0x10)
@@ -875,11 +875,10 @@ int main(int argc, char** argv)
 
   setup_menu_screen();
   predraw_freeze_menu();
-  //chargen fix needs happen before the thumbnail frame is loaded as it clobbers
-  //the thumbnail frame data.
+  // chargen fix needs happen before the thumbnail frame is loaded as it clobbers
+  // the thumbnail frame data.
   fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_NOCHECK);
   draw_freeze_menu(UPDATE_ALL);
-
 
   // Flush input buffer
   while (PEEK(0xD610U))
@@ -891,170 +890,169 @@ int main(int argc, char** argv)
 
   // Main keyboard input loop
   while (1) {
-    {
-      unsigned char c = PEEK(0xD610U);
+    unsigned char c = PEEK(0xD610U);
 
-      // Flush char from input buffer
-      if (c)
-        POKE(0xD610U, 0);
-      else {
+    // Flush char from input buffer
+    if (c)
+      POKE(0xD610U, 0);
+    else {
 
-        // If no keyboard input, check for joystick input
-        // We should make this context sensitive, but for now just want
-        // easy choosing of frozen programs to run, so fire will be F3,
-        // and left and right on the joystick will be left and right
-        // cursor keys.
-        // We use a simple lookup table to do this
-        c = joy_to_key[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
-        // Then wait for joystick to release
-        while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
-          continue;
-      }
+      // If no keyboard input, check for joystick input
+      // We should make this context sensitive, but for now just want
+      // easy choosing of frozen programs to run, so fire will be F3,
+      // and left and right on the joystick will be left and right
+      // cursor keys.
+      // We use a simple lookup table to do this
+      c = joy_to_key[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
+      // Then wait for joystick to release
+      while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
+        continue;
+    }
 #ifdef WITH_TOUCH
-      if (!c) {
-        // Check for touch panel activity
-        poll_touch_panel();
-        if ((last_touch & 1) && (!(PEEK(0xD6B0) & 1))) {
-          if (y > 8 && y < 17) {
-            if (x < 26)
-              x = 0;
-            else
-              x = 1;
-            c = touch_keys[x][y - 9];
-            // Wait for touch to be released
-            // XXX - Records touch event as where your finger was when you touched, not released.
-            while (PEEK(0xD6B0) & 1)
-              continue;
-          }
-        }
-
-        // Set speaker volume by placing finger along top edge of screen.
-        // (We now also support setting the amplifier gain from in the audio mixer,
-        // including setting the gain for stereo speakers.  This little hack below
-        // will likely disappear when we add touch support to the audio mixer)
-        if (y > 0 && y < 7) {
-          if (PEEK(0xD6B0) & 1) {
-            if (x > 5)
-              x -= 5;
-            else
-              x = 0;
-            if (x > 39)
-              x = 39;
-            for (y = 0; y < x * 2; y += 2)
-              lpoke(SCREEN_ADDRESS + y, 0xA0);
-            for (; y < 80; y += 2)
-              lpoke(SCREEN_ADDRESS + y, 0x20);
-            y = 0;
-            lpoke(0xFFD7035L, 0xff - (x * 5));
-          }
-        }
-
-        // Check for side/side swiping
-        // (In theory the touch panel supports gestures, but we have not got them working.
-        // so we will just infer them.  Move sideways more than 3 characters within a short
-        // period of time will be deemed to be a side swipe).
-        if (y > 17) {
-          if (PEEK(0xD6B0) & 1) {
-            if (x > last_x && swipe_dir < 0)
-              swipe_dir = 1;
-            if (x > last_x && swipe_dir >= 0)
-              swipe_dir++;
-            if (x > last_x) {
-              // Swipe screen to the right
-
-              // Copy is overlapping, so copy it somewhere else first, then copy it down
-              lcopy(SCREEN_ADDRESS + (80 * 13), 0x40000L, 12 * 80 - 2);
-              lcopy(0x40000, SCREEN_ADDRESS + (80 * 13) + 2, 12 * 80 - 2);
-            }
-
-            if ((x < last_x) && (swipe_dir > 0))
-              swipe_dir = -1;
-            if ((x < last_x))
-              swipe_dir--;
-            if (x < last_x) {
-              // Swipe screen to the left
-              lcopy(SCREEN_ADDRESS + (80 * 13), SCREEN_ADDRESS + (80 * 13) - 2, 12 * 80 - 2);
-            }
-
-            if (swipe_dir == -5) {
-              c = 0x1d;
-              swipe_dir = 0;
-            }
-            if (swipe_dir == 5) {
-              c = 0x9d;
-              swipe_dir = 0;
-            }
-
-            last_x = x;
-          }
-          else {
-            if (last_touch & 1) { }
-          }
+    if (!c) {
+      // Check for touch panel activity
+      poll_touch_panel();
+      if ((last_touch & 1) && (!(PEEK(0xD6B0) & 1))) {
+        if (y > 8 && y < 17) {
+          if (x < 26)
+            x = 0;
+          else
+            x = 1;
+          c = touch_keys[x][y - 9];
+          // Wait for touch to be released
+          // XXX - Records touch event as where your finger was when you touched, not released.
+          while (PEEK(0xD6B0) & 1)
+            continue;
         }
       }
-      last_touch = PEEK(0xD6B0);
+
+      // Set speaker volume by placing finger along top edge of screen.
+      // (We now also support setting the amplifier gain from in the audio mixer,
+      // including setting the gain for stereo speakers.  This little hack below
+      // will likely disappear when we add touch support to the audio mixer)
+      if (y > 0 && y < 7) {
+        if (PEEK(0xD6B0) & 1) {
+          if (x > 5)
+            x -= 5;
+          else
+            x = 0;
+          if (x > 39)
+            x = 39;
+          for (y = 0; y < x * 2; y += 2)
+            lpoke(SCREEN_ADDRESS + y, 0xA0);
+          for (; y < 80; y += 2)
+            lpoke(SCREEN_ADDRESS + y, 0x20);
+          y = 0;
+          lpoke(0xFFD7035L, 0xff - (x * 5));
+        }
+      }
+
+      // Check for side/side swiping
+      // (In theory the touch panel supports gestures, but we have not got them working.
+      // so we will just infer them.  Move sideways more than 3 characters within a short
+      // period of time will be deemed to be a side swipe).
+      if (y > 17) {
+        if (PEEK(0xD6B0) & 1) {
+          if (x > last_x && swipe_dir < 0)
+            swipe_dir = 1;
+          if (x > last_x && swipe_dir >= 0)
+            swipe_dir++;
+          if (x > last_x) {
+            // Swipe screen to the right
+
+            // Copy is overlapping, so copy it somewhere else first, then copy it down
+            lcopy(SCREEN_ADDRESS + (80 * 13), 0x40000L, 12 * 80 - 2);
+            lcopy(0x40000, SCREEN_ADDRESS + (80 * 13) + 2, 12 * 80 - 2);
+          }
+
+          if ((x < last_x) && (swipe_dir > 0))
+            swipe_dir = -1;
+          if ((x < last_x))
+            swipe_dir--;
+          if (x < last_x) {
+            // Swipe screen to the left
+            lcopy(SCREEN_ADDRESS + (80 * 13), SCREEN_ADDRESS + (80 * 13) - 2, 12 * 80 - 2);
+          }
+
+          if (swipe_dir == -5) {
+            c = 0x1d;
+            swipe_dir = 0;
+          }
+          if (swipe_dir == 5) {
+            c = 0x9d;
+            swipe_dir = 0;
+          }
+
+          last_x = x;
+        }
+        else {
+          if (last_touch & 1) { }
+        }
+      }
+    }
+    last_touch = PEEK(0xD6B0);
 #endif
 
-      // Process char
-      if (c)
-        switch (c) {
-        case 0x13: // Home
-          if (slot_number) {
-            slot_number = 0;
-
-            draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
-          }
-          break;
-        case ',':
-          slot_number -= 90;
-        case 0x11: // Cursor down
-          slot_number -= 9;
-        case 0x9D: // Cursor left
-          slot_number--;
-          if (slot_number >= get_freeze_slot_count()) // unsigned!
-            slot_number = get_freeze_slot_count() - 1;
+    // Process char
+    if (c)
+      switch (c) {
+      case 0x13: // Home
+        if (slot_number) {
+          slot_number = 0;
 
           draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
-          break;
-        case '.':
-          slot_number += 90;
-        case 0x91: // Cursor up
-          slot_number += 9;
-        case 0x1D: // Cursor right
-          slot_number++;
-          if (slot_number >= get_freeze_slot_count())
-            slot_number = 0;
+        }
+        break;
+      case ',':
+        slot_number -= 90;
+      case 0x11: // Cursor down
+        slot_number -= 9;
+      case 0x9D: // Cursor left
+        slot_number--;
+        if (slot_number >= get_freeze_slot_count()) // unsigned!
+          slot_number = get_freeze_slot_count() - 1;
 
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
-          break;
+        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
+        break;
+      case '.':
+        slot_number += 90;
+      case 0x91: // Cursor up
+        slot_number += 9;
+      case 0x1D: // Cursor right
+        slot_number++;
+        if (slot_number >= get_freeze_slot_count())
+          slot_number = 0;
 
-        case 'M':
-        case 'm': // Monitor
-          start_freezer_tool("MONITOR.M65");
-          break;
+        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
+        break;
 
-        case 'A':
-        case 'a': // Audio mixer
-          start_freezer_tool("AUDIOMIX.M65");
-          break;
+      case 'M':
+      case 'm': // Monitor
+        start_freezer_tool("MONITOR.M65");
+        break;
 
-        case 'S':
-        case 's': // Sprite Editor
-          start_freezer_tool("SPRITED.M65");
-          break;
+      case 'A':
+      case 'a': // Audio mixer
+        start_freezer_tool("AUDIOMIX.M65");
+        break;
 
-        case 'J':
-        case 'j': // Toggle joystick swap
-          POKE(0xD612L, (PEEK(0xD612L) ^ 0x20) & 0xEF);
+      case 'S':
+      case 's': // Sprite Editor
+        start_freezer_tool("SPRITED.M65");
+        break;
 
-          draw_freeze_menu(UPDATE_TOP);
-          break;
+      case 'J':
+      case 'j': // Toggle joystick swap
+        POKE(0xD612L, (PEEK(0xD612L) ^ 0x20) & 0xEF);
 
-        case 'T':
-        case 't': // Toggle cartridge enable
-          freeze_poke(0xFFD367dL, freeze_peek(0xFFD367dL) ^ 0x01);
-          draw_freeze_menu(UPDATE_TOP);
-          break;
+        draw_freeze_menu(UPDATE_TOP);
+        break;
+
+      case 'T':
+      case 't': // Toggle cartridge enable
+        freeze_poke(0xFFD367dL, freeze_peek(0xFFD367dL) ^ 0x01);
+        draw_freeze_menu(UPDATE_TOP);
+        break;
 
 #if 0
       case 'P': case 'p': // Toggle ROM area write-protect
@@ -1063,254 +1061,252 @@ int main(int argc, char** argv)
   break;
 #endif
 
-        case 'c':
-        case 'C': // Toggle CPU mode
-          freeze_poke(0xFFD367dL, freeze_peek(0xFFD367dL) ^ 0x20);
-          draw_freeze_menu(UPDATE_TOP);
-          break;
+      case 'c':
+      case 'C': // Toggle CPU mode
+        freeze_poke(0xFFD367dL, freeze_peek(0xFFD367dL) ^ 0x20);
+        draw_freeze_menu(UPDATE_TOP);
+        break;
 
-        case 'F':
-        case 'f': // Change CPU speed
-          if (next_cpu_speed())
-            draw_freeze_menu(UPDATE_FREQ | UPDATE_THUMB);
-          else
-            draw_freeze_menu(UPDATE_FREQ);
-          break;
+      case 'F':
+      case 'f': // Change CPU speed
+        if (next_cpu_speed())
+          draw_freeze_menu(UPDATE_FREQ | UPDATE_THUMB);
+        else
+          draw_freeze_menu(UPDATE_FREQ);
+        break;
 
-        case 'V':
-        case 'v': // Toggle video mode
-          // Toggle video mode setting
-          // Then also toggle vertical border and text/graphics area positions, by updating the following:
-          // $FFD3048 = LSB, top border position
-          // $FFD3049.0-3 = MSB, top border position
-          // $FFD3049.7-4 = PRESERVE
-          // $FFD304A = LSB, bottom border position
-          // $FFD304B.0-3 = MSB, bottom border position
-          // $FFD304B.7-4 = PRESERVE
-          // $FFD304E = TEXTYPOS LSB
-          // $FFD304F.0-3 = TEXTYPOS MSB
-          // $FFD304F.4-7 = PRESERVE
-          // $FFD306F.0-5 = VIC-II first raster
-          // $FFD3072     = Sprite Y position adjust
-          c = freeze_peek(0xFFD306fL) & 0x80;
-          if (c == 0x80) {
-            // Switch to PAL
-            freeze_poke(0xFFD306fL, 0x00);
-            freeze_poke(0xFFD3072L, 0x00);
-            freeze_poke(0xFFD3048L, 0x68);
-            freeze_poke(0xFFD3049L, 0x0 | (freeze_peek(0xFFD3049L) & 0xf0));
-            freeze_poke(0xFFD304AL, 0xF8);
-            freeze_poke(0xFFD304BL, 0x1 | (freeze_peek(0xFFD304BL) & 0xf0));
-            freeze_poke(0xFFD304EL, 0x68);
-            freeze_poke(0xFFD304FL, 0x0 | (freeze_peek(0xFFD304FL) & 0xf0));
-            freeze_poke(0xFFD3072L, 0);
-            // CIA TOD
-            freeze_poke(0xffd3c0el, freeze_peek(0xffd3c0el) | 0x80);
-            freeze_poke(0xffd3d0el, freeze_peek(0xffd3d0el) | 0x80);
-            // do it for the freezer itself
-            lpoke(0xFFD306fL, 0x00);
-            lpoke(0xFFD3072L, 0x00);
-            lpoke(0xFFD3048L, 0x68);
-            lpoke(0xFFD3049L, 0x0 | (lpeek(0xFFD3049L) & 0xf0));
-            lpoke(0xFFD304AL, 0xF8);
-            lpoke(0xFFD304BL, 0x1 | (lpeek(0xFFD304BL) & 0xf0));
-            lpoke(0xFFD304EL, 0x68);
-            lpoke(0xFFD304FL, 0x0 | (lpeek(0xFFD304FL) & 0xf0));
-            lpoke(0xFFD3072L, 0);
-            // CIA TOD
-            lpoke(0xffd3c0el, lpeek(0xffd3c0el) | 0x80);
-            lpoke(0xffd3d0el, lpeek(0xffd3d0el) | 0x80);
-          }
-          else {
-            // Switch to NTSC
-            freeze_poke(0xFFD306fL, 0x87);
-            freeze_poke(0xFFD3072L, 0x18);
-            freeze_poke(0xFFD3048L, 0x2A);
-            freeze_poke(0xFFD3049L, 0x0 | (freeze_peek(0xFFD3049L) & 0xf0));
-            freeze_poke(0xFFD304AL, 0xB9);
-            freeze_poke(0xFFD304BL, 0x1 | (freeze_peek(0xFFD304BL) & 0xf0));
-            freeze_poke(0xFFD304EL, 0x2A);
-            freeze_poke(0xFFD304FL, 0x0 | (freeze_peek(0xFFD304FL) & 0xf0));
-            freeze_poke(0xFFD3072L, 24);
-            // CIA TOD
-            freeze_poke(0xffd3c0el, freeze_peek(0xffd3c0el) & 0x7f);
-            freeze_poke(0xffd3d0el, freeze_peek(0xffd3d0el) & 0x7f);
-            // do it for the freezer itself
-            lpoke(0xFFD306fL, 0x87);
-            lpoke(0xFFD3072L, 0x18);
-            lpoke(0xFFD3048L, 0x2A);
-            lpoke(0xFFD3049L, 0x0 | (lpeek(0xFFD3049L) & 0xf0));
-            lpoke(0xFFD304AL, 0xB9);
-            lpoke(0xFFD304BL, 0x1 | (lpeek(0xFFD304BL) & 0xf0));
-            lpoke(0xFFD304EL, 0x2A);
-            lpoke(0xFFD304FL, 0x0 | (lpeek(0xFFD304FL) & 0xf0));
-            lpoke(0xFFD3072L, 24);
-            // CIA TOD
-            lpoke(0xffd3c0el, lpeek(0xffd3c0el) & 0x7f);
-            lpoke(0xffd3d0el, lpeek(0xffd3d0el) & 0x7f);
-          }
-          draw_freeze_menu(UPDATE_TOP);
-          break;
+      case 'V':
+      case 'v': // Toggle video mode
+        // Toggle video mode setting
+        // Then also toggle vertical border and text/graphics area positions, by updating the following:
+        // $FFD3048 = LSB, top border position
+        // $FFD3049.0-3 = MSB, top border position
+        // $FFD3049.7-4 = PRESERVE
+        // $FFD304A = LSB, bottom border position
+        // $FFD304B.0-3 = MSB, bottom border position
+        // $FFD304B.7-4 = PRESERVE
+        // $FFD304E = TEXTYPOS LSB
+        // $FFD304F.0-3 = TEXTYPOS MSB
+        // $FFD304F.4-7 = PRESERVE
+        // $FFD306F.0-5 = VIC-II first raster
+        // $FFD3072     = Sprite Y position adjust
+        c = freeze_peek(0xFFD306fL) & 0x80;
+        if (c == 0x80) {
+          // Switch to PAL
+          freeze_poke(0xFFD306fL, 0x00);
+          freeze_poke(0xFFD3072L, 0x00);
+          freeze_poke(0xFFD3048L, 0x68);
+          freeze_poke(0xFFD3049L, 0x0 | (freeze_peek(0xFFD3049L) & 0xf0));
+          freeze_poke(0xFFD304AL, 0xF8);
+          freeze_poke(0xFFD304BL, 0x1 | (freeze_peek(0xFFD304BL) & 0xf0));
+          freeze_poke(0xFFD304EL, 0x68);
+          freeze_poke(0xFFD304FL, 0x0 | (freeze_peek(0xFFD304FL) & 0xf0));
+          freeze_poke(0xFFD3072L, 0);
+          // CIA TOD
+          freeze_poke(0xffd3c0el, freeze_peek(0xffd3c0el) | 0x80);
+          freeze_poke(0xffd3d0el, freeze_peek(0xffd3d0el) | 0x80);
+          // do it for the freezer itself
+          lpoke(0xFFD306fL, 0x00);
+          lpoke(0xFFD3072L, 0x00);
+          lpoke(0xFFD3048L, 0x68);
+          lpoke(0xFFD3049L, 0x0 | (lpeek(0xFFD3049L) & 0xf0));
+          lpoke(0xFFD304AL, 0xF8);
+          lpoke(0xFFD304BL, 0x1 | (lpeek(0xFFD304BL) & 0xf0));
+          lpoke(0xFFD304EL, 0x68);
+          lpoke(0xFFD304FL, 0x0 | (lpeek(0xFFD304FL) & 0xf0));
+          lpoke(0xFFD3072L, 0);
+          // CIA TOD
+          lpoke(0xffd3c0el, lpeek(0xffd3c0el) | 0x80);
+          lpoke(0xffd3d0el, lpeek(0xffd3d0el) | 0x80);
+        }
+        else {
+          // Switch to NTSC
+          freeze_poke(0xFFD306fL, 0x87);
+          freeze_poke(0xFFD3072L, 0x18);
+          freeze_poke(0xFFD3048L, 0x2A);
+          freeze_poke(0xFFD3049L, 0x0 | (freeze_peek(0xFFD3049L) & 0xf0));
+          freeze_poke(0xFFD304AL, 0xB9);
+          freeze_poke(0xFFD304BL, 0x1 | (freeze_peek(0xFFD304BL) & 0xf0));
+          freeze_poke(0xFFD304EL, 0x2A);
+          freeze_poke(0xFFD304FL, 0x0 | (freeze_peek(0xFFD304FL) & 0xf0));
+          freeze_poke(0xFFD3072L, 24);
+          // CIA TOD
+          freeze_poke(0xffd3c0el, freeze_peek(0xffd3c0el) & 0x7f);
+          freeze_poke(0xffd3d0el, freeze_peek(0xffd3d0el) & 0x7f);
+          // do it for the freezer itself
+          lpoke(0xFFD306fL, 0x87);
+          lpoke(0xFFD3072L, 0x18);
+          lpoke(0xFFD3048L, 0x2A);
+          lpoke(0xFFD3049L, 0x0 | (lpeek(0xFFD3049L) & 0xf0));
+          lpoke(0xFFD304AL, 0xB9);
+          lpoke(0xFFD304BL, 0x1 | (lpeek(0xFFD304BL) & 0xf0));
+          lpoke(0xFFD304EL, 0x2A);
+          lpoke(0xFFD304FL, 0x0 | (lpeek(0xFFD304FL) & 0xf0));
+          lpoke(0xFFD3072L, 24);
+          // CIA TOD
+          lpoke(0xffd3c0el, lpeek(0xffd3c0el) & 0x7f);
+          lpoke(0xffd3d0el, lpeek(0xffd3d0el) & 0x7f);
+        }
+        draw_freeze_menu(UPDATE_TOP);
+        break;
 
-        case '8':
-        case '9':
-          // Change drive number of internal drives
-          freeze_poke(0x10113L - '8' + c, freeze_peek(0x10113L - '8' + c) ^ 2);
-          draw_freeze_menu(UPDATE_DISK);
-          break;
-        case '0': // Select mounted disk image
-          select_mounted_disk_image(0);
-          break;
-        case '1': // Select mounted disk image for 2nd drive
-          select_mounted_disk_image(1);
-          break;
+      case '8':
+      case '9':
+        // Change drive number of internal drives
+        freeze_poke(0x10113L - '8' + c, freeze_peek(0x10113L - '8' + c) ^ 2);
+        draw_freeze_menu(UPDATE_DISK);
+        break;
+      case '0': // Select mounted disk image
+        select_mounted_disk_image(0);
+        break;
+      case '1': // Select mounted disk image for 2nd drive
+        select_mounted_disk_image(1);
+        break;
 
-        case 0xf5: // F5 = Reset
-          // reset only works for slot 0!
-          if (slot_number != 0)
-            goto invalid_function;
-          // Set C64 memory map, PC to reset vector and resume
-          freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
-          freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
-          // Reset $01 port values
-          freeze_poke(0xFFD3640U + 0x10, 0x3f);
-          freeze_poke(0xFFD3640U + 0x11, 0x3f);
-          // disable interrupts, clear decimal mode
-          freeze_poke(0xFFD3640U + 0x07, 0xe7);
-          // Clear memory mapping
-          for (c = 0x0a; c <= 0x0f; c++)
-            freeze_poke(0xFFD3640U + c, 0);
-          // Turn off extended graphics mode, only keep palemu
-          freeze_poke(0xFFD3054U, freeze_peek(0xFFD3054U) & 0x20);
-          // fall through
-        case 0xf3: // F3 = resume
-        case 0xf4: // RESUME even if ROM changed
-          // if rom changed, slot 0 resume is disabled, reset is required
-          if (c == 0xf3 && slot_number == 0 && rom_changed)
-            goto invalid_function;
-          // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
-          POKE(0xD689, origD689);
+      case 0xf5: // F5 = Reset
+        // reset only works for slot 0!
+        if (slot_number != 0)
+          goto invalid_function;
+        // Set C64 memory map, PC to reset vector and resume
+        freeze_poke(0xFFD3640U + 8, freeze_peek(0x2FFFCL));
+        freeze_poke(0xFFD3640U + 9, freeze_peek(0x2FFFDL));
+        // Reset $01 port values
+        freeze_poke(0xFFD3640U + 0x10, 0x3f);
+        freeze_poke(0xFFD3640U + 0x11, 0x3f);
+        // disable interrupts, clear decimal mode
+        freeze_poke(0xFFD3640U + 0x07, 0xe7);
+        // Clear memory mapping
+        for (c = 0x0a; c <= 0x0f; c++)
+          freeze_poke(0xFFD3640U + c, 0);
+        // Turn off extended graphics mode, only keep palemu
+        freeze_poke(0xFFD3054U, freeze_peek(0xFFD3054U) & 0x20);
+        // fall through
+      case 0xf3: // F3 = resume
+      case 0xf4: // RESUME even if ROM changed
+        // if rom changed, slot 0 resume is disabled, reset is required
+        if (c == 0xf3 && slot_number == 0 && rom_changed)
+          goto invalid_function;
+        // Doesn't seem to really help (probably needs to be done by the hypervisor unfreezing routine?)
+        POKE(0xD689, origD689);
 
-          // workaround for old freeze slots that have an empty chargen area
-          fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_FIXSLOT);
+        // workaround for old freeze slots that have an empty chargen area
+        fix_chargen_area(CHARGEN_FIXMEM | CHARGEN_FIXSLOT);
 
-          unfreeze_slot(slot_number);
+        unfreeze_slot(slot_number);
 
-          // should never get here
-          screen_of_death("unfreeze failed");
+        // should never get here
+        screen_of_death("unfreeze failed");
 
-          break;
+        break;
 
-        case 0xf7: // F7 = save to slot
-        {
-          uint32_t i;
-          uint32_t j;
-          uint32_t dest_freeze_slot_start_sector;
+      case 0xf7: // F7 = save to slot
+      {
+        uint32_t i;
+        uint32_t j;
+        uint32_t dest_freeze_slot_start_sector;
 
-          // can't save to slot 0
-          if (slot_number == 0) {
-            POKE(0xD020U, 2);
-            POKE(0xD021U, 2);
-            usleep(150000L);
-            POKE(0xD020U, 6);
-            POKE(0xD021U, 6);
-            continue;
-          }
-
-          // Get start sectors of the source and destination slots
-          // give visual feedback
-          sdcard_visual_feedback(1);
-
-          find_freeze_slot_start_sector(0);
-          freeze_slot_start_sector = *(uint32_t*)0xD681U;
-          find_freeze_slot_start_sector(slot_number);
-          dest_freeze_slot_start_sector = *(uint32_t*)0xD681U;
-
-          // 512KB = 1024 sectors
-          // Process in 64KB blocks, so that we can do multi-sector writes
-          // and generally be about 10x faster than otherwise.
-          for (i = 0; i < 1024; i += 128) {
-            POKE(0xD020U, 0x0e);
-            for (j = 0; j < 128; j++) {
-              sdcard_readsector(freeze_slot_start_sector + i + j);
-              lcopy((unsigned long)sector_buffer, 0x40000U + (j << 9), 512);
-            }
-            POKE(0xD020U, 0x00);
-            for (j = 0; j < 128; j++) {
-              lcopy(0x40000U + (j << 9), (unsigned long)sector_buffer, 512);
-#ifdef USE_MULTIBLOCK_WRITE
-              if (!j)
-                sdcard_writesector(dest_freeze_slot_start_sector + i + j, 1);
-              else
-                sdcard_writenextsector();
-#else
-              sdcard_writesector(dest_freeze_slot_start_sector + i + j, 0);
-#endif
-            }
-#ifdef USE_MULTIBLOCK_WRITE
-            // Close multi-sector write job
-            sdcard_writemultidone();
-#endif
-          }
-          // stop giving visual feedback
-          sdcard_visual_feedback(0);
-
-          POKE(0xD020U, 6);
-
-          draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
-        } break;
-
-        case 0xfe: // F14 - restore CHARSET from FILE
-          {
-            // clear screen first
-            predraw_freeze_menu();
-            // don't check, just put font into chargen
-            fix_chargen_area(CHARGEN_NOCHECK | CHARGEN_FIXMEM);
-            // we need to redraw everything, because loading the ROM
-            // will mess things up (thumbnail for example)
-            last_thumb_frame = 255; // invalidate thumbnail
-            draw_freeze_menu(UPDATE_ALL);
-          }
-          break;
-
-        case 0x1f: // HELP MEGAINFO
-          start_freezer_tool("MEGAINFO.M65");
-          break;
-
-        case 'R':
-        case 'r': // switch CRT Emulation
-          c = freeze_peek(0xFFD3054L);
-          if (c & 0x20) {
-            freeze_poke(0xFFD3054L, c & 0xdf);
-            lpoke(0xFFD3054L, lpeek(0xFFD3054L) & 0xdf);
-          }
-          else {
-            freeze_poke(0xFFD3054L, c | 0x20);
-            lpoke(0xFFD3054L, lpeek(0xFFD3054L) | 0x20);
-          }
-          draw_freeze_menu(UPDATE_TOP);
-          break;
-        case 'L':
-        case 'l':
-          start_freezer_tool("ROMLOAD.M65");
-          break;
-        case 'X':
-        case 'x': // Poke finder
-        case 'E':
-        case 'e': // Enter POKEs
-        case 'k':
-        case 'K': // Sprite killer
-        default:
-invalid_function:
-          // For invalid or unimplemented functions flash the border and screen
-          POKE(0xD020U, 1);
-          POKE(0xD021U, 1);
+        // can't save to slot 0
+        if (slot_number == 0) {
+          POKE(0xD020U, 2);
+          POKE(0xD021U, 2);
           usleep(150000L);
           POKE(0xD020U, 6);
           POKE(0xD021U, 6);
-          break;
+          continue;
         }
-    }
+
+        // Get start sectors of the source and destination slots
+        // give visual feedback
+        sdcard_visual_feedback(1);
+
+        find_freeze_slot_start_sector(0);
+        freeze_slot_start_sector = *(uint32_t *)0xD681U;
+        find_freeze_slot_start_sector(slot_number);
+        dest_freeze_slot_start_sector = *(uint32_t *)0xD681U;
+
+        // 512KB = 1024 sectors
+        // Process in 64KB blocks, so that we can do multi-sector writes
+        // and generally be about 10x faster than otherwise.
+        for (i = 0; i < 1024; i += 128) {
+          POKE(0xD020U, 0x0e);
+          for (j = 0; j < 128; j++) {
+            sdcard_readsector(freeze_slot_start_sector + i + j);
+            lcopy((unsigned long)sector_buffer, 0x40000U + (j << 9), 512);
+          }
+          POKE(0xD020U, 0x00);
+          for (j = 0; j < 128; j++) {
+            lcopy(0x40000U + (j << 9), (unsigned long)sector_buffer, 512);
+#ifdef USE_MULTIBLOCK_WRITE
+            if (!j)
+              sdcard_writesector(dest_freeze_slot_start_sector + i + j, 1);
+            else
+              sdcard_writenextsector();
+#else
+            sdcard_writesector(dest_freeze_slot_start_sector + i + j, 0);
+#endif
+          }
+#ifdef USE_MULTIBLOCK_WRITE
+          // Close multi-sector write job
+          sdcard_writemultidone();
+#endif
+        }
+        // stop giving visual feedback
+        sdcard_visual_feedback(0);
+
+        POKE(0xD020U, 6);
+
+        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB);
+      } break;
+
+      case 0xfe: // F14 - restore CHARSET from FILE
+      {
+        // clear screen first
+        predraw_freeze_menu();
+        // don't check, just put font into chargen
+        fix_chargen_area(CHARGEN_NOCHECK | CHARGEN_FIXMEM);
+        // we need to redraw everything, because loading the ROM
+        // will mess things up (thumbnail for example)
+        last_thumb_frame = 255; // invalidate thumbnail
+        draw_freeze_menu(UPDATE_ALL);
+      } break;
+
+      case 0x1f: // HELP MEGAINFO
+        start_freezer_tool("MEGAINFO.M65");
+        break;
+
+      case 'R':
+      case 'r': // switch CRT Emulation
+        c = freeze_peek(0xFFD3054L);
+        if (c & 0x20) {
+          freeze_poke(0xFFD3054L, c & 0xdf);
+          lpoke(0xFFD3054L, lpeek(0xFFD3054L) & 0xdf);
+        }
+        else {
+          freeze_poke(0xFFD3054L, c | 0x20);
+          lpoke(0xFFD3054L, lpeek(0xFFD3054L) | 0x20);
+        }
+        draw_freeze_menu(UPDATE_TOP);
+        break;
+      case 'L':
+      case 'l':
+        start_freezer_tool("ROMLOAD.M65");
+        break;
+      case 'X':
+      case 'x': // Poke finder
+      case 'E':
+      case 'e': // Enter POKEs
+      case 'k':
+      case 'K': // Sprite killer
+      default:
+      invalid_function:
+        // For invalid or unimplemented functions flash the border and screen
+        POKE(0xD020U, 1);
+        POKE(0xD021U, 1);
+        usleep(150000L);
+        POKE(0xD020U, 6);
+        POKE(0xD021U, 6);
+        break;
+      }
   }
 
   return;
