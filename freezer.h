@@ -8,6 +8,7 @@
 #define WITH_AUDIOMIXER
 // #define WITH_TOUCH
 
+void init_nmi(void);
 unsigned char mega65_geterrorcode(void);
 char cdecl mega65_dos_chdir(unsigned char *dirname);
 char cdecl mega65_dos_cdroot();

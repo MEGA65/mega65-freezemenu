@@ -896,7 +896,7 @@ int main(int argc, char **argv)
 #endif
 
   // Disable interrupts and interrupt sources
-  __asm__("sei");
+  init_nmi(); // this also does SEI
   POKE(0xDC0DU, 0x7F);
   POKE(0xDD0DU, 0x7F);
   POKE(0xD01AU, 0x00);

@@ -1,5 +1,6 @@
 
 	.setcpu "65C02"
+	.export _init_nmi
 	.export _mega65_geterrorcode
 	.export _mega65_dos_d81attach0
 	.export _mega65_dos_d81attach1
@@ -23,6 +24,17 @@
   ;; fall-back to FREEZER.M65 if other .M65 file can't be loaded
 _freezer_m65:
 	.asciiz "freezer.m65"
+
+_init_nmi:
+	sei
+	lda #<nmi_handler
+	sta $318
+	lda #>nmi_handler
+	sta $319
+	rts
+
+nmi_handler:
+	rti
 
 _mega65_geterrorcode:
 	;; short mega65_geterrorcode();
