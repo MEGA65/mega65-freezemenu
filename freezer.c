@@ -595,6 +595,10 @@ void topetsciiupper(char *str, int len)
     str[i] = tweak(str[i]);
 }
 
+unsigned char origD689 = 0;
+
+#ifdef WITH_JOYSTICK
+// TODO: this is very old and generates keystrokes we don't have anymore
 // Left/right do left/right
 // fire = F3
 // down = disk menu
@@ -604,7 +608,17 @@ unsigned char joy_to_key[32] = {
   0, 0, 0, 0, 0, 0, 0, 0x1d, 0, 0, 0, 0x9d, 0, 'd', 'v', 0 // without fire
 };
 
-unsigned char origD689 = 0;
+unsigned char read_joystick() {
+  unsigned char c;
+  // TODO: this is very broken, keypresses will generate F3(FIRE) on DC01
+  // We use a simple lookup table to do this
+  c = joy_to_key[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
+  // Then wait for joystick to release
+  while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
+    continue;
+  return c;
+}
+#endif /* WITH_JOYSTICK */
 
 #ifdef WITH_TOUCH
 // clang-format off
@@ -621,6 +635,8 @@ unsigned char last_x;
 
 void poll_touch_panel(void)
 {
+  unsigned char c = 0;
+
   if (PEEK(0xD6B0U) & 1) {
     x = PEEK(0xD6B9) + ((PEEK(0xD6BB) & 0x03) << 8);
     y = PEEK(0xD6BA) + ((PEEK(0xD6BB) & 0x30) << 4);
@@ -631,6 +647,87 @@ void poll_touch_panel(void)
     x = 0;
     y = 0;
   }
+
+  if ((last_touch & 1) && (!(PEEK(0xD6B0) & 1))) {
+    if (y > 8 && y < 17) {
+      if (x < 26)
+        x = 0;
+      else
+        x = 1;
+      c = touch_keys[x][y - 9];
+      // Wait for touch to be released
+      // XXX - Records touch event as where your finger was when you touched, not released.
+      while (PEEK(0xD6B0) & 1)
+        continue;
+    }
+  }
+
+  // Set speaker volume by placing finger along top edge of screen.
+  // (We now also support setting the amplifier gain from in the audio mixer,
+  // including setting the gain for stereo speakers.  This little hack below
+  // will likely disappear when we add touch support to the audio mixer)
+  if (y > 0 && y < 7) {
+    if (PEEK(0xD6B0) & 1) {
+      if (x > 5)
+        x -= 5;
+      else
+        x = 0;
+      if (x > 39)
+        x = 39;
+      for (y = 0; y < x * 2; y += 2)
+        lpoke(SCREEN_ADDRESS + y, 0xA0);
+      for (; y < 80; y += 2)
+        lpoke(SCREEN_ADDRESS + y, 0x20);
+      y = 0;
+      lpoke(0xFFD7035L, 0xff - (x * 5));
+    }
+  }
+
+  // Check for side/side swiping
+  // (In theory the touch panel supports gestures, but we have not got them working.
+  // so we will just infer them.  Move sideways more than 3 characters within a short
+  // period of time will be deemed to be a side swipe).
+  if (y > 17) {
+    if (PEEK(0xD6B0) & 1) {
+      if (x > last_x && swipe_dir < 0)
+        swipe_dir = 1;
+      if (x > last_x && swipe_dir >= 0)
+        swipe_dir++;
+      if (x > last_x) {
+        // Swipe screen to the right
+
+        // Copy is overlapping, so copy it somewhere else first, then copy it down
+        lcopy(SCREEN_ADDRESS + (80 * 13), 0x40000L, 12 * 80 - 2);
+        lcopy(0x40000, SCREEN_ADDRESS + (80 * 13) + 2, 12 * 80 - 2);
+      }
+
+      if ((x < last_x) && (swipe_dir > 0))
+        swipe_dir = -1;
+      if ((x < last_x))
+        swipe_dir--;
+      if (x < last_x) {
+        // Swipe screen to the left
+        lcopy(SCREEN_ADDRESS + (80 * 13), SCREEN_ADDRESS + (80 * 13) - 2, 12 * 80 - 2);
+      }
+
+      if (swipe_dir == -5) {
+        c = 0x1d;
+        swipe_dir = 0;
+      }
+      if (swipe_dir == 5) {
+        c = 0x9d;
+        swipe_dir = 0;
+      }
+
+      last_x = x;
+    }
+    else {
+      if (last_touch & 1) { }
+    }
+  }
+  last_touch = PEEK(0xD6B0);
+
+  return c;
 }
 #endif
 
@@ -892,105 +989,18 @@ int main(int argc, char **argv)
   while (1) {
     unsigned char c = PEEK(0xD610U);
 
-    // Flush char from input buffer
     if (c)
+      // Flush char from input buffer
       POKE(0xD610U, 0);
-    else {
-
-      // If no keyboard input, check for joystick input
-      // We should make this context sensitive, but for now just want
-      // easy choosing of frozen programs to run, so fire will be F3,
-      // and left and right on the joystick will be left and right
-      // cursor keys.
-      // We use a simple lookup table to do this
-      c = joy_to_key[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
-      // Then wait for joystick to release
-      while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
-        continue;
-    }
+#ifdef WITH_JOYSTICK
+    // Joystick Support is old and needs to be overhauled!
+    if (!c)
+      c = read_joystick();
+#endif
 #ifdef WITH_TOUCH
-    if (!c) {
-      // Check for touch panel activity
-      poll_touch_panel();
-      if ((last_touch & 1) && (!(PEEK(0xD6B0) & 1))) {
-        if (y > 8 && y < 17) {
-          if (x < 26)
-            x = 0;
-          else
-            x = 1;
-          c = touch_keys[x][y - 9];
-          // Wait for touch to be released
-          // XXX - Records touch event as where your finger was when you touched, not released.
-          while (PEEK(0xD6B0) & 1)
-            continue;
-        }
-      }
-
-      // Set speaker volume by placing finger along top edge of screen.
-      // (We now also support setting the amplifier gain from in the audio mixer,
-      // including setting the gain for stereo speakers.  This little hack below
-      // will likely disappear when we add touch support to the audio mixer)
-      if (y > 0 && y < 7) {
-        if (PEEK(0xD6B0) & 1) {
-          if (x > 5)
-            x -= 5;
-          else
-            x = 0;
-          if (x > 39)
-            x = 39;
-          for (y = 0; y < x * 2; y += 2)
-            lpoke(SCREEN_ADDRESS + y, 0xA0);
-          for (; y < 80; y += 2)
-            lpoke(SCREEN_ADDRESS + y, 0x20);
-          y = 0;
-          lpoke(0xFFD7035L, 0xff - (x * 5));
-        }
-      }
-
-      // Check for side/side swiping
-      // (In theory the touch panel supports gestures, but we have not got them working.
-      // so we will just infer them.  Move sideways more than 3 characters within a short
-      // period of time will be deemed to be a side swipe).
-      if (y > 17) {
-        if (PEEK(0xD6B0) & 1) {
-          if (x > last_x && swipe_dir < 0)
-            swipe_dir = 1;
-          if (x > last_x && swipe_dir >= 0)
-            swipe_dir++;
-          if (x > last_x) {
-            // Swipe screen to the right
-
-            // Copy is overlapping, so copy it somewhere else first, then copy it down
-            lcopy(SCREEN_ADDRESS + (80 * 13), 0x40000L, 12 * 80 - 2);
-            lcopy(0x40000, SCREEN_ADDRESS + (80 * 13) + 2, 12 * 80 - 2);
-          }
-
-          if ((x < last_x) && (swipe_dir > 0))
-            swipe_dir = -1;
-          if ((x < last_x))
-            swipe_dir--;
-          if (x < last_x) {
-            // Swipe screen to the left
-            lcopy(SCREEN_ADDRESS + (80 * 13), SCREEN_ADDRESS + (80 * 13) - 2, 12 * 80 - 2);
-          }
-
-          if (swipe_dir == -5) {
-            c = 0x1d;
-            swipe_dir = 0;
-          }
-          if (swipe_dir == 5) {
-            c = 0x9d;
-            swipe_dir = 0;
-          }
-
-          last_x = x;
-        }
-        else {
-          if (last_touch & 1) { }
-        }
-      }
-    }
-    last_touch = PEEK(0xD6B0);
+    // This is just for MEGAPHONE and is probably not working (like joystick)!
+    if (!c)
+      c = poll_touch_panel();
 #endif
 
     // Process char
