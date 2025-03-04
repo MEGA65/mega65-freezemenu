@@ -473,9 +473,9 @@ void draw_disk_image_list(void)
   for (i = 0; i < 23; i++) {
     if ((display_offset + i) < file_count) {
       // Real line
-      lcopy(0x40000U + ((display_offset + i) << 6), (unsigned long)name, 64);
+      lcopy(0x40000U + ((display_offset + i) << 6), (unsigned long)name, 33);
 
-      for (x = 0; x < 20; x++) {
+      for (x = 0; x < 33; x++) {
         if ((name[x] >= 'A' && name[x] <= 'Z') || (name[x] >= 'a' && name[x] <= 'z'))
           POKE(addr + (x << 1), name[x] & 0x1f);
         else if (name[x] == '_')
@@ -499,9 +499,10 @@ void draw_disk_image_list(void)
       // Normal row
       lcopy((long)normal_row, COLOUR_RAM_ADDRESS + (i * 80), 4);
     }
-    lcopy(COLOUR_RAM_ADDRESS + (i * 80), COLOUR_RAM_ADDRESS + (i * 80) + 4, 36);
+    lcopy(COLOUR_RAM_ADDRESS + (i * 80), COLOUR_RAM_ADDRESS + (i * 80) + 4, 76);
     addr += (40 * 2);
   }
+  POKE(0xD020U, 6);
 }
 
 void scan_directory(unsigned char drive_id)
@@ -514,18 +515,19 @@ void scan_directory(unsigned char drive_id)
 
   closeall();
 
+  lfill(0x40000UL, ' ', 0xffffU);
   // Add the pseudo disks
-  lcopy((unsigned long)"- NO DISK -         ", 0x40000L + (file_count * 64), 20);
+  lcopy((unsigned long)"- NO DISK -", 0x40000UL + (file_count * 64), 11);
   file_count++;
   if (drive_id == 0) {
-    lcopy((unsigned long)INTERNAL_DRIVE_0, 0x40000L + (file_count * 64), 20);
+    lcopy((unsigned long)INTERNAL_DRIVE_0, 0x40000UL + (file_count * 64), 17);
     file_count++;
   }
   else if (drive_id == 1) {
-    lcopy((unsigned long)INTERNAL_DRIVE_1, 0x40000L + (file_count * 64), 20);
+    lcopy((unsigned long)INTERNAL_DRIVE_1, 0x40000UL + (file_count * 64), 16);
     file_count++;
   }
-  lcopy((unsigned long)"- NEW D81 DD IMAGE -", 0x40000L + (file_count * 64), 20);
+  lcopy((unsigned long)"- NEW D81 DD IMAGE -", 0x40000UL + (file_count * 64), 20);
   file_count++;
 
 #if 0
@@ -543,14 +545,13 @@ void scan_directory(unsigned char drive_id)
     x = strlen(dirent->d_name);
 
     // check DIR attribute of dirent
-    if (dirent->d_type & 0x10) {
-      // if there is a .. path, then we are in a subdir
-      if (!strcmp("..", dirent->d_name)) {
-        not_in_root = 1;
-        file_count--; // overwrite makedisk
-      }
-      if (x < 60) {
-        lfill(0x40000L + (file_count * 64), ' ', 64);
+    if (x < 32) {
+      if (dirent->d_type & 0x10) {
+        // if there is a .. path, then we are in a subdir
+        if (!strcmp("..", dirent->d_name)) {
+          not_in_root = 1;
+          file_count--; // overwrite makedisk
+        }
         lcopy((long)&dirent->d_name[0], 0x40000L + 1 + (file_count * 64), x);
         // Put / at the start of directory names to make them obviously different
         lpoke(0x40000L + (file_count * 64), '/');
@@ -558,21 +559,19 @@ void scan_directory(unsigned char drive_id)
         if (strcmp(".", dirent->d_name))
           file_count++;
       }
-    }
-    else if (x > 4) {
-      ptr = &dirent->d_name[x - 4];
-      if ((!strcmp(ptr, ".D81")) || (!strcmp(ptr, ".d81")) || (!strcmp(ptr, ".D64")) || (!strcmp(ptr, ".d64"))
-          || (!strcmp(ptr, ".D65")) || (!strcmp(ptr, ".d65"))) {
-        // File is a disk image
-        lfill(0x40000L + (file_count * 64), ' ', 64);
-        lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
-        file_count++;
+      else if (x > 4) {
+        ptr = &dirent->d_name[x - 4];
+        if ((!strcmp(ptr, ".D81")) || (!strcmp(ptr, ".d81")) || (!strcmp(ptr, ".D64")) || (!strcmp(ptr, ".d64"))
+            || (!strcmp(ptr, ".D65")) || (!strcmp(ptr, ".d65"))) {
+          // File is a disk image
+          lcopy((long)&dirent->d_name[0], 0x40000L + (file_count * 64), x);
+          file_count++;
+        }
       }
     }
 
     dirent = readdir(dir);
   }
-
   closedir(dir);
 }
 
@@ -786,19 +785,25 @@ char *freeze_select_disk_image(unsigned char drive_id)
         return disk_name_return;
       }
       break;
-    case 0x11:
-    case 0x9d: // Cursor down or left
-      POKE(0xD020U, 6);
+    case 0x13: // HOME
+      selection_number = 0;
+      break;
+    case 0x93: // Shift-HOME
+      selection_number = file_count - 1;
+      break;
+    case 0x1d: // Cursor right, next page
+      selection_number += 22;
+    case 0x11: // Cursor down, one down
       selection_number++;
       if (selection_number >= file_count)
-        selection_number = 0;
+        selection_number = file_count - 1;
       break;
-    case 0x91:
-    case 0x1d: // Cursor up or right
-      POKE(0xD020U, 6);
+    case 0x9d: // Cursor left, prev page
+      selection_number -= 22;
+    case 0x91: // Cursor up, one up
       selection_number--;
       if (selection_number < 0)
-        selection_number = file_count - 1;
+        selection_number = 0;
       break;
     }
 
