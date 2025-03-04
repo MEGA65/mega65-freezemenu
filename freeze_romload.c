@@ -285,7 +285,10 @@ unsigned char freeze_load_romarea(void)
   draw_file_list();
   while (1) {
     x = PEEK(0xD610U);
+    if (x)
+      POKE(0xD610U, 0);
 
+#ifdef WITH_JOYSTICK
     if (!x) {
       // We use a simple lookup table to do this
       x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
@@ -293,9 +296,7 @@ unsigned char freeze_load_romarea(void)
       while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
         continue;
     }
-    else {
-      POKE(0xD610U, 0);
-    }
+#endif
 
     switch (x) {
     case 0x03: // RUN-STOP = make no change
@@ -459,7 +460,10 @@ void user_reset_prompt(void)
 
   while (x != 'Y' && x != 'y' && x != 'N' && x != 'n') {
     x = PEEK(0xD610U);
+    if (x)
+      POKE(0xD610U, 0);
 
+#ifdef WITH_JOYSTICK
     if (!x) {
       // We use a simple lookup table to do this
       x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
@@ -472,9 +476,7 @@ void user_reset_prompt(void)
       else if (x == 0x9d) // left is abort
         x = 'N';
     }
-    else {
-      POKE(0xD610U, 0);
-    }
+#endif
   }
 
   if (x == 'y' || x == 'Y') {

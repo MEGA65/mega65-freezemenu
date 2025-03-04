@@ -46,10 +46,12 @@ unsigned char dir_line_colour[4] = { 0, 0xe, 0, 0xe };
 
 char disk_name_return[32];
 
+#ifdef WITH_JOYSTICK
 unsigned char joy_to_key_disk[32] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0d,         // With fire pressed
   0, 0, 0, 0, 0, 0, 0, 0x9d, 0, 0, 0, 0x1d, 0, 0x11, 0x91, 0 // without fire
 };
+#endif
 
 static char default_error[] = "ERROR CODE XX";
 char *hyppoerror_to_screen(unsigned char error)
@@ -607,7 +609,11 @@ char *freeze_select_disk_image(unsigned char drive_id)
   draw_disk_image_list();
   while (1) {
     x = PEEK(0xD610U);
+    if (x)
+      // Clear read key
+      POKE(0xD610U, 0);
 
+#ifdef WITH_JOYSTICK
     if (!x) {
       // We use a simple lookup table to do this
       x = joy_to_key_disk[PEEK(0xDC00) & PEEK(0xDC01) & 0x1f];
@@ -615,6 +621,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
       while ((PEEK(0xDC00) & PEEK(0xDC01) & 0x1f) != 0x1f)
         continue;
     }
+#endif
 
     if (!x) {
       idle_time++;
@@ -628,9 +635,6 @@ char *freeze_select_disk_image(unsigned char drive_id)
     }
     else
       idle_time = 0;
-
-    // Clear read key
-    POKE(0xD610U, 0);
 
     switch (x) {
     case 0x5f: // <- key at top left of key board

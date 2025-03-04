@@ -41,40 +41,6 @@ void setup_menu_screen(void)
   lfill(0xff80000U, 1, 2000);
 }
 
-// Left/right do left/right
-// fire = F3
-// down = disk menu
-// up = toggle PAL/NTSC ?
-unsigned char joy_to_key[32] = {
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xF3,       // With fire pressed
-  0, 0, 0, 0, 0, 0, 0, 0x1d, 0, 0, 0, 0x9d, 0, 'd', 'v', 0 // without fire
-};
-
-#ifdef WITH_TOUCH
-unsigned char touch_keys[2][9] = { { 0xF3, 0x00, 'c', 'r', 'f', 0x00, 'm', 'a', 'd' },
-  { 0xF7, 0x00, 'j', 't', 'v', 0x00, 'e', 'k', 'x' } };
-
-unsigned short x;
-unsigned short y;
-
-unsigned char last_touch = 0;
-unsigned char last_x;
-
-void poll_touch_panel(void)
-{
-  if (PEEK(0xD6B0U) & 1) {
-    x = PEEK(0xD6B9) + ((PEEK(0xD6BB) & 0x03) << 8);
-    y = PEEK(0xD6BA) + ((PEEK(0xD6BB) & 0x30) << 4);
-    x = x >> 4;
-    y = y >> 4;
-  }
-  else {
-    x = 0;
-    y = 0;
-  }
-}
-#endif
-
 #ifdef __CC65__
 void main(void)
 #else
