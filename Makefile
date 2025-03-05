@@ -44,7 +44,6 @@ ASSFILES=	freezer.s \
 		freeze_diskchooser.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
-		fdisk_fat32.s \
 		fdisk_hal_mega65.s \
 		helper.s \
 		freezer_common.s
