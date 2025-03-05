@@ -1,3 +1,6 @@
+#ifndef __FDISK_SCREEN_H__
+#define __FDISK_SCREEN_H__
+
 #define SCREEN_ADDRESS (0xB800U)
 // Use default char set, not ASCII charset
 #define CHARSET_ADDRESS (0x9000U)
@@ -36,33 +39,14 @@
 #define COLOUR_GREY3 15
 #define COLOUR_LIGHTGREY 15
 
-void setup_screen(void);
-
-void display_footer(unsigned char index);
-void footer_save(void);
-void footer_restore(void);
-void display_buffer_position_footer(char bid);
-
-void screen_colour_line(unsigned char line, unsigned char colour);
-#define screen_colour_line_segment(LA, W, C) lfill(LA + (0x1f800 - SCREEN_ADDRESS), C, W)
-
 void screen_hex(unsigned int addr, long value);
 void screen_hex_byte(unsigned int addr, long value);
 void screen_decimal(unsigned int addr, unsigned int value);
-void set_screen_attributes(long p, unsigned char count, unsigned char attr);
-void write_line(char *s, char col);
-void write_line_len(char *s, char col, char length);
-void write_line_raw(char *s, char col, char length);
-void recolour_last_line(char colour);
-char read_line(char *buffer, unsigned char maxlen);
 
 void format_decimal(const int addr, const int value, const char columns);
 void format_hex(const int addr, const long value, const char columns);
 
 extern long screen_line_address;
+extern char screen_column;
 
-extern unsigned char ascii_map[256];
-#define ascii_to_screen(X) ascii_map[X]
-
-void fatal_error(unsigned char *filename, unsigned int line_number);
-#define FATAL_ERROR fatal_error(__FILE__, __LINE__)
+#endif /* __FDISK_SCREEN_H__ */

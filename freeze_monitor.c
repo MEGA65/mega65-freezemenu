@@ -15,6 +15,7 @@
 #include "fdisk_hal.h"
 #include "fdisk_memory.h"
 #include "fdisk_screen.h"
+#include "fdisk_screen_monitor.h"
 #include "fdisk_fat32.h"
 #include "ascii.h"
 

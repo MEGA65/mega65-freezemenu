@@ -38,38 +38,31 @@ FILES=		FREEZER.M65 \
 		M65THUMB.M65 \
 		GUSTHUMB.M65
 
-M65IDESOURCES=	freezer.c \
-		freeze_audiomix.c \
-		frozen_memory.c \
-		freeze_monitor.c \
-		freeze_diskchooser.c \
-		fdisk_memory.c \
-		fdisk_screen.c \
-		fdisk_fat32.c \
-		fdisk_hal_mega65.c
-
 ASSFILES=	freezer.s \
+		version.s \
 		frozen_memory.s \
 		freeze_diskchooser.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_fat32.s \
 		fdisk_hal_mega65.s \
-		charset.s \
 		helper.s \
 		freezer_common.s
 
 MONASSFILES=	monitor.s \
+		version.s \
 		freeze_monitor.s \
 		frozen_memory.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
+		fdisk_screen_monitor.s \
 		fdisk_hal_mega65.s \
 		charset.s \
 		helper.s \
 		freezer_common.s
 
 AMASSFILES=	audiomix.s \
+		version.s \
 		freeze_audiomix.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -80,6 +73,7 @@ AMASSFILES=	audiomix.s \
 		freezer_common.s
 
 MDASSFILES=	makedisk.s \
+		version.s \
 		freezer_common.s \
 		fdisk_fat32.s \
 		frozen_memory.s \
@@ -90,6 +84,7 @@ MDASSFILES=	makedisk.s \
 		helper.s
 
 SEASSFILES=	sprited.s \
+		version.s \
 		freezer_common.s \
 		freeze_sprited.s \
 		frozen_memory.s \
@@ -100,6 +95,7 @@ SEASSFILES=	sprited.s \
 		helper.s
 
 RLASSFILES=	romload.s \
+		version.s \
 		freeze_romload.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -110,6 +106,7 @@ RLASSFILES=	romload.s \
 		freezer_common.s
 
 MIASSFILES=	megainfo.s \
+		version.s \
 		freeze_megainfo.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -195,37 +192,37 @@ tools/thumbnail-surround-formatter: tools/thumbnail-surround-formatter.c
 
 FREEZER.M65:	version.s $(ASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 version.s $(ASSFILES)
+	$(CL65) $(COPTS) -g -Ln freezer.lbl $(LOPTS) -vm --add-source -l freezer.list -m freezer.map -o FREEZER.M65 $(ASSFILES)
 	$(CHECKSIZE)
 
 AUDIOMIX.M65:	version.s $(AMASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 version.s $(AMASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l audiomix.list -m audiomix.map -o AUDIOMIX.M65 $(AMASSFILES)
 	$(CHECKSIZE)
 
 MONITOR.M65:	version.s $(MONASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l monitor.list -m monitor.map -o MONITOR.M65 version.s $(MONASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l monitor.list -m monitor.map -o MONITOR.M65 $(MONASSFILES)
 	$(CHECKSIZE)
 
 MAKEDISK.M65:	version.s $(MDASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 version.s $(MDASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l makedisk.list -m makedisk.map -o MAKEDISK.M65 $(MDASSFILES)
 	$(CHECKSIZE)
 
 SPRITED.M65:	version.s $(SEASSFILES) $(DATAFILES) $(CC65) *.h $(MEGA65LIBCLIB)
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 version.s $(SEASSFILES) $(MEGA65LIBCLIB)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l sprited.list -m sprited.map -o SPRITED.M65 $(SEASSFILES) $(MEGA65LIBCLIB)
 	$(CHECKSIZE)
 
 ROMLOAD.M65:	version.s $(RLASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 version.s $(RLASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l romload.list -m romload.map -o ROMLOAD.M65 $(RLASSFILES)
 	$(CHECKSIZE)
 
 MEGAINFO.M65:	version.s $(MIASSFILES) $(DATAFILES) $(CC65) *.h
 	$(info ======== Making: $@)
-	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 version.s $(MIASSFILES)
+	$(CL65) $(COPTS) $(LOPTS) -vm --add-source -l megainfo.list -m megainfo.map -o MEGAINFO.M65 $(MIASSFILES)
 	$(CHECKSIZE)
 
 M65THUMB.M65:	assets/thumbnail-surround-m65.png tools/thumbnail-surround-formatter
