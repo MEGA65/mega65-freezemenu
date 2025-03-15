@@ -227,19 +227,34 @@ void format_disk_image(unsigned long file_sector, char *diskname, unsigned char 
   // Link to first directory sector
   sector_buffer[0] = 0x28;
   sector_buffer[1] = 0x03;
+
+  // DOS Version
+  sector_buffer[2] = 0x44;
+  sector_buffer[3] = 0x00;
+
   // Diskname
   lcopy((long)diskname, (long)&sector_buffer[4], 16);
   if (strlen(diskname) < 16) {
     for (i = strlen(diskname); i < 16; i++)
       sector_buffer[4 + i] = 0xa0;
   }
+
+  sector_buffer[0x14] = 0xa0;
+  sector_buffer[0x15] = 0xa0;
+
   // Random disk ID
   i = PEEK(0xD012);
   sector_buffer[0x16] = to_hex(i & 0xf);
   sector_buffer[0x17] = to_hex(i >> 4);
+
+  sector_buffer[0x18] = 0xa0;
+
   // DOS type
   sector_buffer[0x19] = 0x31;
   sector_buffer[0x1A] = 0x44;
+
+  sector_buffer[0x1B] = 0xa0;
+  sector_buffer[0x1C] = 0xa0;
 
   lcopy((long)bam_sector1, (long)&sector_buffer[0x100], 0x100);
 
