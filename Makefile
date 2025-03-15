@@ -11,6 +11,10 @@ else
 	CL65=	cc65/bin/cl65
 endif
 
+# determine where HEAD is
+git_is_dir=$(shell test -d .git; echo $$?)
+GIT_HEAD=$(if $(findstring 0,$(git_is_dir)),.git/HEAD,$(shell cut -d ' ' -f 2 .git)/HEAD)
+
 # check if we are building against the old version of libc, still having cc65 as a toplevel dir
 ifneq ($(wildcard ../mega65-libc/cc65/*),)
 	MEGA65LIBCDIR=	../mega65-libc/cc65
@@ -135,7 +139,7 @@ $(MEGA65LIBCLIB):
 	make -C $(MEGA65LIBCDIR) all
 	make -C $(MEGA65LIBCDIR) clean
 
-version.s: .git/HEAD gitversion.sh
+version.s: $(GIT_HEAD) gitversion.sh
 	@if [ -z "$(DO_MKVER)" ] || [ "$(DO_MKVER)" -eq "1" ] ; then \
 	echo "Retrieving Git version string... (set env-var DO_MKVER=0 to turn this behaviour off)" ; \
 	echo '.segment "CODE"' > version.s ; \
