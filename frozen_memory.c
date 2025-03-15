@@ -21,8 +21,7 @@ void request_freeze_region_list(void)
   // The transfer region MUST be in the lower 32KB of RAM, so we will copy it
   // to the screen in the first instance, and then DMA copy it where we want it
   unsigned short i;
-  lfill(0x0400U, 0x20, 1000);
-  fetch_freeze_region_list_from_hypervisor(0x0400);
+  fetch_freeze_region_list_from_hypervisor(0x0400U);
   lcopy(0x0400U, (unsigned long)&freeze_region_list, 256);
 
   freeze_region_flags = 0;

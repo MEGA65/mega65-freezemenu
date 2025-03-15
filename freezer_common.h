@@ -33,5 +33,6 @@ unsigned char detect_cpu_speed(void);
 uint8_t nybl_to_screen(uint8_t v);
 unsigned char petscii_to_screen(unsigned char petscii);
 void screen_of_death(char *msg);
+void copy_imageproc_to_freezeregion(int diskid, uint8_t override_internal);
 
 #endif /* __FREEZER_COMMON_H__ */

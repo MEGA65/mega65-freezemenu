@@ -274,3 +274,18 @@ void screen_of_death(char *msg)
   while (1 || msg)
     continue;
 }
+
+void copy_imageproc_to_freezeregion(int diskid, uint8_t override_internal)
+{
+  uint8_t disk_img_name_loc = diskid ? 0x35 : 0x15;
+  uint8_t disk_img_flag_loc = diskid ? 0x12 : 0x11;
+  uint8_t i;
+
+  mega65_dos_getprocdesc(0x04); // get procdesc from hyppo to 0x400
+
+  freeze_poke(0xFFFBD00L + disk_img_flag_loc, override_internal ? 0 : PEEK(0x0400U + disk_img_flag_loc));
+  freeze_poke(0xFFFBD02L + disk_img_flag_loc, override_internal ? 0 : PEEK(0x0402U + disk_img_flag_loc)); // this is namelength
+  for (i = 0; i < 32; i++) {
+    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, override_internal ? 0 : PEEK(0x0400U + disk_img_name_loc + i));
+  }
+}

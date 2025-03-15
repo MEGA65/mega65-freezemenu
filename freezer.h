@@ -8,26 +8,15 @@
 #define WITH_AUDIOMIXER
 // #define WITH_TOUCH
 
-void init_nmi(void);
-unsigned char mega65_geterrorcode(void);
-char cdecl mega65_dos_chdir(unsigned char *dirname);
-char cdecl mega65_dos_cdroot();
-char cdecl mega65_dos_d81attach0(char *image_name);
-char cdecl mega65_dos_d81attach1(char *image_name);
-char cdecl mega65_dos_exechelper(char *filename);
-void fetch_freeze_region_list_from_hypervisor(unsigned short);
-unsigned char find_freeze_slot_start_sector(unsigned short);
-char cdecl read_file_from_sdcard(char *filename, uint32_t load_address);
-void unfreeze_slot(unsigned short);
-unsigned char opendir(void);
-struct m65_dirent *readdir(unsigned char);
-void closedir(unsigned char);
-void closeall(void);
+#include "helper.h"
 
 void freeze_monitor(void);
 
-#define INTERNAL_DRIVE_0 "- INTERNAL 3.5\" -   "
-#define INTERNAL_DRIVE_1 "- 1565 DRIVE 1 -    "
+#define SELDISK_INTERNAL 0xFFFF
+#define SELDISK_NODISK   0xFFFE
+#define NO_DISK_DRIVE "- NO DISK -"
+#define INTERNAL_DRIVE_0 "- INTERNAL 3.5\" -"
+#define INTERNAL_DRIVE_1 "- 1565 DRIVE 1 -"
 char *freeze_select_disk_image(unsigned char drive_id);
 
 void request_freeze_region_list(void);
@@ -39,7 +28,6 @@ unsigned char freeze_fetch_sector(uint32_t addr, unsigned char *buffer);
 unsigned char freeze_fetch_sector_partial(uint32_t addr, uint32_t dest, unsigned int count);
 unsigned char freeze_store_sector(uint32_t addr, unsigned char *buffer);
 unsigned char freeze_store_sector_partial(uint32_t addr, uint32_t src, unsigned int count);
-unsigned short get_freeze_slot_count(void);
 void do_audio_mixer(void);
 void do_sprite_editor(void);
 unsigned char do_rom_loader(void);
@@ -91,6 +79,9 @@ struct file_descriptor_t {
   unsigned short offset_in_buffer;
 };
 
+#define PD_IMGFLAGS_MOUNTED 0b00000001
+#define PD_IMGFLAGS_WRITEEN 0b00000101
+#define PD_IMGFLAGS_NOREAL  0b01000000
 struct process_descriptor_t {
   unsigned char task_id;
   char process_name[16];

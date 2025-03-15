@@ -44,7 +44,9 @@ unsigned char error_row[4] = { 0, 2, 0, 2 };
 unsigned char highlight_row[4] = { 0, 0x21, 0, 0x21 };
 unsigned char dir_line_colour[4] = { 0, 0xe, 0, 0xe };
 
-char disk_name_return[32];
+char disk_name_return[33];
+char old_disk_name[33];
+uint8_t old_disk_flags, old_disk_len;
 
 #ifdef WITH_JOYSTICK
 unsigned char joy_to_key_disk[32] = {
@@ -118,16 +120,16 @@ char *hyppoerror_to_screen(unsigned char error)
 #define DISK_TYPE_D64 1
 #define DISK_TYPE_D65 2
 #define DISK_TYPE_D71 3
-static unsigned char disk_type, current_sector, dir_track, entries, cur_row, next_sector, messed_up = 0;
+static unsigned char disk_type, current_sector, dir_track, entries, cur_row, next_sector, messed_up;
 static unsigned char current_side = 0, entry_buffer[18] = "\"                 ";
 
-void display_error(unsigned char error)
+void display_error()
 {
   unsigned char i;
   char *errstr;
 
   POKE(0xD020U, 2);
-  errstr = hyppoerror_to_screen(error);
+  errstr = hyppoerror_to_screen(mega65_geterrorcode());
   for (i = 0; i < 19 && errstr[i]; i++) {
     POKE(SCREEN_ADDRESS + (21 * 2) + (i * 2), petscii_to_screen(errstr[i]));
     lpoke(COLOUR_RAM_ADDRESS + (21 * 2) + 1 + (i * 2), 0x02); // errors are red
@@ -235,7 +237,6 @@ int read_sector_with_cancel(void)
 unsigned char draw_directory_contents(unsigned char drive_id)
 {
   unsigned char c, i, x;
-  unsigned char err;
   short skip_bytes, j;
 
   // only work on drive 0 and 1
@@ -254,15 +255,9 @@ unsigned char draw_directory_contents(unsigned char drive_id)
 
   // Try to mount it, with border black while working
   POKE(0xD020U, 0);
-  if (drive_id == 0)
-    err = mega65_dos_d81attach0(disk_name_return);
-  else if (drive_id == 1)
-    err = mega65_dos_d81attach1(disk_name_return);
-  else
-    err = 1;
-  if (err) {
+  if (mega65_dos_attach(disk_name_return, drive_id)) {
     // Mounting the image failed
-    display_error(err);
+    display_error();
     return 1;
   }
   POKE(0xD020U, 6);
@@ -462,10 +457,7 @@ void draw_disk_image_list(void)
 
   // Draw instructions
   for (i = 0; i < 80; i++)
-    if (messed_up && i > 62)
-      POKE(SCREEN_ADDRESS + 23 * 80 + (i << 1), petscii_to_screen(diskchooser_instructions[i + 17]));
-    else
-      POKE(SCREEN_ADDRESS + 23 * 80 + (i << 1), petscii_to_screen(diskchooser_instructions[i]));
+    POKE(SCREEN_ADDRESS + 23 * 80 + (i << 1), petscii_to_screen(diskchooser_instructions[i]));
 
   lcopy((long)highlight_row, COLOUR_RAM_ADDRESS + (23 * 80) + 0, 4);
   lcopy(COLOUR_RAM_ADDRESS + (23 * 80), COLOUR_RAM_ADDRESS + (23 * 80) + 4, 156);
@@ -517,7 +509,7 @@ void scan_directory(unsigned char drive_id)
 
   lfill(0x40000UL, ' ', 0xffffU);
   // Add the pseudo disks
-  lcopy((unsigned long)"- NO DISK -", 0x40000UL + (file_count * 64), 11);
+  lcopy((unsigned long)NO_DISK_DRIVE, 0x40000UL + (file_count * 64), 11);
   file_count++;
   if (drive_id == 0) {
     lcopy((unsigned long)INTERNAL_DRIVE_0, 0x40000UL + (file_count * 64), 17);
@@ -550,7 +542,9 @@ void scan_directory(unsigned char drive_id)
         // if there is a .. path, then we are in a subdir
         if (!strcmp("..", dirent->d_name)) {
           not_in_root = 1;
-          file_count--; // overwrite makedisk
+          // overwrite makedisk
+          file_count--;
+          lfill(0x40000L + (file_count * 64), ' ', 64);
         }
         lcopy((long)&dirent->d_name[0], 0x40000L + 1 + (file_count * 64), x);
         // Put / at the start of directory names to make them obviously different
@@ -578,11 +572,11 @@ void scan_directory(unsigned char drive_id)
 char *freeze_select_disk_image(unsigned char drive_id)
 {
   unsigned char x;
-  char err;
   int idle_time = 0;
+  uint16_t addr;
 
-  // if working with drive 1, we will be
-  if (drive_id == 1) { }
+  messed_up = 0;
+  drive_id = drive_id & 1;
 
   file_count = 0;
   selection_number = 0;
@@ -594,6 +588,15 @@ char *freeze_select_disk_image(unsigned char drive_id)
   POKE(SCREEN_ADDRESS + 2, ' ');
   POKE(SCREEN_ADDRESS + 3, 0);
   lcopy(SCREEN_ADDRESS, SCREEN_ADDRESS + 4, 40 * 2 * 25 - 4);
+
+  // save old mounted state
+  mega65_dos_getprocdesc(0x04); // get procdesc from hyppo to 0x400
+  old_disk_flags = PEEK(0x0400U + drive_id ? 0x12 : 0x11);
+  old_disk_len = PEEK(0x0400U + drive_id ? 0x14 : 0x13);
+  for (x = 0, addr = 0x0400 + drive_id ? 0x35 : 0x15; x < 32; x++, addr++) {
+    old_disk_name[x] = PEEK(addr);
+  }
+  old_disk_name[old_disk_len] = 0;
 
   for (x = 0; reading_disk_list_message[x]; x++)
     POKE(SCREEN_ADDRESS + 12 * 40 * 2 + (9 * 2) + (x * 2), reading_disk_list_message[x] & 0x3f);
@@ -627,7 +630,7 @@ char *freeze_select_disk_image(unsigned char drive_id)
       if (idle_time == 100 && selection_number >= min_dir_entry) {
         // After sitting idle for 1 second, try mounting disk image and displaying directory listing
         if (draw_directory_contents(drive_id))
-          messed_up = 1; // function did mount an image, so we need to return empty if aborted
+          messed_up = 1; // function did mount an image, so we need to remount the old image
       }
       usleep(10000);
       continue;
@@ -646,11 +649,15 @@ char *freeze_select_disk_image(unsigned char drive_id)
       draw_disk_image_list();
 
       break;
+    case 0x1b: // ESC
     case 0x03: // RUN-STOP = make no change, but only if we did not mess up the drive!
-      if (!messed_up)
-        return NULL;
-      selection_number = 0; // select no disk entry
-      // fall though!
+      if (messed_up) {
+        if (old_disk_flags & PD_IMGFLAGS_MOUNTED)
+          mega65_dos_attach(old_disk_name, drive_id);
+        else
+          mega65_dos_detach(drive_id | (old_disk_flags & PD_IMGFLAGS_NOREAL));
+      }
+      return NULL;
     case 0x0d:
     case 0x21: // Return = select this disk.
       // Copy name out
@@ -664,16 +671,6 @@ char *freeze_select_disk_image(unsigned char drive_id)
           break;
         }
 
-      // First, clear flags for the F011 image
-      if (drive_id == 0) {
-        // Clear flags for drive 0
-        lpoke(0xffd368bL, lpeek(0xffd368bL) & 0xb8);
-      }
-      else if (drive_id == 1) {
-        // Clear flags for drive 1
-        lpoke(0xffd368bL, lpeek(0xffd368bL) & 0x47);
-      }
-
       // Try to mount it, with border black while working
       POKE(0xD020U, 0);
       if (disk_name_return[0] == '/') {
@@ -686,78 +683,41 @@ char *freeze_select_disk_image(unsigned char drive_id)
         draw_disk_image_list();
       }
       else {
-        if (disk_name_return[0] == '-') {
-          // Special case options
-          if (disk_name_return[3] == 'O') {
-            // No disk. Set image enable flag, and disable present flag
-            if (drive_id == 0)
-              lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0xb8) + 0x01);
-            else if (drive_id == 1)
-              lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0x47) + 0x08);
-          }
-          else if (disk_name_return[2] == 'I') {
-            // Use internal drive (drive 0 only)
-            while (!(lpeek(0xffd36a1L) & 1)) {
-              lpoke(0xffd36a1L, lpeek(0xffd36a1L) | 0x01);
-            }
-          }
-          else if (disk_name_return[2] == '1') {
-            // Use 1565 external drive (drive 1 only)
-            while (!(lpeek(0xffd36a1L) & 4)) {
-              lpoke(0xffd36a1L, lpeek(0xffd36a1L) | 0x04);
-            }
-          }
-          else if (disk_name_return[3] == 'E') {
-            // Create and mount new empty D81 file
-            // (this is like exec()/fork(), so there is no return value
+        // POKE(0xD020U, 6);
+        if (selection_number == 0) {
+          // No disk. Set image enable flag, and disable present flag
+          mega65_dos_detach(drive_id | M65_DOS_ATTACH_NODRIVE);
+          return (char *)SELDISK_INTERNAL;
+        }
+        else if (selection_number == 1) {
+          mega65_dos_detach(drive_id);
+          return (char *)SELDISK_NODISK;
+        }
+        else if (selection_number == 2 && !not_in_root) {
+          // Create and mount new empty D81 file
+          // (this is like exec()/fork(), so there is no return value
 
-            // Save the current freeze slot number, so that the image can get mounted against us
-            POKE(0x03C0, slot_number & 0xff);
-            POKE(0x03C1, slot_number >> 8);
+          // give MAKEDISK the drive we are mounting the image to
+          POKE(0x3c0, drive_id);
 
-            // Tell MAKEDISK if we want a D81 or a D65 image
-            if (disk_name_return[7] == '8')
-              POKE(0x33c, 0); // 0=DD
-            else
-              POKE(0x33c, 1); // 1=HD
-            mega65_dos_exechelper("MAKEDISK.M65");
-          }
+          // Tell MAKEDISK if we want a D81 or a D65 image
+          POKE(0x33c, disk_name_return[7] == '8' ? 0 : 1); // 0=DD, 1=HD
+
+          mega65_dos_exechelper("MAKEDISK.M65");
+          // we never return to here...
         }
         else {
-          if (drive_id == 0) {
-            // hyppo attach does this
-            // lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0xb8) + 0x07);
-            err = mega65_dos_d81attach0(disk_name_return);
-          }
-          else if (drive_id == 1) {
-            // hyppo attach does this
-            // lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0x47) + 0x38);
-            err = mega65_dos_d81attach1(disk_name_return);
-          }
-          else
-            err = -1;
-          if (err) {
+          if (mega65_dos_attach(disk_name_return, drive_id)) {
             // Mounting the image failed
-            display_error(err);
-
-            // Mark drive as having nothing in it
-            if (drive_id == 0) {
-              // Clear flags for drive 0
-              lpoke(0xffd368bL, lpeek(0xffd368bL) & 0xb8);
-              lpoke(0xffd36a1L, lpeek(0xffd36a1L) & 0xfe);
-            }
-            else if (drive_id == 1) {
-              // Clear flags for drive 1
-              lpoke(0xffd368bL, lpeek(0xffd368bL) & 0x47);
-              lpoke(0xffd36a1L, lpeek(0xffd36a1L) & 0xfb);
-            }
+            display_error();
+            // Unmount
+            mega65_dos_detach(drive_id);
             break;
           }
         }
-        POKE(0xD020U, 6);
 
-        // only do for internal drive or real entry
-        if (selection_number == 1 || selection_number >= min_dir_entry) {
+        // only do this if an image was mounted
+        if (selection_number >= min_dir_entry) {
           // Mount succeeded, now seek to track 0 to make sure DOS
           // knows where we are, and to make sure the drive head is
           // sitting properly.

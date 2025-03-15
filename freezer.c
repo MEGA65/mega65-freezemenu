@@ -16,7 +16,7 @@
 unsigned char *freeze_menu_bar = (unsigned char *)"F3-RESUME    F5-RESET      HELP-MEGAINFO"
                                                   "F3-LOAD SLOT F7-SAVE SLOT  HELP-MEGAINFO";
 
-unsigned char *freeze_menu = (unsigned char *)"        MEGA65 FREEZE MENU V0.3.0       "
+unsigned char *freeze_menu = (unsigned char *)"        MEGA65 FREEZE MENU V0.4.0       "
                                               "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                                               "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
@@ -342,10 +342,11 @@ void draw_freeze_menu(unsigned char part)
 {
   unsigned char x, y;
 
+  freeze_menu[0] = hdos_new_attach ? '1' : '0';
+
   if (part & UPDATE_CHGSLOT) {
     find_freeze_slot_start_sector(slot_number);
     freeze_slot_start_sector = *(uint32_t *)0xD681U;
-    request_freeze_region_list();
   }
 
   // Update messages based on the settings we allow to be easily changed
@@ -435,7 +436,7 @@ void draw_freeze_menu(unsigned char part)
      We should just read the sector containing all this, and get it out all at once.
   */
   if ((part & UPDATE_PROCESS) || (part & UPDATE_DISK)) {
-    lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
+    // lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
     freeze_fetch_sector(0xFFFBD00L, (unsigned char *)&process_descriptor);
   }
 
@@ -465,8 +466,7 @@ void draw_freeze_menu(unsigned char part)
     lfill((unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], ' ', 18);
     lfill((unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], ' ', 18);
 
-    // Show name of current mounted disk image
-    if (process_descriptor.d81_image0_namelen) {
+    if ((process_descriptor.d81_image0_flags & PD_IMGFLAGS_MOUNTED) && process_descriptor.d81_image0_namelen) {
       for (i = 0; i < process_descriptor.d81_image0_namelen; i++)
         if (!process_descriptor.d81_image0_name[i])
           break;
@@ -476,8 +476,14 @@ void draw_freeze_menu(unsigned char part)
             process_descriptor.d81_image0_namelen < 18 ? process_descriptor.d81_image0_namelen : 18);
       }
     }
+    else if (process_descriptor.d81_image0_flags & PD_IMGFLAGS_NOREAL) {
+      lcopy((unsigned long)NO_DISK_DRIVE, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], sizeof(NO_DISK_DRIVE) - 1);
+    }
+    else {
+      lcopy((unsigned long)INTERNAL_DRIVE_0, (unsigned long)&freeze_menu[D81_IMAGE0_NAME_OFFSET], sizeof(INTERNAL_DRIVE_0) - 1);
+    }
 
-    if (process_descriptor.d81_image1_namelen) {
+    if ((process_descriptor.d81_image1_flags & PD_IMGFLAGS_MOUNTED) && process_descriptor.d81_image1_namelen) {
       for (i = 0; i < process_descriptor.d81_image1_namelen; i++)
         if (!process_descriptor.d81_image1_name[i])
           break;
@@ -486,6 +492,12 @@ void draw_freeze_menu(unsigned char part)
         lcopy((unsigned long)process_descriptor.d81_image1_name, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET],
             process_descriptor.d81_image1_namelen < 18 ? process_descriptor.d81_image1_namelen : 18);
       }
+    }
+    else if (process_descriptor.d81_image1_flags & PD_IMGFLAGS_NOREAL) {
+      lcopy((unsigned long)NO_DISK_DRIVE, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], sizeof(NO_DISK_DRIVE) - 1);
+    }
+    else {
+      lcopy((unsigned long)INTERNAL_DRIVE_1, (unsigned long)&freeze_menu[D81_IMAGE1_NAME_OFFSET], sizeof(INTERNAL_DRIVE_1) - 1);
     }
   }
 
@@ -497,6 +509,10 @@ void draw_freeze_menu(unsigned char part)
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
   copy_convert_to_screen(freeze_menu, 0);
+  POKE(SCREEN_ADDRESS + 4, nybl_to_screen(process_descriptor.d81_image0_flags >> 4));
+  POKE(SCREEN_ADDRESS + 6, nybl_to_screen(process_descriptor.d81_image0_flags));
+  POKE(SCREEN_ADDRESS + 10, nybl_to_screen(process_descriptor.d81_image1_flags >> 4));
+  POKE(SCREEN_ADDRESS + 12, nybl_to_screen(process_descriptor.d81_image1_flags));
 
   // Draw the thumbnail surround area
   if (part & UPDATE_THUMB) {
@@ -580,19 +596,13 @@ void draw_freeze_menu(unsigned char part)
   POKE(0xD020U, 6);
 }
 
-// NOTE: I wanted to tweak the string to look nicer, but this gave me dos driver errors once back in BASIC (doing a DIR)
-char tweak(char c)
-{
-  if (c < 0x60 || c >= 0x7a)
-    return c;
-  return c & 0x5f;
-}
-
 void topetsciiupper(char *str, int len)
 {
   int i;
-  for (i = 0; i < len; i++)
-    str[i] = tweak(str[i]);
+  for (i = 0; i < len; i++) {
+    if (str[i] >= 0x60 && str[i] < 0x7a)
+    str[i] &= 0x5f;
+  }
 }
 
 unsigned char origD689 = 0;
@@ -608,7 +618,8 @@ unsigned char joy_to_key[32] = {
   0, 0, 0, 0, 0, 0, 0, 0x1d, 0, 0, 0, 0x9d, 0, 'd', 'v', 0 // without fire
 };
 
-unsigned char read_joystick() {
+unsigned char read_joystick()
+{
   unsigned char c;
   // TODO: this is very broken, keypresses will generate F3(FIRE) on DC01
   // We use a simple lookup table to do this
@@ -731,39 +742,19 @@ void poll_touch_panel(void)
 }
 #endif
 
-void store_selected_disk_image(int diskid, char *disk_image)
+void change_mounted_disk_image(int diskid)
 {
-  int disk_img_name_loc = diskid ? 0x35 : 0x15;
-  int disk_img_name_length_loc = diskid ? 0x14 : 0x13;
-  unsigned char i;
-
-  // Replace disk image name in process descriptor block
-  for (i = 0; (i < 32) && disk_image[i]; i++)
-    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, tweak(disk_image[i]));
-  // Update length of name
-  freeze_poke(0xFFFBD00L + disk_img_name_length_loc, i);
-  // Pad with spaces as required by hypervisor
-  for (; i < 32; i++)
-    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, ' ');
-}
-
-void select_mounted_disk_image(int diskid)
-{
-  char *disk_image = freeze_select_disk_image(diskid);
-
-  // Restore freeze region offset list to $0400 screen
-  request_freeze_region_list();
-
-  if ((unsigned short)disk_image == 0xFFFF) {
-    // Have no disk image
-  }
-  else if (disk_image) {
-    POKE(0xD020U, 6);
-    store_selected_disk_image(diskid, disk_image);
+  if (freeze_select_disk_image(diskid)) {
+    if (hdos_new_attach)
+      copy_imageproc_to_freezeregion(diskid, 0);
+    else {
+      copy_imageproc_to_freezeregion(0, 0);
+      copy_imageproc_to_freezeregion(1, 0);
+    }
   }
 
   predraw_freeze_menu();
-  draw_freeze_menu(UPDATE_ALL);
+  draw_freeze_menu(UPDATE_ALL | UPDATE_CHGSLOT);
 }
 
 #if 0
@@ -961,6 +952,9 @@ int main(int argc, char **argv)
 
   request_freeze_region_list();
 
+  // initialize helper HDOS compability
+  mega65_dos_init();
+
   // BASIC65 unmount will just poke D6A1, and
   // not use hyppo, because we don't have a fucntion
   // for that! so we need to udpate the process
@@ -968,7 +962,9 @@ int main(int argc, char **argv)
   // drive mounted
   drive_state = lpeek(0xFFD36A1);
   if (drive_state & 0x1)
-    store_selected_disk_image(0, INTERNAL_DRIVE_0);
+    copy_imageproc_to_freezeregion(0, 1);
+  if (drive_state & 0x2)
+    copy_imageproc_to_freezeregion(1, 1);
 
   setup_menu_screen();
   predraw_freeze_menu();
@@ -1167,10 +1163,10 @@ int main(int argc, char **argv)
         draw_freeze_menu(UPDATE_DISK);
         break;
       case '0': // Select mounted disk image
-        select_mounted_disk_image(0);
+        change_mounted_disk_image(0);
         break;
       case '1': // Select mounted disk image for 2nd drive
-        select_mounted_disk_image(1);
+        change_mounted_disk_image(1);
         break;
 
       case 0xf5: // F5 = Reset

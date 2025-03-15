@@ -41,8 +41,6 @@ void setup_menu_screen(void)
   //  lfill(0xff80000U, 1, 2000);
 }
 
-static unsigned short i;
-
 void draw_box(
     unsigned char x1, unsigned char y1, unsigned char x2, unsigned char y2, unsigned char colour, unsigned char erase)
 {
@@ -286,7 +284,7 @@ void format_disk_image(unsigned long file_sector, char *diskname, unsigned char 
     sdcard_writesector(file_sector + (39 * 64 * 2 + 1), 0);
 }
 
-void do_make_disk_image(unsigned char isD65)
+void do_make_disk_image(unsigned char isD65, unsigned char drive_id)
 {
   char diskname[16 + 1];
   char filename[16 + 1];
@@ -360,22 +358,13 @@ void do_make_disk_image(unsigned char isD65)
 
     draw_box(8, 8, 32, 14, 13, 1);
     write_text(9, 9, 13, "Created disk image");
+
+    // now mount the new image on the drive_id we got
+    mega65_dos_attach(filename, drive_id);
+    // store mount to freeze slot
+    copy_imageproc_to_freezeregion(drive_id, 0);
+
     write_text(9, 12, 1, "Press almost any key...");
-
-    // Mark it as mounted in freeze slot stored in $03C0/1
-    slot_number = PEEK(0x3C0) + (PEEK(0x3C1) << 8L);
-    request_freeze_region_list();
-    find_freeze_slot_start_sector(slot_number);
-    freeze_slot_start_sector = *(uint32_t *)0xD681U;
-
-    // Replace disk image name in process descriptor block
-    for (i = 0; (i < 32) && filename[i]; i++)
-      freeze_poke(0xFFFBD00L + 0x15 + i, filename[i]);
-    // Update length of name
-    freeze_poke(0xFFFBD00L + 0x13, i);
-    // Pad with spaces as required by hypervisor
-    for (; i < 32; i++)
-      freeze_poke(0xFFFBD00L + 0x15 + i, ' ');
 
     while (!PEEK(0xD610))
       continue;
@@ -435,11 +424,7 @@ int main(int argc, char **argv)
 
   request_freeze_region_list();
 
-  if (PEEK(0x033C))
-    do_make_disk_image(1); // 0=DD, 1=HD
-  else
-    do_make_disk_image(0); // 0=DD, 1=HD
-  mega65_dos_exechelper("FREEZER.M65");
+  do_make_disk_image(PEEK(0x33C) ? 1 : 0, PEEK(0x3C0) ? 1 : 0); // 0=DD, 1=HD
 
-  return;
+  mega65_dos_exechelper("FREEZER.M65");
 }

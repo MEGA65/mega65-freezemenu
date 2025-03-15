@@ -1,12 +1,15 @@
 
 	.setcpu "65C02"
 	.export _init_nmi
+	.export _hdos_new_attach
+	.export _mega65_dos_init
 	.export _mega65_geterrorcode
-	.export _mega65_dos_d81attach0
-	.export _mega65_dos_d81attach1
+	.export _mega65_dos_attach
+	.export _mega65_dos_detach
 	.export _mega65_dos_chdir
 	.export _mega65_dos_cdroot
 	.export _mega65_dos_exechelper
+	.export _mega65_dos_getprocdesc
 	.export	_fetch_freeze_region_list_from_hypervisor
 	.export _find_freeze_slot_start_sector
 	.export _unfreeze_slot
@@ -35,6 +38,29 @@ _init_nmi:
 
 nmi_handler:
 	rti
+
+_hdos_new_attach:
+	.byte 1
+
+_mega65_dos_init:
+	;; this checks hyppo dos version for dos_attach
+	lda #$00
+	sta $D640		; getversion
+	clv
+	cpy #$01
+	bcc @hdos_to_old
+	bne @hdos_is_newer
+	cpz #$03
+	bcc @hdos_to_old
+@hdos_is_newer:
+	lda #1
+	bra @hdos_flag_store
+@hdos_to_old:
+	lda #0
+@hdos_flag_store:
+	sta _hdos_new_attach
+	ldz #0
+	rts
 
 _mega65_geterrorcode:
 	;; short mega65_geterrorcode();
@@ -140,24 +166,13 @@ load_succeeded:
 	jmp $080d
 	rts
 
-attachHyppoCmd:
-	.byte	$40
+attachDrive:
+	.byte	$00
 
-_mega65_dos_d81attach1:
-	;; char mega65_dos_d81attach1(char *image_name);
-	lda #$46
-	sta attachHyppoCmd
-	bra attachLoadFN
-
-_mega65_dos_d81attach0:
-	;; char mega65_dos_d81attach0(char *image_name);
-	lda #$40
-	sta attachHyppoCmd
-
-attachLoadFN:
+_mega65_dos_attach:
 	;; Get pointer to file name
 	;; sp here is the ca65 sp ZP variable, not the stack pointer of a 4510
-	ldy #1
+	ldy #2
 	.p02
 	lda (sp),y
 	sta ptr1+1
@@ -167,7 +182,15 @@ attachLoadFN:
 	.p4510
 	sta ptr1
 	sta $0440
-	
+
+	;; Get Drive
+	dey
+	.p02
+	lda (sp),y
+	.p4510
+	and #$01		; only drive 0 or 1 allowed
+	sta attachDrive
+
 	;; Copy file name
 	ldy #0
 @NameCopyLoop:
@@ -180,34 +203,53 @@ attachLoadFN:
 	;;  Call dos_setname()
 	ldy #>$0400
 	ldx #<$0400
-	lda #$2E     		; dos_setname Hypervisor trap
-	sta $D640		; Do hypervisor trap
-	clv			; Wasted instruction slot required following hyper trap instruction
+	lda #$2E		; dos_setname Hypervisor trap
+	sta $D640
+	clv				; Wasted instruction slot required following hyper trap instruction
 	bcc @attachError
 
-	;; Try to attach it
-	lda attachHyppoCmd
+	lda _hdos_new_attach
+	bne @attachNewCall
+
+	;; backwards compability
+	lda attachDrive
+	beq @attachDrive0
+	lda #$06
+@attachDrive0:
+	clc
+	adc #$40		; so this is now $40 or $46
+	bra @attachDoHyppoAttach
+
+@attachNewCall:
+	;; Now we call dos_attach
+	ldx attachDrive
+	lda #$4A		; dos_attach Hypervisor trap
+@attachDoHyppoAttach:
 	sta $D640
 	clv
-
+	bcc @attachError
+	lda #$00
+	bra @attachExit
 @attachError:
-	;; save error code from hyppo call
-	pha
-	;; save flags
-	php
+	lda #$ef
+@attachExit:
+	jmp incsp3		; remove the args from the stack and return
 
-	jsr incsp2  ; remove the char* arg from the stack
-	
-	;; if carry is clear, return error code from A
-	pla
-	and #$01
-	bne @noAttachError
-	pla
-	rts
-@noAttachError:
-	pla
-	lda #$0		; zero out error code = success
-
+_mega65_dos_detach:
+	;; char mega65_dos_detach(uint8_t drive)
+	;; argument is passed in A
+	and #$41		; only drive 0 or 1 allowed, also allow bit 6 - nodrive
+	ora #$80		; set bit 7 for detach operation
+	tax
+	lda _hdos_new_attach
+	bne @detach_new
+	lda #$42		; dos_d81detach Hypervisor trap
+	bra @detach_call
+@detach_new:
+	lda #$4A		; dos_attach Hypervisor trap (which does it all)
+@detach_call:
+	sta $D640
+	clv
 	rts
 
 _mega65_dos_chdir:
@@ -286,7 +328,21 @@ chroot_error:
 	lda #$01
 	rts
 
-	
+
+_mega65_dos_getprocdesc:
+	;; uint8_t mega65_dos_getprocdesc(uint8_t pagemsb)
+	tay
+	lda #$48
+	sta $D640	; call hyppo
+	clv
+	bcc @error
+	lda #$00
+	rts
+@error:
+	lda #$01
+	rts
+
+
 _unfreeze_slot:	
 
 	;; Move 16-bit address from A/X to X/Y

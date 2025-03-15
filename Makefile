@@ -38,18 +38,18 @@ FILES=		FREEZER.M65 \
 		M65THUMB.M65 \
 		GUSTHUMB.M65
 
-ASSFILES=	freezer.s \
-		version.s \
+ASSFILES=	version.s \
+		freezer.s \
 		frozen_memory.s \
-		freeze_diskchooser.s \
 		fdisk_memory.s \
 		fdisk_screen.s \
 		fdisk_hal_mega65.s \
 		helper.s \
-		freezer_common.s
+		freezer_common.s \
+		freeze_diskchooser.s \
 
-MONASSFILES=	monitor.s \
-		version.s \
+MONASSFILES=	version.s \
+		monitor.s \
 		freeze_monitor.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -60,8 +60,8 @@ MONASSFILES=	monitor.s \
 		helper.s \
 		freezer_common.s
 
-AMASSFILES=	audiomix.s \
-		version.s \
+AMASSFILES=	version.s \
+		audiomix.s \
 		freeze_audiomix.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -71,8 +71,8 @@ AMASSFILES=	audiomix.s \
 		helper.s \
 		freezer_common.s
 
-MDASSFILES=	makedisk.s \
-		version.s \
+MDASSFILES=	version.s \
+		makedisk.s \
 		freezer_common.s \
 		fdisk_fat32.s \
 		frozen_memory.s \
@@ -82,8 +82,8 @@ MDASSFILES=	makedisk.s \
 		charset.s \
 		helper.s
 
-SEASSFILES=	sprited.s \
-		version.s \
+SEASSFILES=	version.s \
+		sprited.s \
 		freezer_common.s \
 		freeze_sprited.s \
 		frozen_memory.s \
@@ -93,8 +93,8 @@ SEASSFILES=	sprited.s \
 		charset.s \
 		helper.s
 
-RLASSFILES=	romload.s \
-		version.s \
+RLASSFILES=	version.s \
+		romload.s \
 		freeze_romload.s \
 		frozen_memory.s \
 		fdisk_memory.s \
@@ -104,8 +104,8 @@ RLASSFILES=	romload.s \
 		helper.s \
 		freezer_common.s
 
-MIASSFILES=	megainfo.s \
-		version.s \
+MIASSFILES=	version.s \
+		megainfo.s \
 		freeze_megainfo.s \
 		frozen_memory.s \
 		fdisk_memory.s \
