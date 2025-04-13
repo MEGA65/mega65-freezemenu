@@ -342,6 +342,7 @@ void draw_freeze_menu(unsigned char part)
 {
   unsigned char x, y;
 
+  // TODO: DEBUG, remove
   freeze_menu[0] = hdos_new_attach ? '1' : '0';
 
   if (part & UPDATE_CHGSLOT) {
@@ -508,6 +509,7 @@ void draw_freeze_menu(unsigned char part)
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
   copy_convert_to_screen(freeze_menu, 0);
+  // TODO: DEBUG, remove
   POKE(SCREEN_ADDRESS + 4, nybl_to_screen(process_descriptor.d81_image0_flags >> 4));
   POKE(SCREEN_ADDRESS + 6, nybl_to_screen(process_descriptor.d81_image0_flags));
   POKE(SCREEN_ADDRESS + 10, nybl_to_screen(process_descriptor.d81_image1_flags >> 4));
@@ -955,7 +957,7 @@ int main(int argc, char **argv)
   mega65_dos_init();
 
   // BASIC65 unmount will just poke D6A1, and
-  // not use hyppo, because we don't have a fucntion
+  // not use hyppo, because we don't have a function
   // for that! so we need to udpate the process
   // descriptor to show that we have the internal
   // drive mounted
@@ -964,6 +966,15 @@ int main(int argc, char **argv)
     copy_imageproc_to_freezeregion(0, 1);
   if (drive_state & 0x2)
     copy_imageproc_to_freezeregion(1, 1);
+
+  // for old HDOS < 1.3 we need to fix image RW flag
+  if (!hdos_new_attach) {
+    drive_state = lpeek(0xFFD368B);
+    if (drive_state & 0x1)
+      copy_imageproc_to_freezeregion(0, 0);
+    if (drive_state & 0x8)
+      copy_imageproc_to_freezeregion(1, 0);
+  }
 
   setup_menu_screen();
   predraw_freeze_menu();

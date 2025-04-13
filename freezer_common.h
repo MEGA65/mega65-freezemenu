@@ -36,7 +36,7 @@ void screen_of_death(char *msg);
 
 #define IMGPROC_INTERNAL 0x01
 #define IMGPROC_NODISK   0x02
-void copy_imageproc_to_freezeregion(int diskid, uint8_t overrides);
-void old_store_selected_disk_image(int diskid, char* disk_image);
+void copy_imageproc_to_freezeregion(uint8_t diskid, uint8_t overrides);
+void old_store_selected_disk_image(uint8_t diskid, char* disk_image);
 
 #endif /* __FREEZER_COMMON_H__ */
