@@ -684,14 +684,29 @@ char *freeze_select_disk_image(unsigned char drive_id)
       }
       else {
         // POKE(0xD020U, 6);
-        if (selection_number == 0) {
-          // No disk. Set image enable flag, and disable present flag
-          mega65_dos_detach(drive_id | M65_DOS_ATTACH_NODRIVE);
-          return (char *)SELDISK_INTERNAL;
-        }
-        else if (selection_number == 1) {
-          mega65_dos_detach(drive_id);
-          return (char *)SELDISK_NODISK;
+        if (selection_number == 0 || selection_number == 1) {
+          // internal or no disk
+          if (!hdos_new_attach) {
+            // old d81detach detaches both drives, so we can't use it
+            // fallback to the old method, on return copy_imageproc_to_freezeregion
+            // will handle the currentproc_image_flags
+            if (drive_id == 0) {
+              if (selection_number == 1)
+                lpoke(0xffd36a1L, lpeek(0xffd36a1L) | 0x01);
+              else
+                lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0xb8) | 0x01);
+            }
+            else {
+              if (selection_number == 1)
+                lpoke(0xffd36a1L, lpeek(0xffd36a1L) | 0x04);
+              else
+                lpoke(0xffd368bL, (lpeek(0xffd368bL) & 0x47) | 0x08);
+            }
+            return disk_name_return;
+          }
+          // else hdos_new_attach
+          mega65_dos_detach(drive_id | (selection_number == 0 ? M65_DOS_ATTACH_NODRIVE : 0));
+          return selection_number == 0 ? SELDISK_NODISK : SELDISK_INTERNAL;
         }
         else if (selection_number == 2 && !not_in_root) {
           // Create and mount new empty D81 file

@@ -12,8 +12,8 @@
 
 void freeze_monitor(void);
 
-#define SELDISK_INTERNAL 0xFFFF
-#define SELDISK_NODISK   0xFFFE
+#define SELDISK_INTERNAL (char *)0xFFFF
+#define SELDISK_NODISK   (char *)0xFFFE
 #define NO_DISK_DRIVE "- NO DISK -"
 #define INTERNAL_DRIVE_0 "- INTERNAL 3.5\" -"
 #define INTERNAL_DRIVE_1 "- 1565 DRIVE 1 -"

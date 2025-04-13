@@ -436,7 +436,6 @@ void draw_freeze_menu(unsigned char part)
      We should just read the sector containing all this, and get it out all at once.
   */
   if ((part & UPDATE_PROCESS) || (part & UPDATE_DISK)) {
-    // lfill((long)&process_descriptor, 0, sizeof(process_descriptor));
     freeze_fetch_sector(0xFFFBD00L, (unsigned char *)&process_descriptor);
   }
 
@@ -744,13 +743,13 @@ void poll_touch_panel(void)
 
 void change_mounted_disk_image(int diskid)
 {
-  if (freeze_select_disk_image(diskid)) {
+  char *ret;
+  ret = freeze_select_disk_image(diskid);
+  if (ret) {
     if (hdos_new_attach)
       copy_imageproc_to_freezeregion(diskid, 0);
-    else {
-      copy_imageproc_to_freezeregion(0, 0);
-      copy_imageproc_to_freezeregion(1, 0);
-    }
+    else
+      old_store_selected_disk_image(diskid, ret);
   }
 
   predraw_freeze_menu();
@@ -1018,7 +1017,7 @@ int main(int argc, char **argv)
         if (slot_number >= get_freeze_slot_count()) // unsigned!
           slot_number = get_freeze_slot_count() - 1;
 
-        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
+        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_DISK | UPDATE_THUMB | UPDATE_CHGSLOT);
         break;
       case '.':
         slot_number += 90;
@@ -1029,7 +1028,7 @@ int main(int argc, char **argv)
         if (slot_number >= get_freeze_slot_count())
           slot_number = 0;
 
-        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_THUMB | UPDATE_CHGSLOT);
+        draw_freeze_menu(UPDATE_TOP | UPDATE_PROCESS | UPDATE_DISK | UPDATE_THUMB | UPDATE_CHGSLOT);
         break;
 
       case 'M':

@@ -238,16 +238,12 @@ _mega65_dos_attach:
 _mega65_dos_detach:
 	;; char mega65_dos_detach(uint8_t drive)
 	;; argument is passed in A
+	;; NOTE: hdos 1.2 compability is handled in copy_imageproc_to_freezeregion and
+	;;       freeze_select_disk_image
 	and #$41		; only drive 0 or 1 allowed, also allow bit 6 - nodrive
 	ora #$80		; set bit 7 for detach operation
 	tax
-	lda _hdos_new_attach
-	bne @detach_new
-	lda #$42		; dos_d81detach Hypervisor trap
-	bra @detach_call
-@detach_new:
 	lda #$4A		; dos_attach Hypervisor trap (which does it all)
-@detach_call:
 	sta $D640
 	clv
 	rts

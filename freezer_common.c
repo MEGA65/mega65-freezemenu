@@ -275,7 +275,7 @@ void screen_of_death(char *msg)
     continue;
 }
 
-void copy_imageproc_to_freezeregion(int diskid, uint8_t override_internal)
+void copy_imageproc_to_freezeregion(int diskid, uint8_t overrides)
 {
   uint8_t disk_img_name_loc = diskid ? 0x35 : 0x15;
   uint8_t disk_img_flag_loc = diskid ? 0x12 : 0x11;
@@ -283,9 +283,25 @@ void copy_imageproc_to_freezeregion(int diskid, uint8_t override_internal)
 
   mega65_dos_getprocdesc(0x04); // get procdesc from hyppo to 0x400
 
-  freeze_poke(0xFFFBD00L + disk_img_flag_loc, override_internal ? 0 : PEEK(0x0400U + disk_img_flag_loc));
-  freeze_poke(0xFFFBD02L + disk_img_flag_loc, override_internal ? 0 : PEEK(0x0402U + disk_img_flag_loc)); // this is namelength
+  freeze_poke(0xFFFBD00L + disk_img_flag_loc, overrides ? (overrides & IMGPROC_NODISK ? 0x40 : 0) : PEEK(0x0400U + disk_img_flag_loc));
+  freeze_poke(0xFFFBD02L + disk_img_flag_loc, overrides ? 0 : PEEK(0x0402U + disk_img_flag_loc)); // this is namelength
   for (i = 0; i < 32; i++) {
-    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, override_internal ? 0 : PEEK(0x0400U + disk_img_name_loc + i));
+    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, overrides ? 0 : PEEK(0x0400U + disk_img_name_loc + i));
   }
+}
+
+void old_store_selected_disk_image(int diskid, char* disk_image)
+{
+  int disk_img_name_loc = diskid ? 0x35 : 0x15;
+  int disk_img_name_length_loc = diskid ? 0x14 : 0x13;
+  unsigned char i;
+
+  // Replace disk image name in process descriptor block
+  for (i = 0; (i < 32) && disk_image[i]; i++)
+    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, disk_image[i]);
+  // Update length of name
+  freeze_poke(0xFFFBD00L + disk_img_name_length_loc, i);
+  // Pad with spaces as required by hypervisor
+  for (; i < 32; i++)
+    freeze_poke(0xFFFBD00L + disk_img_name_loc + i, ' ');
 }

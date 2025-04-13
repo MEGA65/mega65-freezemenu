@@ -11,7 +11,7 @@ else
 	CL65=	cc65/bin/cl65
 endif
 
-# determine where HEAD is
+# determine where HEAD is (in case we are in a submodule)
 git_is_dir=$(shell test -d .git; echo $$?)
 GIT_HEAD=$(if $(findstring 0,$(git_is_dir)),.git/HEAD,$(shell cut -d ' ' -f 2 .git)/HEAD)
 

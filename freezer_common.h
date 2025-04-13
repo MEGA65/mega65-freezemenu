@@ -33,6 +33,10 @@ unsigned char detect_cpu_speed(void);
 uint8_t nybl_to_screen(uint8_t v);
 unsigned char petscii_to_screen(unsigned char petscii);
 void screen_of_death(char *msg);
-void copy_imageproc_to_freezeregion(int diskid, uint8_t override_internal);
+
+#define IMGPROC_INTERNAL 0x01
+#define IMGPROC_NODISK   0x02
+void copy_imageproc_to_freezeregion(int diskid, uint8_t overrides);
+void old_store_selected_disk_image(int diskid, char* disk_image);
 
 #endif /* __FREEZER_COMMON_H__ */
