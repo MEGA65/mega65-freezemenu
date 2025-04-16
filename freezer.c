@@ -342,7 +342,7 @@ void draw_freeze_menu(unsigned char part)
 {
   unsigned char x, y;
 
-#if 0
+#if 1
   // DEBUG
   freeze_menu[0] = hdos_new_attach ? '1' : '0';
 #endif
@@ -511,7 +511,7 @@ void draw_freeze_menu(unsigned char part)
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
   copy_convert_to_screen(freeze_menu, 0);
-#if 0
+#if 1
   // DEBUG
   POKE(SCREEN_ADDRESS + 4, nybl_to_screen(process_descriptor.d81_image0_flags >> 4));
   POKE(SCREEN_ADDRESS + 6, nybl_to_screen(process_descriptor.d81_image0_flags));
@@ -886,7 +886,7 @@ void main(void)
 int main(int argc, char **argv)
 #endif
 {
-  unsigned char drive_state;
+  unsigned char drive_state, image_state;
 #ifdef __CC65__
   mega65_fast();
 #endif
@@ -965,19 +965,20 @@ int main(int argc, char **argv)
   // for that! so we need to udpate the process
   // descriptor to show that we have the internal
   // drive mounted
-  drive_state = lpeek(0xFFD36A1);
-  if (drive_state & 0x1)
-    copy_imageproc_to_freezeregion(0, 1);
-  if (drive_state & 0x2)
-    copy_imageproc_to_freezeregion(1, 1);
-
-  // for old HDOS < 1.3 we need to fix image RW flag
-  if (!hdos_new_attach) {
-    drive_state = lpeek(0xFFD368B);
+  if (hdos_new_attach) {
+    drive_state = lpeek(0xFFD36A1);
     if (drive_state & 0x1)
-      copy_imageproc_to_freezeregion(0, 0);
-    if (drive_state & 0x8)
-      copy_imageproc_to_freezeregion(1, 0);
+      copy_imageproc_to_freezeregion(0, 1);
+    if (drive_state & 0x2)
+      copy_imageproc_to_freezeregion(1, 1);
+  }
+  else {
+    // for old HDOS < 1.3 we need to fix image RW flag,
+    // and override the flags for drive / no disk
+    drive_state = lpeek(0xFFD36A1);
+    image_state = lpeek(0xFFD368B);
+    copy_imageproc_to_freezeregion(0, image_state & 1 ? 0 : (drive_state & 1 ? 1 : 2));
+    copy_imageproc_to_freezeregion(1, image_state & 8 ? 0 : (drive_state & 2 ? 1 : 2));
   }
 
   setup_menu_screen();
