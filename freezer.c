@@ -342,7 +342,7 @@ void draw_freeze_menu(unsigned char part)
 {
   unsigned char x, y;
 
-#if 1
+#if 0
   // DEBUG
   freeze_menu[0] = hdos_new_attach ? '1' : '0';
 #endif
@@ -511,7 +511,7 @@ void draw_freeze_menu(unsigned char part)
   // (in fact, most of memory contains what the frozen program had. Only our freezer program
   // itself has been loaded to replace some of RAM).
   copy_convert_to_screen(freeze_menu, 0);
-#if 1
+#if 0
   // DEBUG
   POKE(SCREEN_ADDRESS + 4, nybl_to_screen(process_descriptor.d81_image0_flags >> 4));
   POKE(SCREEN_ADDRESS + 6, nybl_to_screen(process_descriptor.d81_image0_flags));
