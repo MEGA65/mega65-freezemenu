@@ -16,7 +16,7 @@
 unsigned char *freeze_menu_bar = (unsigned char *)"F3-RESUME    F5-RESET      HELP-MEGAINFO"
                                                   "F3-LOAD SLOT F7-SAVE SLOT  HELP-MEGAINFO";
 
-unsigned char *freeze_menu = (unsigned char *)"      MEGA65 FREEZE MENU V0.4.1dev      "
+unsigned char *freeze_menu = (unsigned char *)"      MEGA65 FREEZE MENU V0.4.1DEV      "
                                               "  (C) MUSEUM OF ELECTRONIC GAMES & ART  "
                                               "cccccccccccccccccccccccccccccccccccccccc"
 #define LOAD_RESUME_OFFSET (3 * 40)
