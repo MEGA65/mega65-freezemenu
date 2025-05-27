@@ -369,6 +369,11 @@ unsigned char parse_hex(void)
       digits++;
       screen_line_offset++;
       break;
+    case ' ': // Allow leading spaces. 
+      if (digits == 0) {
+        screen_line_offset++;
+        break;
+      }
     default:
       return digits;
     }
