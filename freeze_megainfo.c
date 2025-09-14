@@ -103,7 +103,7 @@ void write_text_upper(unsigned char x, unsigned char y, unsigned short colour, c
 void copy_hw_version()
 {
   lcopy(0xFFD3628L, (long)code_buffer, 33);
-  m65model = code_buffer[1];
+  m65model = code_buffer[1] & 0xf;
   m65submodel = (code_buffer[0] >> 4) & 0xf;
 }
 
