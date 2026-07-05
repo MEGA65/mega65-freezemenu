@@ -20,6 +20,7 @@ shorten_name () {
 
 # status of 'B'ranch in 'S'hort format
 branch=`git branch --remote --verbose --no-abbrev --contains | sed -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p'`
+branch="${branch#HEAD}"
 if [[ -z ${branch} || "${branch}" =~ ^HEAD ]]; then
   # unpushed stuff, lets try rev-parse instead
   branch=`git rev-parse --abbrev-ref HEAD`
